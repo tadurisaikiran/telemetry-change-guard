@@ -23,7 +23,8 @@ const (
 )
 
 // Change describes one telemetry contract transition. To is nil for removal
-// changes and required for rename changes.
+// changes and required for rename changes. Metadata preserves source
+// provenance supplied by deterministic change adapters.
 type Change struct {
 	ID       string            `json:"id"`
 	Kind     ChangeKind        `json:"kind"`

@@ -31,16 +31,41 @@ func Run(
 	configuration config.Config,
 	migration domain.Migration,
 ) (readiness.Result, *graph.Graph, domain.Discovery, error) {
-	discovery, dependencyGraph, err := Discover(ctx, configuration)
+	changeSet, err := config.NormalizeMigration(migration)
+	if err != nil {
+		return readiness.Result{}, nil, domain.Discovery{}, fmt.Errorf("normalize migration: %w", err)
+	}
+	discovery, dependencyGraph, err := AnalyzeChangeSet(ctx, configuration, changeSet)
 	if err != nil {
 		return readiness.Result{}, nil, domain.Discovery{}, err
 	}
-	discovery.Diagnostics = append(discovery.Diagnostics, traceMappingDiagnostics(configuration, migration)...)
 	result, err := readiness.Evaluate(migration, discovery, dependencyGraph, ReadinessPolicy(configuration))
 	if err != nil {
 		return readiness.Result{}, nil, domain.Discovery{}, fmt.Errorf("evaluate readiness: %w", err)
 	}
 	return result, dependencyGraph, discovery, nil
+}
+
+// AnalyzeChangeSet validates the generic change input, discovers downstream
+// evidence, and builds the dependency graph shared by generic and legacy
+// policy layers. It does not make a safety decision.
+func AnalyzeChangeSet(
+	ctx context.Context,
+	configuration config.Config,
+	changeSet domain.ChangeSet,
+) (domain.Discovery, *graph.Graph, error) {
+	if err := config.ValidateChangeSet(changeSet); err != nil {
+		return domain.Discovery{}, nil, fmt.Errorf("validate change set: %w", err)
+	}
+	discovery, dependencyGraph, err := Discover(ctx, configuration)
+	if err != nil {
+		return domain.Discovery{}, nil, err
+	}
+	discovery.Diagnostics = append(
+		discovery.Diagnostics,
+		traceMappingDiagnostics(configuration, changeSet)...,
+	)
+	return discovery, dependencyGraph, nil
 }
 
 // ReadinessPolicy converts validated configuration into the exact policy used
@@ -177,7 +202,7 @@ func tempoDiagnostic(source config.TempoQuerySource, path, message string) domai
 	}
 }
 
-func traceMappingDiagnostics(configuration config.Config, migration domain.Migration) []domain.Diagnostic {
+func traceMappingDiagnostics(configuration config.Config, changeSet domain.ChangeSet) []domain.Diagnostic {
 	if len(configuration.Sources.TempoQueries) == 0 {
 		return nil
 	}
@@ -190,7 +215,7 @@ func traceMappingDiagnostics(configuration config.Config, migration domain.Migra
 		available[mapping.Scope+"\x00"+mapping.OpenTelemetry] = struct{}{}
 	}
 	var diagnostics []domain.Diagnostic
-	for _, change := range migration.Changes {
+	for _, change := range changeSet.Changes {
 		if change.Domain != domain.DomainOpenTelemetry || !isTraceAttribute(change.From.Kind) {
 			continue
 		}

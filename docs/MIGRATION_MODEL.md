@@ -1,5 +1,10 @@
 # Migration Model
 
+This legacy compatibility manifest remains supported unchanged. It is
+validated under the rules below and normalized into the generic
+[`ChangeSet`](CHANGESET.md) model before discovery. The legacy result schema and
+readiness semantics remain unchanged.
+
 The migration manifest explicitly describes a backend telemetry change.
 Implemented domains are `prometheus`, `opentelemetry`, and `tempo`; symbols in
 different domains never match without explicit mapping evidence.

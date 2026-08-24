@@ -1,4 +1,4 @@
-// Package domain contains the canonical telemetry migration model.
+// Package domain contains canonical telemetry change and dependency models.
 package domain
 
 // Domain identifies the telemetry system in which a symbol exists.

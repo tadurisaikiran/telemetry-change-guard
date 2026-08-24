@@ -1,0 +1,113 @@
+{
+  "apiVersion": "tcg/v1alpha1",
+  "kind": "ChangeSet",
+  "metadata": {
+    "name": "all-domain-change-kinds"
+  },
+  "description": "Exercise every legacy change kind.",
+  "changes": [
+    {
+      "id": "metric-rename",
+      "kind": "metric_rename",
+      "domain": "prometheus",
+      "from": {
+        "domain": "prometheus",
+        "kind": "metric",
+        "name": "old_metric"
+      },
+      "to": {
+        "domain": "prometheus",
+        "kind": "metric",
+        "name": "new_metric"
+      }
+    },
+    {
+      "id": "metric-remove",
+      "kind": "metric_remove",
+      "domain": "prometheus",
+      "from": {
+        "domain": "prometheus",
+        "kind": "metric",
+        "name": "removed_metric"
+      }
+    },
+    {
+      "id": "label-rename",
+      "kind": "label_rename",
+      "domain": "prometheus",
+      "from": {
+        "domain": "prometheus",
+        "kind": "label",
+        "name": "old_label",
+        "parent": "request_duration_seconds"
+      },
+      "to": {
+        "domain": "prometheus",
+        "kind": "label",
+        "name": "new_label",
+        "parent": "request_duration_seconds"
+      }
+    },
+    {
+      "id": "label-remove",
+      "kind": "label_remove",
+      "domain": "prometheus",
+      "from": {
+        "domain": "prometheus",
+        "kind": "label",
+        "name": "removed_label",
+        "parent": "request_duration_seconds"
+      }
+    },
+    {
+      "id": "span-attribute-rename",
+      "kind": "span_attribute_rename",
+      "domain": "opentelemetry",
+      "from": {
+        "domain": "opentelemetry",
+        "kind": "span_attribute",
+        "name": "http.method"
+      },
+      "to": {
+        "domain": "opentelemetry",
+        "kind": "span_attribute",
+        "name": "http.request.method"
+      }
+    },
+    {
+      "id": "span-attribute-remove",
+      "kind": "span_attribute_remove",
+      "domain": "tempo",
+      "from": {
+        "domain": "tempo",
+        "kind": "span_attribute",
+        "name": "legacy.span.attribute"
+      }
+    },
+    {
+      "id": "resource-attribute-rename",
+      "kind": "resource_attribute_rename",
+      "domain": "opentelemetry",
+      "from": {
+        "domain": "opentelemetry",
+        "kind": "resource_attribute",
+        "name": "cloud.zone"
+      },
+      "to": {
+        "domain": "opentelemetry",
+        "kind": "resource_attribute",
+        "name": "cloud.availability_zone"
+      }
+    },
+    {
+      "id": "resource-attribute-remove",
+      "kind": "resource_attribute_remove",
+      "domain": "tempo",
+      "from": {
+        "domain": "tempo",
+        "kind": "resource_attribute",
+        "name": "legacy.resource.attribute"
+      }
+    }
+  ]
+}

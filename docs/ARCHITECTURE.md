@@ -8,7 +8,9 @@ downstream consumers. The long-term product answers three questions:
 3. Has deterministic policy established that backward compatibility can be
    removed?
 
-The local deterministic pipeline described below is implemented today.
+The local deterministic pipeline described below is implemented today. Its
+root change input is a `domain.ChangeSet`; the legacy `domain.Migration`
+compatibility API is validated and normalized before entering that pipeline.
 
 ## Non-negotiable rules
 
@@ -68,8 +70,9 @@ fields, multiple YAML documents, oversized input, and invalid change shapes.
 It then normalizes the document into `internal/domain` and applies reusable
 domain validation.
 
-`internal/domain` contains vendor-neutral migrations, symbols, consumers,
-references, evidence, productions, diagnostics, source locations, and owners.
+`internal/domain` contains vendor-neutral ChangeSets, legacy migrations,
+symbols, consumers, references, evidence, productions, diagnostics, source
+locations, and owners.
 Adapter-specific document shapes never leak into this package.
 
 `adapters/weaver` consumes current structured Weaver V1/V2 registry diffs and

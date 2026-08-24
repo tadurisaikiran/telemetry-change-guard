@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,52 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
+
+func TestAnalyzeChangeSetDoesNotMutateCallerInput(t *testing.T) {
+	t.Parallel()
+
+	destination := domain.Symbol{
+		Domain: domain.DomainPrometheus,
+		Kind:   domain.SymbolKindMetric,
+		Name:   "new_metric",
+	}
+	changeSet := domain.ChangeSet{
+		APIVersion: domain.ChangeSetAPIVersion,
+		Kind:       domain.ChangeSetKind,
+		Metadata:   domain.ChangeSetMetadata{Name: "immutable-input"},
+		Changes: []domain.Change{{
+			ID:       "metric-rename",
+			Kind:     domain.ChangeKindMetricRename,
+			Domain:   domain.DomainPrometheus,
+			From:     domain.Symbol{Domain: domain.DomainPrometheus, Kind: domain.SymbolKindMetric, Name: "old_metric"},
+			To:       &destination,
+			Metadata: map[string]string{"source.adapter": "fixture"},
+		}},
+	}
+	before, err := json.Marshal(changeSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := AnalyzeChangeSet(context.Background(), config.Config{}, changeSet); err != nil {
+		t.Fatal(err)
+	}
+	after, err := json.Marshal(changeSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("AnalyzeChangeSet mutated caller input\nbefore: %s\nafter:  %s", before, after)
+	}
+}
+
+func TestAnalyzeChangeSetRejectsInvalidInputBeforeDiscovery(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := AnalyzeChangeSet(context.Background(), config.Config{}, domain.ChangeSet{})
+	if err == nil || !strings.Contains(err.Error(), "validate change set") {
+		t.Fatalf("error = %v, want ChangeSet validation error", err)
+	}
+}
 
 func TestCheckoutFixtureIsBlockedAndTransitive(t *testing.T) {
 	t.Parallel()
@@ -383,13 +430,13 @@ func TestOptionalTempoMappingDiagnosticIsAdvisory(t *testing.T) {
 	t.Parallel()
 
 	destination := domain.Symbol{Domain: domain.DomainOpenTelemetry, Kind: domain.SymbolKindResourceAttribute, Name: "cloud.region"}
-	migration := domain.Migration{Changes: []domain.Change{{
+	changeSet := domain.ChangeSet{Changes: []domain.Change{{
 		ID: "resource-region", Kind: domain.ChangeKindResourceAttributeRename, Domain: domain.DomainOpenTelemetry,
 		From: domain.Symbol{Domain: domain.DomainOpenTelemetry, Kind: domain.SymbolKindResourceAttribute, Name: "cloud.zone"},
 		To:   &destination,
 	}}}
 	configuration := config.Config{Sources: config.Sources{TempoQueries: []config.TempoQuerySource{{Required: false}}}}
-	diagnostics := traceMappingDiagnostics(configuration, migration)
+	diagnostics := traceMappingDiagnostics(configuration, changeSet)
 	if len(diagnostics) != 2 || diagnostics[0].Required || diagnostics[1].Required {
 		t.Fatalf("diagnostics = %#v", diagnostics)
 	}

@@ -36,6 +36,8 @@ that a missing required mapping is `INCOMPLETE`.
 
 The current deterministic engine has:
 
+- strict ChangeSet parsing, validation, deep-copy normalization, all-kind
+  compatibility golden, round-trip, mutation-safety, and fuzz tests;
 - unit tests for every required migration validation rule;
 - valid YAML fixtures and validation tests covering all implemented metric,
   label, span-attribute, and resource-attribute change kinds;
