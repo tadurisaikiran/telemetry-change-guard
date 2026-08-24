@@ -20,6 +20,12 @@ joint-owner, ambiguity, determinism, and fuzz coverage. An integration invariant
 compares ownership-disabled, valid, and malformed runs and requires identical
 readiness summaries; malformed ownership diagnostics must remain advisory.
 
+Runtime query evidence has decoder, aggregation, deterministic-window,
+resource-bound, unresolved-query, required/optional failure, and fuzz coverage.
+Integration tests prove that observed legacy queries block removal, observed
+destination-only queries do not, and an empty history cannot erase a blocker
+discovered from configured artifacts.
+
 ## Implemented test layers
 
 The current deterministic engine has:
@@ -29,6 +35,7 @@ The current deterministic engine has:
 - invalid YAML fixtures with exact golden diagnostics;
 - PromQL AST unit and fuzz tests;
 - CODEOWNERS and strict ownership-metadata unit and fuzz tests;
+- Prometheus query-log and TMR query-history unit and fuzz tests;
 - component fixtures for Prometheus rules, PrometheusRule CRDs, Grafana, Sloth,
   and Pyrra;
 - cycle and transitive-chain graph tests;

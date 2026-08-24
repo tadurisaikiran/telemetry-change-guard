@@ -34,7 +34,7 @@ func TestBuildRequestIsMinimalRedactedAndDeterministic(t *testing.T) {
 	if string(firstJSON) != string(secondJSON) {
 		t.Fatal("explanation request is nondeterministic")
 	}
-	for _, secret := range []string{"question-secret", "description-secret", "diagnostic-secret", "expression-secret"} {
+	for _, secret := range []string{"question-secret", "description-secret", "diagnostic-secret", "expression-secret", "runtime-secret"} {
 		if strings.Contains(string(firstJSON), secret) {
 			t.Fatalf("request contains secret %q", secret)
 		}
@@ -63,6 +63,14 @@ func TestBuildRequestIsMinimalRedactedAndDeterministic(t *testing.T) {
 	}
 	if got := strings.Join(ambiguous.OwnershipCandidates, ","); got != "Checkout,Payments" {
 		t.Fatalf("ownership candidates = %q", got)
+	}
+	if ambiguous.Runtime == nil || ambiguous.Runtime.ExecutionCount != 7 || !strings.Contains(ambiguous.Runtime.OriginDetails[0], "[REDACTED]") {
+		t.Fatalf("runtime context = %#v", ambiguous.Runtime)
+	}
+	for _, consumer := range result.Changes[0].Consumers {
+		if consumer.Consumer.ID == "uncertain" && consumer.Consumer.Runtime.OriginDetails[0] != "token=runtime-secret" {
+			t.Fatal("BuildRequest mutated authoritative runtime evidence while redacting")
+		}
 	}
 	for _, finding := range first.Findings {
 		if finding.Consumer.Name == "Migrated dashboard" {
@@ -103,6 +111,12 @@ func explanationFixture(t *testing.T) (readiness.Result, *graph.Graph) {
 					"ownership.rule":       "Checkout, Payments",
 					"ownership.candidates": `["Payments","Checkout"]`,
 					"ownership.ambiguous":  "true",
+				},
+				Runtime: &domain.RuntimeEvidence{
+					Format: "tmr_query_history", ExecutionCount: 7,
+					FirstSeen: "2026-08-24T10:00:00Z", LastSeen: "2026-08-24T12:00:00Z",
+					Window: "24h0m0s", WindowAnchor: "2026-08-24T12:00:00Z",
+					Origins: []string{"grafana"}, OriginDetails: []string{"token=runtime-secret"},
 				},
 			},
 			{ID: "migrated", Kind: domain.ConsumerKindDashboard, Name: "Migrated dashboard", Criticality: domain.CriticalityLow, Expression: "new_metric"},

@@ -51,6 +51,8 @@ jobs:
           go test ./adapters/weaver -run=^$ -fuzz=FuzzParseDiffDoesNotPanic -fuzztime=3s
           go test ./adapters/weaver -run=^$ -fuzz=FuzzParseMappingDoesNotPanic -fuzztime=3s
           go test ./adapters/persesusage -run=^$ -fuzz=FuzzDecodeMetricsDoesNotPanic -fuzztime=3s
+          go test ./adapters/runtimequeries -run=^$ -fuzz=FuzzDecodePrometheusQueryLog -fuzztime=3s
+          go test ./adapters/runtimequeries -run=^$ -fuzz=FuzzDecodeTMRQueryHistory -fuzztime=3s
           go test ./internal/explanation -run=^$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
           go test ./internal/remediation -run=^$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
 

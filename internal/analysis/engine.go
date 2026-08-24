@@ -12,6 +12,7 @@ import (
 	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/persesusage"
 	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/prometheusrules"
 	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/pyrra"
+	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/runtimequeries"
 	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/sloth"
 	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/config"
 	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
@@ -70,6 +71,7 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 			return (pyrra.Loader{Required: required}).LoadFile(ctx, path)
 		})
 	loadPersesUsage(ctx, configuration.Sources.PersesUsage, &discovery)
+	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)
 	if err := ownership.Enrich(ctx, configuration.Ownership, &discovery); err != nil {
 		return domain.Discovery{}, nil, fmt.Errorf("enrich consumer ownership: %w", err)
 	}
@@ -82,6 +84,59 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 		return domain.Discovery{}, nil, fmt.Errorf("build dependency graph: %w", err)
 	}
 	return discovery, dependencyGraph, nil
+}
+
+func loadRuntimeQueries(
+	ctx context.Context,
+	sources []config.RuntimeQuerySource,
+	discovery *domain.Discovery,
+) {
+	loaded := make(map[string]struct{})
+	for _, source := range sources {
+		if ctx.Err() != nil {
+			return
+		}
+		window, err := time.ParseDuration(source.Window)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, source.Pattern, err.Error()))
+			continue
+		}
+		files, err := filesource.Expand(source.Pattern)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, source.Pattern, err.Error()))
+			continue
+		}
+		if len(files) == 0 {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, source.Pattern, "source pattern matched no files"))
+			continue
+		}
+		for _, file := range files {
+			if _, exists := loaded[file]; exists {
+				continue
+			}
+			loaded[file] = struct{}{}
+			additional, err := (runtimequeries.Loader{
+				Required:    source.Required,
+				Format:      source.Format,
+				Window:      window,
+				Criticality: domain.Criticality(source.Criticality),
+			}).LoadFile(ctx, file)
+			if err != nil {
+				discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, file, err.Error()))
+				continue
+			}
+			discovery.Append(additional)
+		}
+	}
+}
+
+func runtimeQueryDiagnostic(source config.RuntimeQuerySource, path, message string) domain.Diagnostic {
+	return domain.Diagnostic{
+		Adapter:  "runtime_queries",
+		Source:   domain.SourceLocation{File: path},
+		Message:  message,
+		Required: source.Required,
+	}
 }
 
 func loadPersesUsage(

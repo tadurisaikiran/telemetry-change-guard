@@ -88,6 +88,14 @@ does not import Perses packages or allow remote data to decide readiness.
 Missing dashboard query details and partial metric names remain scoped,
 unresolved evidence.
 
+`adapters/runtimequeries` imports bounded local JSONL evidence from the
+Prometheus query log or TMR's provider-neutral runtime-query schema. It
+aggregates identical expressions inside a window anchored to the newest valid
+record, then sends every distinct expression through the same official PromQL
+AST analyzer. Runtime consumers are additive: the adapter never removes a
+configured consumer or interprets an absent observation as evidence of safety.
+See [the runtime query evidence guide](RUNTIME_EVIDENCE.md).
+
 `pkg/promql` uses Prometheus's official parser and walks the typed AST. It does
 not use substring matching to establish metric or label dependencies.
 
@@ -126,7 +134,7 @@ never mutated; simulated status is validation evidence, not current state.
 ## Next architectural layers
 
 - OpenTelemetry, trace, and log analysis.
-- Additional runtime query evidence, APIs, MCP, and server/UI modes.
+- APIs, MCP, and server/UI modes.
 - Additional live end-to-end tiers described in `TESTING.md`.
 
 These remain adapters or optional consumers of the deterministic engine. None

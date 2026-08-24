@@ -36,6 +36,20 @@ visible diagnostics. See [the Perses integration guide](PERSES.md).
 Remote and ecosystem integrations add evidence without becoming prerequisites
 for the local deterministic core.
 
+## Runtime evidence adapters
+
+- `runtimequeries` reads local Prometheus query-log JSONL and versioned TMR
+  query-history JSONL. It aggregates exact expressions, preserves execution
+  counts and observation bounds, and parses every query with the official
+  PromQL AST walker.
+
+Runtime observations create additional consumers and references. They never
+delete or downgrade configured consumers, and an empty source never establishes
+that a query is unused. Malformed records remain visible diagnostics; a failed
+required source prevents `READY`. Input files, lines, records, queries, origin
+fields, and time windows are bounded. Prometheus client IP data is deliberately
+not retained. See [runtime query evidence](RUNTIME_EVIDENCE.md).
+
 ## Advisory enrichment
 
 `internal/ownership` enriches adapter output from explicit repository metadata,

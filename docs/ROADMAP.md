@@ -21,6 +21,8 @@ deployment is supported.
   JSON with adapter reparse and full graph/readiness reanalysis (Milestone 13).
 - Advisory consumer ownership discovery from strict TMR metadata, GitHub
   CODEOWNERS, and conventional Grafana tags (Milestone 14).
+- Deterministic runtime query evidence from Prometheus query logs and a
+  provider-neutral query-history format (Milestone 15).
 - Pinned live Prometheus/Grafana/Sloth migration lifecycle.
 
 ## Current release path
@@ -32,7 +34,6 @@ deployment is supported.
 
 ## Optional integrations after the core release gate
 
-- Runtime query evidence.
 - TraceQL, LogQL, Collector configuration, MCP, and server/UI modes.
 
 These additions cannot weaken the local deterministic readiness result. The

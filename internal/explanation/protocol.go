@@ -81,20 +81,21 @@ type Finding struct {
 }
 
 type ConsumerContext struct {
-	ID                  string                `json:"id"`
-	Kind                domain.ConsumerKind   `json:"kind"`
-	Name                string                `json:"name"`
-	Criticality         domain.Criticality    `json:"criticality"`
-	Source              domain.SourceLocation `json:"source"`
-	Owner               *domain.Owner         `json:"owner,omitempty"`
-	OwnershipSource     string                `json:"ownershipSource,omitempty"`
-	OwnershipConfidence domain.Confidence     `json:"ownershipConfidence,omitempty"`
-	OwnershipRule       string                `json:"ownershipRule,omitempty"`
-	OwnershipCandidates []string              `json:"ownershipCandidates,omitempty"`
-	OwnershipAmbiguous  bool                  `json:"ownershipAmbiguous,omitempty"`
-	OwnershipUnassigned bool                  `json:"ownershipUnassigned,omitempty"`
-	Expression          string                `json:"expression,omitempty"`
-	Unresolved          bool                  `json:"unresolved,omitempty"`
+	ID                  string                  `json:"id"`
+	Kind                domain.ConsumerKind     `json:"kind"`
+	Name                string                  `json:"name"`
+	Criticality         domain.Criticality      `json:"criticality"`
+	Source              domain.SourceLocation   `json:"source"`
+	Owner               *domain.Owner           `json:"owner,omitempty"`
+	Runtime             *domain.RuntimeEvidence `json:"runtime,omitempty"`
+	OwnershipSource     string                  `json:"ownershipSource,omitempty"`
+	OwnershipConfidence domain.Confidence       `json:"ownershipConfidence,omitempty"`
+	OwnershipRule       string                  `json:"ownershipRule,omitempty"`
+	OwnershipCandidates []string                `json:"ownershipCandidates,omitempty"`
+	OwnershipAmbiguous  bool                    `json:"ownershipAmbiguous,omitempty"`
+	OwnershipUnassigned bool                    `json:"ownershipUnassigned,omitempty"`
+	Expression          string                  `json:"expression,omitempty"`
+	Unresolved          bool                    `json:"unresolved,omitempty"`
 }
 
 type ReferenceContext struct {
@@ -244,6 +245,19 @@ func findingContext(changeID string, result readiness.ConsumerResult, target *gr
 			Name:  Redact(consumer.Owner.Name),
 			Email: Redact(consumer.Owner.Email),
 		}
+	}
+	if consumer.Runtime != nil {
+		runtimeEvidence := *consumer.Runtime
+		runtimeEvidence.Origins = append([]string(nil), consumer.Runtime.Origins...)
+		runtimeEvidence.OriginDetails = append([]string(nil), consumer.Runtime.OriginDetails...)
+		runtimeEvidence.Format = Redact(runtimeEvidence.Format)
+		for index := range runtimeEvidence.Origins {
+			runtimeEvidence.Origins[index] = Redact(runtimeEvidence.Origins[index])
+		}
+		for index := range runtimeEvidence.OriginDetails {
+			runtimeEvidence.OriginDetails[index] = Redact(runtimeEvidence.OriginDetails[index])
+		}
+		context.Consumer.Runtime = &runtimeEvidence
 	}
 	context.Consumer.OwnershipSource = Redact(consumer.Metadata[ownership.MetadataSourceKey])
 	context.Consumer.OwnershipConfidence = domain.Confidence(consumer.Metadata[ownership.MetadataConfidenceKey])
