@@ -55,26 +55,51 @@ deployment is supported.
   ingestion with strict JSON validation, safe rooted file access, complete
   resource provenance, and no template or application execution.
 - Pinned live Prometheus/Grafana/Sloth migration lifecycle.
+- Transparent single-maintainer governance, opt-in adopter criteria, citation
+  metadata, current related-work positioning, and a multi-workflow design-user
+  evaluation guide.
 
-## Current release path
+## Current adoption and release path
 
-1. Add fail-closed `EXACT`/`PARTIAL`/`UNKNOWN` resolution for the supported
-   CloudFormation intrinsic subset.
+1. Publish an honest pre-release with binaries, checksums, SBOM/provenance, and
+   an immutable Action coordinate
+   ([issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29)).
+2. Run the redesigned planned-migration, proposed-change, and control-plane
+   design-user workflows against real or faithful sanitized repositories
+   ([issue #30](https://github.com/tadurisaikiran/telemetry-change-guard/issues/30)).
+3. Earn the first independent required-CI use and accept adopter entries only
+   through the opt-in process in [`ADOPTERS.md`](../ADOPTERS.md).
+4. Build a licensed, reproducible historical-change corpus and report
+   precision, recall, critical false negatives, false positives, runtime, and
+   memory ([issue #31](https://github.com/tadurisaikiran/telemetry-change-guard/issues/31)).
+5. Use evaluation evidence to prioritize correctness, onboarding, and
+   ecosystem work; publish limitations alongside results.
+
+## AWS workstream
+
+AWS continues in parallel without delaying evaluation of the implemented
+product:
+
+1. Complete fail-closed `EXACT`/`PARTIAL`/`UNKNOWN` resolution for the
+   supported CloudFormation intrinsic subset
+   ([issue #18](https://github.com/tadurisaikiran/telemetry-change-guard/issues/18)).
 2. Discover standard CloudWatch alarms and their exact Classic metric
-   dependencies.
-3. Add metric-math dependency extraction and transitive analysis.
-4. Add composite-alarm dependency extraction and cycle-safe traversal.
-5. Discover CloudWatch dashboard metric consumers.
-6. Analyze CloudWatch OTel PromQL alarms without collapsing their domain into
-   Prometheus.
-7. Discover Application Auto Scaling metric and metric-math dependencies.
-8. Discover CloudWatch alarm actions and their automation impact.
-9. Add the read-only, paginated, throttling-aware live CloudWatch adapter.
-10. Reconcile actual deployed AWS dependencies with candidate synthesized
-    CloudFormation state.
-11. Validate the complete AWS lifecycle in a short-lived-role sandbox E2E.
-12. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
-   release-provenance, and reproducible-demo gates for the first TCG release.
+   dependencies ([issue #19](https://github.com/tadurisaikiran/telemetry-change-guard/issues/19)).
+3. Add metric-math and composite-alarm dependency traversal
+   ([issue #20](https://github.com/tadurisaikiran/telemetry-change-guard/issues/20),
+   [issue #21](https://github.com/tadurisaikiran/telemetry-change-guard/issues/21)).
+4. Discover dashboards, CloudWatch OTel PromQL alarms, Application Auto
+   Scaling policies, and alarm actions
+   ([issue #22](https://github.com/tadurisaikiran/telemetry-change-guard/issues/22),
+   [#23](https://github.com/tadurisaikiran/telemetry-change-guard/issues/23),
+   [#24](https://github.com/tadurisaikiran/telemetry-change-guard/issues/24),
+   [#25](https://github.com/tadurisaikiran/telemetry-change-guard/issues/25)).
+5. Add read-only live discovery and reconcile deployed dependencies with
+   candidate synthesized state
+   ([issue #26](https://github.com/tadurisaikiran/telemetry-change-guard/issues/26),
+   [issue #27](https://github.com/tadurisaikiran/telemetry-change-guard/issues/27)).
+6. Validate the complete lifecycle in a short-lived-role AWS sandbox
+   ([issue #28](https://github.com/tadurisaikiran/telemetry-change-guard/issues/28)).
 
 ## Optional integrations after the core release gate
 

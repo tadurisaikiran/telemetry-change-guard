@@ -6,6 +6,23 @@ compatibility mode. Every invocation performs one authoritative evaluation and
 derives its Markdown report, versioned JSON evidence, outputs, job summary, and
 optional pull-request comment from that result.
 
+## Pre-release coordinate
+
+The canonical repository does not currently publish a stable release or a
+`v1` tag. Until the first pre-release is published, pin the last fully verified
+implementation commit:
+
+```text
+tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
+```
+
+Do not use `tadurisaikiran/telemetry-change-guard@v1`: that tag does not exist.
+The first signed pre-release, checksums, SBOM/provenance, and immutable Action
+coordinate are tracked in
+[issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
+This guide will move to the release tag only after that release is published
+and verified.
+
 ## Generic ChangeSet mode
 
 ```yaml
@@ -16,7 +33,7 @@ permissions:
 steps:
   - uses: actions/checkout@v7
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@v1
+    uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -31,7 +48,7 @@ generated snapshots:
 
 ```yaml
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@v1
+    uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
     with:
       config: tcg.yaml
       baseline: telemetry/main-contract.json
@@ -57,7 +74,7 @@ permissions:
 steps:
   - uses: actions/checkout@v7
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@v1
+    uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
     with:
       config: tcg.yaml
       migration: migration.yaml
@@ -121,6 +138,6 @@ final deterministic enforcement step.
 
 Existing workflows using
 `tadurisaikiran/telemetry-migration-readiness@v1` remain supported by the frozen
-legacy repository and do not need an immediate edit. The canonical coordinate
-is `tadurisaikiran/telemetry-change-guard@v1`; its migration mode provides the
-transition path when a team is ready to upgrade.
+legacy repository and do not need an immediate edit. The pre-release canonical
+coordinate is the exact commit documented above; its migration mode provides
+the transition path when a team is ready to upgrade.

@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: >-
+  If you use Telemetry Change Guard in research or published work, please cite
+  it using this metadata.
+title: Telemetry Change Guard
+type: software
+authors:
+  - family-names: Taduri
+    given-names: Sai Kiran
+repository-code: https://github.com/tadurisaikiran/telemetry-change-guard
+url: https://github.com/tadurisaikiran/telemetry-change-guard
+license: Apache-2.0
+abstract: >-
+  Deterministic, evidence-backed change-impact analysis for telemetry contracts
+  and their observability and operational control-plane consumers.
