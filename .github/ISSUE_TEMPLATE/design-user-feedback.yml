@@ -3,7 +3,7 @@ description: Share a sanitized result from a real or representative TCG evaluati
 title: "feedback: "
 labels:
   - enhancement
-  - "area: testing"
+  - adoption
 body:
   - type: markdown
     attributes:
