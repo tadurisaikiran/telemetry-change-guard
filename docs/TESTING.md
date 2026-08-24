@@ -38,6 +38,15 @@ The current deterministic engine has:
 
 - strict ChangeSet parsing, validation, deep-copy normalization, all-kind
   compatibility golden, round-trip, mutation-safety, and fuzz tests;
+- generic impact tests for direct and transitive paths, operational taxonomy,
+  unresolved evidence, Prometheus metric families, cross-domain isolation,
+  deterministic ordering, and input immutability;
+- generic policy truth tables for every status and rollout mode, criticality
+  thresholds, malformed policy and findings, finding preservation, stable exit
+  codes, and an exact `tcg-result/v1alpha1` JSON golden;
+- compatibility integration tests proving one evidence set can produce the
+  intentionally different generic and migration statuses without changing the
+  legacy schema or golden result;
 - unit tests for every required migration validation rule;
 - valid YAML fixtures and validation tests covering all implemented metric,
   label, span-attribute, and resource-attribute change kinds;

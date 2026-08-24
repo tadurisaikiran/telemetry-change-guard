@@ -58,6 +58,7 @@ adapter provenance are preserved. The normalized value shares no mutable maps,
 slices, or destination pointers with the legacy input.
 
 The current `tmr` CLI and `tmr-result/v1alpha1` readiness result remain the
-compatibility interface. Native `ChangeSet` command and Action workflows will
-be enabled with the generic policy layer; this model does not silently assign
-generic safety semantics to the legacy readiness statuses.
+compatibility interface. The generic policy layer accepts `ChangeSet` directly
+and produces `tcg-result/v1alpha1`; native command and Action workflows will be
+enabled in later isolated milestones. Generic safety semantics are never
+silently assigned to legacy readiness statuses.

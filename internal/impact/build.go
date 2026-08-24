@@ -10,8 +10,8 @@ import (
 )
 
 // BuildGraph converts normalized adapter discovery into an impact-propagation
-// graph. Confirmed and unresolved references are both retained; readiness
-// policy decides how their evidence may be used.
+// graph. Confirmed and unresolved references are both retained for generic
+// impact analysis and legacy readiness compatibility.
 func BuildGraph(discovery domain.Discovery) (*graph.Graph, error) {
 	result := graph.New()
 

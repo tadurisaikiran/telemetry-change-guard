@@ -1,5 +1,5 @@
-// Package analysis orchestrates local adapters, graph construction, and the
-// deterministic readiness evaluator.
+// Package analysis orchestrates local adapters, graph construction, generic
+// safety evaluation, and legacy migration readiness.
 package analysis
 
 import (
@@ -21,6 +21,7 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/ownership"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
 	filesource "github.com/tadurisaikiran/telemetry-change-guard/internal/source"
 	"github.com/tadurisaikiran/telemetry-change-guard/pkg/traceql"
 )
@@ -44,6 +45,35 @@ func Run(
 		return readiness.Result{}, nil, domain.Discovery{}, fmt.Errorf("evaluate readiness: %w", err)
 	}
 	return result, dependencyGraph, discovery, nil
+}
+
+// RunSafety executes the generic finding and policy pipeline. It is separate
+// from Run so generic statuses cannot alter legacy migration readiness.
+func RunSafety(
+	ctx context.Context,
+	configuration config.Config,
+	changeSet domain.ChangeSet,
+	policy safety.Policy,
+) (safety.Result, *graph.Graph, domain.Discovery, error) {
+	discovery, dependencyGraph, err := AnalyzeChangeSet(ctx, configuration, changeSet)
+	if err != nil {
+		return safety.ErrorResult(changeSet, nil, nil, err), nil, domain.Discovery{}, err
+	}
+	findings, err := impact.Analyze(
+		changeSet,
+		discovery,
+		dependencyGraph,
+		configuration.Analysis.IncludeTransitiveDependencies,
+	)
+	if err != nil {
+		err = fmt.Errorf("analyze impact: %w", err)
+		return safety.ErrorResult(changeSet, findings, discovery.Diagnostics, err), dependencyGraph, discovery, err
+	}
+	result, err := safety.Evaluate(changeSet, findings, discovery.Diagnostics, policy)
+	if err != nil {
+		return result, dependencyGraph, discovery, fmt.Errorf("evaluate safety: %w", err)
+	}
+	return result, dependencyGraph, discovery, err
 }
 
 // AnalyzeChangeSet validates the generic change input, discovers downstream

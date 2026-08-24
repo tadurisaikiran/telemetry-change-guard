@@ -5,8 +5,11 @@ downstream consumers. The long-term product answers three questions:
 
 1. What changed?
 2. Which consumers still depend on the legacy contract?
-3. Has deterministic policy established that backward compatibility can be
-   removed?
+3. What operational impact follows, and does deterministic policy permit it?
+
+Migration readiness additionally asks when backward compatibility can be
+removed. It is a first-class compatibility workflow over the same facts, not
+the root abstraction.
 
 The local deterministic pipeline described below is implemented today. Its
 root change input is a `domain.ChangeSet`; the legacy `domain.Migration`
@@ -42,7 +45,10 @@ advisory ownership enrichment
 in-memory dependency graph
              |
              v
-deterministic impact + readiness policy
+policy-independent impact findings
+             |
+             v
+generic safety policy or legacy readiness compatibility
              |
              v
 console / JSON / Markdown reports
@@ -116,15 +122,26 @@ Grafana tag evidence with fixed precedence. It enriches `domain.Consumer` only;
 its diagnostics are advisory and it has no dependency on `internal/readiness`.
 See [the ownership discovery guide](OWNERSHIP.md).
 
-`internal/graph`, `internal/impact`, and `internal/readiness` form the safety
-core. The graph is rebuilt in memory for every run, traversal is cycle-safe,
-and the readiness evaluator is the only component allowed to produce a safety
-status.
+`internal/graph`, `internal/impact`, `internal/safety`, and
+`internal/readiness` form the deterministic core. The graph is rebuilt in
+memory for every run and traversal is cycle-safe. `internal/impact` emits
+policy-independent findings with evidence and dependency paths.
+`internal/safety` applies generic policy and is the only component allowed to
+produce `PASS`, `WARN`, `BLOCK`, `INCOMPLETE`, or `ERROR`. The compatibility
+`internal/readiness` evaluator independently preserves the existing
+`READY`/`BLOCKED` migration contract over shared matching and graph facts.
 
-`cmd/tmr` is a thin CLI boundary over that engine. Versioned JSON is the stable
-machine API for Actions and future optional integrations. Exit codes are part
-of the public contract. Progress percentages remain informational and never
-establish safety.
+Rollout policy never edits or removes findings. Required diagnostics or
+unresolved relevant evidence yield `INCOMPLETE` even when a blocking finding
+is already proven; both facts remain in the machine result. See
+[the safety engine guide](SAFETY_ENGINE.md).
+
+`cmd/tmr` is the unchanged compatibility CLI boundary over migration
+readiness. Versioned JSON is the stable machine API for Actions and future
+optional integrations. Exit codes are part of the public contract. Progress
+percentages remain informational and never establish safety. A later CLI
+milestone will add the canonical `tcg` boundary over the generic engine without
+duplicating the command implementation.
 
 `internal/explanation` builds a minimal packet containing only blockers,
 uncertainties, diagnostics, migration changes, and aggregate counts. It invokes

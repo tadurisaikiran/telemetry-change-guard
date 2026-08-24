@@ -13,6 +13,7 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
 )
 
 func TestAnalyzeChangeSetDoesNotMutateCallerInput(t *testing.T) {
@@ -102,6 +103,119 @@ func TestCheckoutFixtureIsBlockedAndTransitive(t *testing.T) {
 	}
 	if !transitivePath {
 		t.Fatal("missing raw metric -> recording rule -> alert transitive path")
+	}
+}
+
+func TestGenericSafetyAndLegacyReadinessRemainIndependent(t *testing.T) {
+	t.Parallel()
+
+	repositoryRoot := filepath.Clean(filepath.Join("..", ".."))
+	configuration, err := config.LoadConfig(context.Background(), filepath.Join(repositoryRoot, "examples", "checkout-migration", "tmr.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	absolutizePatterns(&configuration, repositoryRoot)
+	migration, err := config.LoadMigration(context.Background(), filepath.Join(repositoryRoot, "examples", "checkout-migration", "migration.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	changeSet, err := config.NormalizeMigration(migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	generic, _, _, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, _, _, err := Run(context.Background(), configuration, migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if generic.SchemaVersion != safety.ResultSchemaVersion || generic.Status != safety.StatusIncomplete {
+		t.Fatalf("generic result = %#v, want versioned INCOMPLETE", generic)
+	}
+	if len(generic.Findings) == 0 || len(generic.Decisions) != len(generic.Findings) {
+		t.Fatalf("generic findings or decisions missing: %#v", generic)
+	}
+	if legacy.SchemaVersion != readiness.ResultSchemaVersion || legacy.Summary.Status != readiness.StatusBlocked {
+		t.Fatalf("legacy result = %#v, want unchanged versioned BLOCKED", legacy)
+	}
+}
+
+func TestGenericSafetyDistinguishesEmptyIncompleteAndError(t *testing.T) {
+	t.Parallel()
+
+	migration := mustParseRemovalMigration(t)
+	changeSet, err := config.NormalizeMigration(migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	complete, _, discovery, err := RunSafety(
+		context.Background(),
+		testConfiguration(config.Sources{}),
+		changeSet,
+		safety.DefaultPolicy(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if complete.Status != safety.StatusPass || len(complete.Findings) != 0 || len(discovery.Diagnostics) != 0 {
+		t.Fatalf("empty valid discovery = %#v, discovery = %#v", complete, discovery)
+	}
+
+	requiredMissing := testConfiguration(config.Sources{PrometheusRules: []config.SourcePattern{{
+		Pattern:  filepath.Join(t.TempDir(), "missing", "*.yaml"),
+		Required: true,
+	}}})
+	incomplete, _, incompleteDiscovery, err := RunSafety(
+		context.Background(),
+		requiredMissing,
+		changeSet,
+		safety.DefaultPolicy(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if incomplete.Status != safety.StatusIncomplete || len(incompleteDiscovery.Diagnostics) != 1 ||
+		!incompleteDiscovery.Diagnostics[0].Required {
+		t.Fatalf("required missing result = %#v, discovery = %#v", incomplete, incompleteDiscovery)
+	}
+
+	failed, dependencyGraph, failedDiscovery, err := RunSafety(
+		context.Background(),
+		testConfiguration(config.Sources{}),
+		domain.ChangeSet{},
+		safety.DefaultPolicy(),
+	)
+	if err == nil || failed.Status != safety.StatusError || dependencyGraph != nil || len(failedDiscovery.Consumers) != 0 {
+		t.Fatalf("invalid input result = %#v, graph = %#v, discovery = %#v, error = %v", failed, dependencyGraph, failedDiscovery, err)
+	}
+}
+
+func TestGenericSafetyRuntimeFailureIsError(t *testing.T) {
+	t.Parallel()
+
+	changeSet, err := config.NormalizeMigration(mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	result, dependencyGraph, discovery, err := RunSafety(
+		ctx,
+		testConfiguration(config.Sources{}),
+		changeSet,
+		safety.DefaultPolicy(),
+	)
+	if err == nil || !strings.Contains(err.Error(), context.Canceled.Error()) {
+		t.Fatalf("error = %v, want context cancellation", err)
+	}
+	if result.Status != safety.StatusError || safety.ExitCode(result.Status) != 1 || dependencyGraph != nil ||
+		len(discovery.Consumers) != 0 {
+		t.Fatalf("runtime failure result = %#v, graph = %#v, discovery = %#v", result, dependencyGraph, discovery)
 	}
 }
 

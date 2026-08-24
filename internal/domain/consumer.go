@@ -13,10 +13,13 @@ const (
 	ConsumerKindQuery          ConsumerKind = "query"
 	ConsumerKindSourceCode     ConsumerKind = "source_code"
 	ConsumerKindRunbook        ConsumerKind = "runbook"
+	ConsumerKindAutoscaler     ConsumerKind = "autoscaler"
+	ConsumerKindDeploymentGate ConsumerKind = "deployment_gate"
+	ConsumerKindAutomation     ConsumerKind = "automation"
 )
 
-// Criticality controls whether a legacy or unresolved consumer blocks a
-// migration. Values are ordered from lowest to highest severity.
+// Criticality controls policy thresholds for affected or unresolved
+// consumers. Values are ordered from lowest to highest severity.
 type Criticality string
 
 const (
