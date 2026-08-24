@@ -127,6 +127,28 @@ sources:
 	}
 }
 
+func TestParseConfigSupportsKEDASources(t *testing.T) {
+	t.Parallel()
+
+	configuration, err := ParseConfig(strings.NewReader(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  keda:
+    - ./deploy/scaledobjects/*.yaml
+    - path: ./clusters/staging/keda.yaml
+      required: false
+`))
+	if err != nil {
+		t.Fatalf("ParseConfig() error = %v", err)
+	}
+	if got, want := len(configuration.Sources.KEDA), 2; got != want {
+		t.Fatalf("KEDA sources = %d, want %d", got, want)
+	}
+	if !configuration.Sources.KEDA[0].Required || configuration.Sources.KEDA[1].Required {
+		t.Fatalf("KEDA sources = %#v", configuration.Sources.KEDA)
+	}
+}
+
 func TestParseConfigRejectsUnknownSourceField(t *testing.T) {
 	t.Parallel()
 

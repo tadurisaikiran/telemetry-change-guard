@@ -41,7 +41,8 @@ Implemented:
 - Strict YAML decoding with unknown-field rejection.
 - Official Prometheus PromQL AST analysis, including selectors, matchers,
   aggregations, vector matching, and label functions.
-- Prometheus rule, PrometheusRule CRD, Grafana, Sloth, and Pyrra adapters.
+- Prometheus rule, PrometheusRule CRD, Grafana, Sloth, Pyrra, and KEDA
+  ScaledObject adapters.
 - Cycle-safe transitive dependency graphs through recording rules.
 - Fail-closed `READY`, `BLOCKED`, and `INCOMPLETE` decisions.
 - Console, versioned JSON, Markdown, and graph JSON output.
@@ -110,6 +111,10 @@ Automatic change detection does not require a handwritten ChangeSet:
 
 See [change sources and telemetry snapshots](docs/CHANGE_SOURCES.md) for the
 strict artifact schema, diff command, limits, and evidence boundaries.
+
+KEDA Prometheus scaler queries can be analyzed as production control-plane
+dependencies. See the [KEDA guide](docs/KEDA.md) and runnable
+[`examples/keda`](examples/keda) fixture.
 
 ## GitHub Action
 

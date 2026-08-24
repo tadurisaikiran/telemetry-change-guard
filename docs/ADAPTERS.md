@@ -15,6 +15,10 @@ reference, production, and diagnostic model. They never decide readiness.
   queries. SLO consumers default to critical.
 - `pyrra` reads Pyrra SLO resources and analyzes indicator metric expressions.
   SLO consumers default to critical.
+- `keda` reads `keda.sh/v1alpha1` ScaledObject resources and analyzes each
+  Prometheus trigger query as an autoscaler dependency. Production-tagged
+  targets default to critical; malformed required queries fail closed. See
+  [KEDA ScaledObject analysis](KEDA.md).
 
 Every configured source can be marked `required`. A load, parse, or expansion
 failure on a required source prevents `READY`. All adapters preserve file,
