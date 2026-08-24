@@ -1,0 +1,8 @@
+apiVersion: tcg.hpa/v1alpha1
+kind: HPAMetricMappings
+spec:
+  mappings:
+    - kubernetes:
+        type: External
+        metric: unrelated_metric
+      ignore: supplied by a non-Prometheus adapter

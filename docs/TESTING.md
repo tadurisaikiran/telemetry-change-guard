@@ -46,6 +46,10 @@ evidence, every selector label is mapped or documented as adapter-only,
 non-Prometheus ignore decisions suppress false dependencies, conflicting
 mappings fail closed, sensitive selector values are discarded, and mapping and
 manifest decoders remain bounded and panic-free under fuzzing.
+The combined lifecycle then proves the same legacy metric and label produce
+six exact control-plane findings, that fully migrated artifacts pass with no
+residual findings, and that dynamic KEDA/Argo identity plus a missing same-name
+HPA mapping yields three required diagnostics and `INCOMPLETE`.
 
 ## Implemented test layers
 
@@ -90,7 +94,9 @@ The current deterministic engine has:
 - CLI integration tests for output and the permanent `0/1/2/3` exit contract;
 - CI checks for formatting, vetting, and race-enabled tests.
 - pinned live Docker lifecycles against Prometheus, Grafana, and Sloth, plus a
-  digest-pinned Tempo TraceQL validation tier.
+  digest-pinned Tempo TraceQL validation tier;
+- a combined KEDA, Argo Rollouts, and explicitly mapped HPA lifecycle with
+  exact machine-result verification.
 
 Run the local checks with:
 
@@ -140,6 +146,7 @@ Run the core and live layers with:
 
 ```bash
 go test -race ./...
+./e2e/scripts/run-control-plane-e2e.sh
 ./e2e/scripts/run-e2e.sh
 ./e2e/scripts/run-tempo-e2e.sh
 ```

@@ -1,0 +1,22 @@
+apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  keda:
+    - path: ./e2e/controlplane/scenarios/migrated/control-plane.yaml
+      required: true
+  argoRollouts:
+    - path: ./e2e/controlplane/scenarios/migrated/control-plane.yaml
+      required: true
+  horizontalPodAutoscalers:
+    - path: ./e2e/controlplane/scenarios/migrated/control-plane.yaml
+      mapping: ./e2e/controlplane/scenarios/migrated/hpa-mapping.yaml
+      required: true
+analysis:
+  includeTransitiveDependencies: true
+  unresolvedReferencePolicy: error
+policy:
+  failOnCriticalLegacyConsumer: true
+  failOnCriticalUnknown: true
+  minimumBlockingCriticality: high
+output:
+  formats: [json]

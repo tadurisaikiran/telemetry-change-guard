@@ -14,6 +14,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  control-plane-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run combined control-plane lifecycle
+        run: ./e2e/scripts/run-control-plane-e2e.sh
+
   live-lifecycle:
     runs-on: ubuntu-latest
     timeout-minutes: 20

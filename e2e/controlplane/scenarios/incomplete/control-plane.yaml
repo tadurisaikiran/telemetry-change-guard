@@ -1,0 +1,55 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: checkout-worker-scaler
+  namespace: commerce
+  labels:
+    environment: production
+spec:
+  scaleTargetRef:
+    name: checkout-worker
+  triggers:
+    - type: prometheus
+      metadata:
+        query: "${metric_name}"
+        serverAddress: https://prometheus.example.test
+        threshold: "50"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: checkout-rollout-gate
+  namespace: commerce
+  labels:
+    environment: production
+spec:
+  metrics:
+    - name: success-rate
+      successCondition: result[0] >= 1
+      provider:
+        prometheus:
+          address: https://prometheus.example.test
+          query: "{{args.metric-name}}"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: checkout-api-scaler
+  namespace: commerce
+  labels:
+    environment: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout-api
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: checkout_requests_total
+        target:
+          type: AverageValue
+          averageValue: "25"

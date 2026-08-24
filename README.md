@@ -65,6 +65,8 @@ Implemented:
   OpenTelemetry span and resource attribute migrations.
 - A pinned live Prometheus/Grafana/Sloth migration lifecycle that verifies
   predictions against runtime behavior.
+- A combined KEDA, Argo Rollouts, and explicitly mapped HPA lifecycle that
+  verifies blocking, migrated, and fail-closed control-plane states.
 
 ## Requirements
 

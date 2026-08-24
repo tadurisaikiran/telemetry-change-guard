@@ -1,0 +1,11 @@
+apiVersion: tcg.hpa/v1alpha1
+kind: HPAMetricMappings
+spec:
+  mappings:
+    - kubernetes:
+        type: External
+        metric: checkout_request_rate
+      prometheus:
+        metric: checkout_server_requests_total
+        labels:
+          workload: http_route
