@@ -1,6 +1,6 @@
 # ADR-0002: ChangeSet as the root domain primitive
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-24
 - Owners: Project maintainers
 - Decision scope: Public change input and internal normalization

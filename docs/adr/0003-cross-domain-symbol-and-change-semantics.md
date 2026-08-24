@@ -1,6 +1,6 @@
 # ADR-0003: Cross-domain symbol and change semantics
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-24
 - Owners: Project maintainers
 - Decision scope: Symbol identity, equality, and cross-domain mappings

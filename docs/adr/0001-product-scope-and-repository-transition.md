@@ -1,6 +1,6 @@
 # ADR-0001: Telemetry Change Guard product scope and repository transition
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-24
 - Owners: Project maintainers
 - Decision scope: Product identity, repository ownership, and compatibility

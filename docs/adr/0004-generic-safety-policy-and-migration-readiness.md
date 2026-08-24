@@ -1,6 +1,6 @@
 # ADR-0004: Generic safety policy versus migration readiness
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-24
 - Owners: Project maintainers
 - Decision scope: Findings, impact taxonomy, policy, and compatibility results
