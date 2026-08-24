@@ -30,6 +30,9 @@ Implemented:
 - A canonical `telemetry-change-guard` CLI for generic checks, validation,
   impact exploration, graph export, and nested migration workflows, backed by
   the same command implementation as the temporary `tmr` compatibility binary.
+- Deterministic change sources for explicit ChangeSets, mapped Weaver diffs,
+  and bounded Prometheus baseline/candidate telemetry snapshots, with a
+  versioned full-diff report and fail-closed semantic uncertainty.
 - Strict canonical `tcg/v1alpha1` configuration with transparent
   `tmr/v1alpha1` document normalization and conflict-safe `TCG_*`/`TMR_*`
   environment fallback for configured secret references.
@@ -92,6 +95,22 @@ tool/configuration/runtime `ERROR`, `2` for `BLOCK`, and `3` for
 `INCOMPLETE`. The migration compatibility commands retain the existing
 `READY`/`BLOCKED` contract with the same numeric meanings.
 
+Automatic change detection does not require a handwritten ChangeSet:
+
+```bash
+./bin/telemetry-change-guard snapshot \
+  --prometheus http://localhost:9090 \
+  --output ./candidate-contract.json
+
+./bin/telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --baseline ./main-contract.json \
+  --candidate ./candidate-contract.json
+```
+
+See [change sources and telemetry snapshots](docs/CHANGE_SOURCES.md) for the
+strict artifact schema, diff command, limits, and evidence boundaries.
+
 ## GitHub Action
 
 ```yaml
@@ -107,8 +126,10 @@ steps:
       changes: changes.yaml
 ```
 
-Use `migration: migration.yaml` instead of `changes` for the compatibility
-workflow. Supplying both or neither fails as a configuration error. The Action
+Use a `baseline`/`candidate` pair or a `weaver-diff`/`weaver-mapping` pair as
+alternative generic sources. Use `migration: migration.yaml` instead for the
+compatibility workflow. Supplying partial pairs, multiple sources, or no source
+fails as a configuration error. The Action
 runs one authoritative evaluation, writes the Markdown job summary, uploads a
 versioned JSON artifact, and preserves the CLI status and exit code.
 
@@ -166,12 +187,12 @@ and migration compatibility are documented in [the CLI guide](docs/CLI.md).
 
 ## Weaver registry diffs
 
-Weaver can be used as an alternative change source when an explicit backend
-mapping is available:
+Weaver can be used as a generic change source when an explicit backend mapping
+is available:
 
 ```bash
-tmr analyze \
-  --config ./tmr.yaml \
+telemetry-change-guard check \
+  --config ./tcg.yaml \
   --weaver-diff ./weaver-diff.json \
   --weaver-mapping ./weaver-mapping.yaml
 ```

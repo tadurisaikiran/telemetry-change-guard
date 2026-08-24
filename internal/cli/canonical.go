@@ -7,19 +7,26 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+	"time"
 
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/prometheussnapshot"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/analysis"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/changesource"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/report"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/snapshot"
 )
 
 const canonicalUsage = `Telemetry Change Guard
 
 Usage:
-  telemetry-change-guard check --config <path> --changes <path> [--mode audit|warn|enforce] [--format console|json|markdown] [--json-output <path>] [--status-output <path>]
-  telemetry-change-guard validate [--changes <path>] [--config <path>]
+  telemetry-change-guard check --config <path> (--changes <path> | --weaver-diff <path> --weaver-mapping <path> | --baseline <snapshot> --candidate <snapshot>) [--mode audit|warn|enforce]
+  telemetry-change-guard snapshot --prometheus <url> --output <path>
+  telemetry-change-guard diff --baseline <snapshot> --candidate <snapshot> [--output <path>] [--changes-output <path>]
+  telemetry-change-guard validate [--changes <path> | --snapshot <path> | --weaver-diff <path> --weaver-mapping <path>] [--config <path>]
   telemetry-change-guard impact --config <path> --symbol <metric>
   telemetry-change-guard graph --config <path> [--output <path>]
   telemetry-change-guard migration check --config <path> (--plan <path> | --weaver-diff <path> --weaver-mapping <path>) [--json-output <path>] [--status-output <path>]
@@ -29,6 +36,8 @@ Usage:
 
 Commands:
   check       Evaluate the operational safety of a ChangeSet
+  snapshot    Capture a bounded deterministic Prometheus telemetry contract
+  diff        Compare baseline and candidate telemetry snapshots
   validate    Validate generic change and analysis inputs
   impact      Explain dependency paths for one Prometheus metric
   graph       Export the dependency graph as JSON
@@ -56,6 +65,10 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "check":
 		return runCheck(ctx, args[1:], stdout, stderr)
+	case "snapshot":
+		return runSnapshotCommand(ctx, args[1:], stdout, stderr)
+	case "diff":
+		return runDiffCommand(ctx, args[1:], stdout, stderr)
 	case "validate":
 		return runCanonicalValidate(ctx, args[1:], stdout, stderr)
 	case "impact":
@@ -77,11 +90,16 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	flags := flag.NewFlagSet("check", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: telemetry-change-guard check --config <path> --changes <path> [--mode audit|warn|enforce] [--format console|json|markdown] [--json-output <path>] [--status-output <path>]")
+		fmt.Fprintln(stderr, "Usage: telemetry-change-guard check --config <path> (--changes <path> | --weaver-diff <path> --weaver-mapping <path> | --baseline <snapshot> --candidate <snapshot>) [--mode audit|warn|enforce]")
 		flags.PrintDefaults()
 	}
 	configPath := flags.String("config", "", "path to an analysis configuration")
 	changeSetPath := flags.String("changes", "", "path to a tcg/v1alpha1 ChangeSet manifest")
+	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
+	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
+	baselinePath := flags.String("baseline", "", "path to a baseline telemetry snapshot")
+	candidatePath := flags.String("candidate", "", "path to a candidate telemetry snapshot")
+	changeSetName := flags.String("change-set-name", "", "optional name for a snapshot-derived ChangeSet")
 	rollout := flags.String("mode", string(safety.RolloutEnforce), "policy rollout mode: audit, warn, or enforce")
 	format := flags.String("format", "", "report format: console, json, or markdown")
 	output := flags.String("output", "", "optional report output path")
@@ -90,8 +108,8 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
-	if flags.NArg() != 0 || *configPath == "" || *changeSetPath == "" {
-		fmt.Fprintln(stderr, "check requires --config and --changes and accepts no positional arguments")
+	if flags.NArg() != 0 || *configPath == "" {
+		fmt.Fprintln(stderr, "check requires --config and exactly one change source and accepts no positional arguments")
 		return 1
 	}
 	if err := validateOutputPaths(*output, *jsonOutput, *statusOutput); err != nil {
@@ -103,20 +121,38 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	changeSource, err := selectChangeSource(
+		*changeSetPath,
+		*weaverDiffPath,
+		*weaverMappingPath,
+		*baselinePath,
+		*candidatePath,
+		*changeSetName,
+	)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	changeSet, err := config.LoadChangeSet(ctx, *changeSetPath)
+	changeSet, sourceDiagnostics, err := changeSource.Detect(ctx)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
 	policy := safety.DefaultPolicy()
 	policy.Mode = mode
-	result, _, _, analysisErr := analysis.RunSafety(ctx, configuration, changeSet, policy)
+	result, _, _, analysisErr := analysis.RunSafetyWithDiagnostics(
+		ctx,
+		configuration,
+		changeSet,
+		policy,
+		sourceDiagnostics,
+	)
 
 	selectedFormat := *format
 	if selectedFormat == "" {
@@ -157,14 +193,181 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	return safety.ExitCode(result.Status)
 }
 
+func selectChangeSource(
+	changeSetPath string,
+	weaverDiffPath string,
+	weaverMappingPath string,
+	baselinePath string,
+	candidatePath string,
+	changeSetName string,
+) (changesource.ChangeSource, error) {
+	if (weaverDiffPath == "") != (weaverMappingPath == "") {
+		return nil, fmt.Errorf("--weaver-diff and --weaver-mapping must be provided together")
+	}
+	if (baselinePath == "") != (candidatePath == "") {
+		return nil, fmt.Errorf("--baseline and --candidate must be provided together")
+	}
+	if changeSetName != "" && baselinePath == "" {
+		return nil, fmt.Errorf("--change-set-name requires --baseline and --candidate")
+	}
+	sourceCount := 0
+	if changeSetPath != "" {
+		sourceCount++
+	}
+	if weaverDiffPath != "" {
+		sourceCount++
+	}
+	if baselinePath != "" {
+		sourceCount++
+	}
+	if sourceCount != 1 {
+		return nil, fmt.Errorf(
+			"exactly one change source is required: --changes, --weaver-diff with --weaver-mapping, or --baseline with --candidate",
+		)
+	}
+	if changeSetPath != "" {
+		return changesource.Explicit{Path: changeSetPath}, nil
+	}
+	if weaverDiffPath != "" {
+		return changesource.Weaver{DiffPath: weaverDiffPath, MappingPath: weaverMappingPath}, nil
+	}
+	return changesource.SnapshotPair{
+		BaselinePath:  baselinePath,
+		CandidatePath: candidatePath,
+		Name:          changeSetName,
+	}, nil
+}
+
+func runSnapshotCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("snapshot", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: telemetry-change-guard snapshot --prometheus <url> --output <path>")
+		flags.PrintDefaults()
+	}
+	prometheusURL := flags.String("prometheus", "", "Prometheus base URL")
+	name := flags.String("name", "prometheus", "deterministic snapshot name")
+	output := flags.String("output", "", "snapshot output path; defaults to stdout")
+	timeoutValue := flags.String("timeout", "60s", "total Prometheus collection timeout")
+	maxMetrics := flags.Int("max-metrics", 50_000, "maximum collected metric families")
+	maxSeries := flags.Int("max-series", 100_000, "maximum inspected Prometheus series")
+	bearerTokenEnv := flags.String("bearer-token-env", "", "environment variable containing an optional Prometheus bearer token")
+	if err := flags.Parse(args); err != nil {
+		return flagExitCode(err)
+	}
+	if flags.NArg() != 0 || *prometheusURL == "" {
+		fmt.Fprintln(stderr, "snapshot requires --prometheus and accepts no positional arguments")
+		return 1
+	}
+	timeout, err := time.ParseDuration(*timeoutValue)
+	if err != nil || timeout <= 0 || timeout > 10*time.Minute {
+		fmt.Fprintln(stderr, "Error: --timeout must be a positive Go duration no greater than 10m")
+		return 1
+	}
+	if *maxMetrics <= 0 || *maxSeries <= 0 {
+		fmt.Fprintln(stderr, "Error: --max-metrics and --max-series must be positive")
+		return 1
+	}
+	var token string
+	if *bearerTokenEnv != "" {
+		var exists bool
+		token, exists = os.LookupEnv(*bearerTokenEnv)
+		if !exists || token == "" {
+			fmt.Fprintf(stderr, "Error: bearer token environment variable %q is unset or empty\n", *bearerTokenEnv)
+			return 1
+		}
+	}
+	contract, err := (prometheussnapshot.Client{
+		BaseURL:     *prometheusURL,
+		Timeout:     timeout,
+		MaxMetrics:  *maxMetrics,
+		MaxSeries:   *maxSeries,
+		BearerToken: token,
+	}).Collect(ctx, *name)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	contents, err := snapshot.Marshal(contract)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := writeOutput(*output, contents, stdout); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runDiffCommand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("diff", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: telemetry-change-guard diff --baseline <snapshot> --candidate <snapshot> [--output <path>] [--changes-output <path>]")
+		flags.PrintDefaults()
+	}
+	baselinePath := flags.String("baseline", "", "path to a baseline telemetry snapshot")
+	candidatePath := flags.String("candidate", "", "path to a candidate telemetry snapshot")
+	name := flags.String("name", "", "optional generated ChangeSet name")
+	output := flags.String("output", "", "snapshot-diff JSON output path; defaults to stdout")
+	changesOutput := flags.String("changes-output", "", "optional actionable ChangeSet YAML output path")
+	if err := flags.Parse(args); err != nil {
+		return flagExitCode(err)
+	}
+	if flags.NArg() != 0 || *baselinePath == "" || *candidatePath == "" {
+		fmt.Fprintln(stderr, "diff requires --baseline and --candidate and accepts no positional arguments")
+		return 1
+	}
+	if err := validateOutputPaths(*output, *changesOutput, ""); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	result, err := snapshot.CompareFiles(ctx, *baselinePath, *candidatePath, *name)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	diffContents, err := snapshot.MarshalDiff(result)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	var changeContents []byte
+	if *changesOutput != "" {
+		changeContents, err = config.MarshalChangeSet(result.ChangeSet)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+	}
+	if err := writeOutput(*output, diffContents, stdout); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if *changesOutput != "" {
+		if err := writeOutput(*changesOutput, changeContents, io.Discard); err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+	}
+	if writeDiscoveryDiagnostics(stderr, result.Diagnostics) {
+		return safety.ExitCode(safety.StatusIncomplete)
+	}
+	return 0
+}
+
 func runCanonicalValidate(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("validate", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: telemetry-change-guard validate [--changes <path>] [--config <path>]")
+		fmt.Fprintln(stderr, "Usage: telemetry-change-guard validate [--changes <path> | --snapshot <path> | --weaver-diff <path> --weaver-mapping <path>] [--config <path>]")
 		flags.PrintDefaults()
 	}
 	changeSetPath := flags.String("changes", "", "path to a tcg/v1alpha1 ChangeSet manifest")
+	snapshotPath := flags.String("snapshot", "", "path to a tcg/v1alpha1 TelemetrySnapshot")
+	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
+	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	configPath := flags.String("config", "", "path to an analysis configuration")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -176,8 +379,22 @@ func runCanonicalValidate(ctx context.Context, args []string, stdout, stderr io.
 		fmt.Fprintf(stderr, "validate does not accept positional arguments: %v\n", flags.Args())
 		return 1
 	}
-	if *changeSetPath == "" && *configPath == "" {
-		fmt.Fprintln(stderr, "--changes or --config is required")
+	if (*weaverDiffPath == "") != (*weaverMappingPath == "") {
+		fmt.Fprintln(stderr, "--weaver-diff and --weaver-mapping must be provided together")
+		return 1
+	}
+	changeInputCount := 0
+	for _, present := range []bool{*changeSetPath != "", *snapshotPath != "", *weaverDiffPath != ""} {
+		if present {
+			changeInputCount++
+		}
+	}
+	if changeInputCount > 1 {
+		fmt.Fprintln(stderr, "--changes, --snapshot, and --weaver-diff/--weaver-mapping are mutually exclusive")
+		return 1
+	}
+	if changeInputCount == 0 && *configPath == "" {
+		fmt.Fprintln(stderr, "a change input or --config is required")
 		return 1
 	}
 	if *changeSetPath != "" {
@@ -187,6 +404,30 @@ func runCanonicalValidate(ctx context.Context, args []string, stdout, stderr io.
 			return 1
 		}
 		fmt.Fprintln(stdout, "ChangeSet manifest is valid.")
+		fmt.Fprintf(stdout, "Changes: %d\n", len(changeSet.Changes))
+	}
+	if *snapshotPath != "" {
+		contract, err := snapshot.Load(ctx, *snapshotPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, "TelemetrySnapshot is valid.")
+		fmt.Fprintf(stdout, "Metrics: %d\n", len(contract.Spec.Metrics))
+	}
+	if *weaverDiffPath != "" {
+		changeSet, diagnostics, err := (changesource.Weaver{
+			DiffPath: *weaverDiffPath, MappingPath: *weaverMappingPath,
+		}).Detect(ctx)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+		if len(diagnostics) != 0 {
+			writeDiscoveryDiagnostics(stderr, diagnostics)
+			return safety.ExitCode(safety.StatusIncomplete)
+		}
+		fmt.Fprintln(stdout, "Weaver diff and mapping are valid.")
 		fmt.Fprintf(stdout, "Changes: %d\n", len(changeSet.Changes))
 	}
 	if *configPath != "" {

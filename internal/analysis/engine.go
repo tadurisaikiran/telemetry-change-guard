@@ -54,10 +54,24 @@ func RunSafety(
 	changeSet domain.ChangeSet,
 	policy safety.Policy,
 ) (safety.Result, *graph.Graph, domain.Discovery, error) {
+	return RunSafetyWithDiagnostics(ctx, configuration, changeSet, policy, nil)
+}
+
+// RunSafetyWithDiagnostics evaluates a ChangeSet while retaining uncertainty
+// reported by its deterministic change source. Source diagnostics enter the
+// same authoritative status aggregation as consumer-adapter diagnostics.
+func RunSafetyWithDiagnostics(
+	ctx context.Context,
+	configuration config.Config,
+	changeSet domain.ChangeSet,
+	policy safety.Policy,
+	sourceDiagnostics []domain.Diagnostic,
+) (safety.Result, *graph.Graph, domain.Discovery, error) {
 	discovery, dependencyGraph, err := AnalyzeChangeSet(ctx, configuration, changeSet)
 	if err != nil {
-		return safety.ErrorResult(changeSet, nil, nil, err), nil, domain.Discovery{}, err
+		return safety.ErrorResult(changeSet, nil, sourceDiagnostics, err), nil, domain.Discovery{}, err
 	}
+	discovery.Diagnostics = append(discovery.Diagnostics, sourceDiagnostics...)
 	findings, err := impact.Analyze(
 		changeSet,
 		discovery,

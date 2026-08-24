@@ -14,9 +14,10 @@ ChangeSet
     -> tcg-result/v1alpha1
 ```
 
-The canonical `telemetry-change-guard check` command exposes the engine for
-local and CI use. GitHub Action wiring remains a separate milestone so the
-existing migration-only Action contract does not change implicitly.
+The canonical `telemetry-change-guard check` command and composite GitHub
+Action expose the engine for local and CI use. Explicit ChangeSets, mapped
+Weaver diffs, and snapshot pairs normalize before this pipeline; source choice
+cannot change policy semantics.
 
 ## Findings
 

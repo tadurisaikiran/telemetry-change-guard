@@ -1,0 +1,28 @@
+{
+  "apiVersion": "tcg/v1alpha1",
+  "kind": "TelemetrySnapshot",
+  "metadata": {
+    "name": "checkout-candidate"
+  },
+  "spec": {
+    "domain": "prometheus",
+    "metrics": [
+      {
+        "name": "checkout_attempts_total",
+        "type": "counter",
+        "unit": "requests",
+        "labels": [
+          "method",
+          "status"
+        ]
+      },
+      {
+        "name": "checkout_workers",
+        "type": "gauge",
+        "labels": [
+          "job"
+        ]
+      }
+    ]
+  }
+}

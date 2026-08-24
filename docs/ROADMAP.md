@@ -18,6 +18,9 @@ deployment is supported.
   compatibility and explicit `TCG_*`/`TMR_*` environment conflict handling.
 - Canonical dual-mode GitHub Action with one-evaluation Markdown/JSON output,
   bounded comment updates, JSON artifact upload, and fail-closed enforcement.
+- Deterministic change-source normalization for explicit ChangeSets, mapped
+  Weaver diffs, and bounded Prometheus baseline/candidate snapshots, including
+  full delta output and canonical Action support.
 - Repository and canonical migration model (Milestones 0–1).
 - PromQL AST extraction and Prometheus rule discovery (Milestones 2–3).
 - In-memory transitive graph (Milestone 4).
@@ -41,8 +44,7 @@ deployment is supported.
 
 ## Current release path
 
-1. Add explicit and snapshot/diff change-source adapters, then prioritized
-   control-plane adapters such as KEDA and Argo Rollouts.
+1. Add prioritized control-plane adapters such as KEDA and Argo Rollouts.
 2. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
    release-provenance, and reproducible-demo gates for the first TCG release.
 

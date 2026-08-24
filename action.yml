@@ -12,11 +12,27 @@ inputs:
     required: false
     default: tcg.yaml
   changes:
-    description: Path to a generic ChangeSet; mutually exclusive with migration
+    description: Path to a generic ChangeSet; mutually exclusive with other change sources and migration
+    required: false
+    default: ""
+  baseline:
+    description: Path to a baseline TelemetrySnapshot; requires candidate
+    required: false
+    default: ""
+  candidate:
+    description: Path to a candidate TelemetrySnapshot; requires baseline
+    required: false
+    default: ""
+  weaver-diff:
+    description: Path to a Weaver registry diff; requires weaver-mapping
+    required: false
+    default: ""
+  weaver-mapping:
+    description: Path to an explicit Weaver backend mapping; requires weaver-diff
     required: false
     default: ""
   migration:
-    description: Path to a legacy migration manifest; mutually exclusive with changes
+    description: Path to a legacy migration manifest; mutually exclusive with every generic change source
     required: false
     default: ""
   comment:
@@ -65,6 +81,10 @@ runs:
       env:
         TCG_CONFIG: ${{ inputs.config }}
         TCG_CHANGES: ${{ inputs.changes }}
+        TCG_BASELINE: ${{ inputs.baseline }}
+        TCG_CANDIDATE: ${{ inputs.candidate }}
+        TCG_WEAVER_DIFF: ${{ inputs.weaver-diff }}
+        TCG_WEAVER_MAPPING: ${{ inputs.weaver-mapping }}
         TCG_MIGRATION: ${{ inputs.migration }}
       run: "${GITHUB_ACTION_PATH}/action/run-action.sh"
 

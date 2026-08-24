@@ -19,28 +19,65 @@ write_error_artifacts() {
 
 mode="invalid"
 exit_code=1
-if [[ -n "${TCG_CHANGES:-}" && -n "${TCG_MIGRATION:-}" ]]; then
-  write_error_artifacts "Configuration error: changes and migration are mutually exclusive."
-elif [[ -z "${TCG_CHANGES:-}" && -z "${TCG_MIGRATION:-}" ]]; then
-  write_error_artifacts "Configuration error: exactly one of changes or migration is required."
+generic_source_count=0
+generic_source=""
+configuration_error=""
+if [[ -n "${TCG_CHANGES:-}" ]]; then
+  generic_source_count=$((generic_source_count + 1))
+  generic_source="changes"
+fi
+if [[ -n "${TCG_BASELINE:-}" || -n "${TCG_CANDIDATE:-}" ]]; then
+  if [[ -z "${TCG_BASELINE:-}" || -z "${TCG_CANDIDATE:-}" ]]; then
+    configuration_error="Configuration error: baseline and candidate must be provided together."
+  else
+    generic_source_count=$((generic_source_count + 1))
+    generic_source="snapshot"
+  fi
+fi
+if [[ -n "${TCG_WEAVER_DIFF:-}" || -n "${TCG_WEAVER_MAPPING:-}" ]]; then
+  if [[ -z "${TCG_WEAVER_DIFF:-}" || -z "${TCG_WEAVER_MAPPING:-}" ]]; then
+    configuration_error="Configuration error: weaver-diff and weaver-mapping must be provided together."
+  else
+    generic_source_count=$((generic_source_count + 1))
+    generic_source="weaver"
+  fi
+fi
+
+if [[ -n "${configuration_error}" ]]; then
+  write_error_artifacts "${configuration_error}"
+elif [[ -n "${TCG_MIGRATION:-}" && "${generic_source_count}" -ne 0 ]]; then
+  write_error_artifacts "Configuration error: generic change sources and migration are mutually exclusive."
+elif [[ -z "${TCG_MIGRATION:-}" && "${generic_source_count}" -ne 1 ]]; then
+  write_error_artifacts "Configuration error: exactly one generic change source or migration is required."
 else
   command=("${RUNNER_TEMP}/telemetry-change-guard")
-  if [[ -n "${TCG_CHANGES:-}" ]]; then
+  if [[ "${generic_source_count}" -eq 1 ]]; then
     mode="generic"
-    command+=(check --config "${TCG_CONFIG}" --changes "${TCG_CHANGES}")
+    command+=(check --config "${TCG_CONFIG}")
+    case "${generic_source}" in
+      changes) command+=(--changes "${TCG_CHANGES}") ;;
+      snapshot) command+=(--baseline "${TCG_BASELINE}" --candidate "${TCG_CANDIDATE}") ;;
+      weaver) command+=(--weaver-diff "${TCG_WEAVER_DIFF}" --weaver-mapping "${TCG_WEAVER_MAPPING}") ;;
+      *)
+        write_error_artifacts "Configuration error: internal generic change-source selection failed."
+        command=()
+        ;;
+    esac
   else
     mode="migration"
     command+=(migration check --config "${TCG_CONFIG}" --plan "${TCG_MIGRATION}")
   fi
 
-  set +e
-  "${command[@]}" \
-    --format markdown \
-    --output "${report_path}" \
-    --json-output "${json_report_path}" \
-    --status-output "${status_output_path}"
-  exit_code=$?
-  set -e
+  if [[ "${#command[@]}" -ne 0 ]]; then
+    set +e
+    "${command[@]}" \
+      --format markdown \
+      --output "${report_path}" \
+      --json-output "${json_report_path}" \
+      --status-output "${status_output_path}"
+    exit_code=$?
+    set -e
+  fi
 
   if [[ ! -s "${report_path}" || ! -s "${json_report_path}" || ! -s "${status_output_path}" ]]; then
     exit_code=1

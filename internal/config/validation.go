@@ -155,9 +155,6 @@ func ValidateChangeSet(changeSet domain.ChangeSet) error {
 	if isBlank(changeSet.Metadata.Name) {
 		issues.add("metadata.name", "is required")
 	}
-	if len(changeSet.Changes) == 0 {
-		issues.add("spec.changes", "must contain at least one change")
-	}
 	validateChanges(issues, changeSet.Changes)
 	validateChangeSetMetadata(issues, changeSet.Changes)
 	return issues.errOrNil()
