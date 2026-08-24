@@ -8,13 +8,14 @@ service, or require it for local analysis.
 ## Configuration
 
 ```yaml
-apiVersion: tmr/v1alpha1
+apiVersion: tcg/v1alpha1
+kind: Config
 sources:
   persesUsage:
     - url: https://metrics-usage.example.com
       required: true
       timeout: 10s
-      bearerTokenEnv: TMR_PERSES_TOKEN
+      bearerTokenEnv: TCG_PERSES_TOKEN
 ```
 
 `url` must be an absolute `http` or `https` URL without credentials, a query,
@@ -25,6 +26,8 @@ or a fragment. A path prefix is supported. `required` defaults to `true`, and
 appears in configuration or reports. When configured, an unset or empty
 variable is a source failure. Redirects are allowed only within the configured
 scheme and host so credentials cannot be forwarded to another origin.
+Canonical `TCG_*` names support conflict-safe fallback to the corresponding
+legacy `TMR_*` name as documented in the [configuration guide](CONFIGURATION.md).
 
 ## Imported API evidence
 

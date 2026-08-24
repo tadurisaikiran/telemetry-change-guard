@@ -21,6 +21,13 @@ type ValidationError struct {
 	Issues []FieldError
 }
 
+// ConfigValidationError contains every deterministic product configuration
+// issue. It is separate from migration validation so configuration failures
+// are never mislabeled in CLI or machine-readable error output.
+type ConfigValidationError struct {
+	Issues []FieldError
+}
+
 // ChangeSetValidationError contains every deterministic validation issue found
 // in a native ChangeSet manifest.
 type ChangeSetValidationError struct {
@@ -53,6 +60,31 @@ func (e *ValidationError) append(other *ValidationError) {
 }
 
 func (e *ValidationError) errOrNil() error {
+	if len(e.Issues) == 0 {
+		return nil
+	}
+	return e
+}
+
+// Error returns a human-readable, multi-line configuration validation report.
+func (e *ConfigValidationError) Error() string {
+	if e == nil || len(e.Issues) == 0 {
+		return "configuration is invalid"
+	}
+
+	var builder strings.Builder
+	builder.WriteString("configuration is invalid:")
+	for _, issue := range e.Issues {
+		fmt.Fprintf(&builder, "\n  - %s: %s", issue.Path, issue.Message)
+	}
+	return builder.String()
+}
+
+func (e *ConfigValidationError) add(path, message string) {
+	e.Issues = append(e.Issues, FieldError{Path: path, Message: message})
+}
+
+func (e *ConfigValidationError) errOrNil() error {
 	if len(e.Issues) == 0 {
 		return nil
 	}
