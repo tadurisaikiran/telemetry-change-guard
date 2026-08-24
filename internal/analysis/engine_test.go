@@ -12,6 +12,7 @@ import (
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
 )
@@ -601,6 +602,68 @@ func TestOptionalTempoMappingDiagnosticIsAdvisory(t *testing.T) {
 	}
 }
 
+func TestKEDAProductionScalerProducesBlockingScalingRisk(t *testing.T) {
+	t.Parallel()
+
+	manifestPath := filepath.Join(t.TempDir(), "scaledobject.yaml")
+	writeManifest := func(query string) {
+		t.Helper()
+		contents := `apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: orders-worker-scaler
+  namespace: commerce
+  labels:
+    environment: production
+spec:
+  scaleTargetRef:
+    name: orders-worker
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: https://prometheus.example.test
+        threshold: "50"
+        query: ` + query + "\n"
+		if err := os.WriteFile(manifestPath, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	configuration := testConfiguration(config.Sources{KEDA: []config.SourcePattern{{
+		Pattern: manifestPath, Required: true,
+	}}})
+	changeSet, err := config.NormalizeMigration(mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writeManifest("sum(rate(old_metric[2m]))")
+	result, _, discovery, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != safety.StatusBlock || len(result.Findings) != 1 {
+		t.Fatalf("result = %#v, want one BLOCK finding", result)
+	}
+	finding := result.Findings[0]
+	if finding.Impact != impact.TypeScalingRisk || finding.Consumer.Kind != domain.ConsumerKindAutoscaler ||
+		finding.Consumer.Name != "orders-worker" || finding.Criticality != domain.CriticalityCritical || finding.Uncertain {
+		t.Fatalf("finding = %#v", finding)
+	}
+	if len(discovery.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", discovery.Diagnostics)
+	}
+
+	writeManifest("rate(old_metric[)")
+	incomplete, _, unresolved, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if incomplete.Status != safety.StatusIncomplete || len(incomplete.Findings) != 1 ||
+		!incomplete.Findings[0].Uncertain || len(unresolved.Diagnostics) != 1 || !unresolved.Diagnostics[0].Required {
+		t.Fatalf("incomplete = %#v, discovery = %#v", incomplete, unresolved)
+	}
+}
+
 func testConfiguration(sources config.Sources) config.Config {
 	return config.Config{
 		APIVersion: config.ConfigAPIVersion,
@@ -644,6 +707,7 @@ func absolutizePatterns(configuration *config.Config, root string) {
 		configuration.Sources.Grafana,
 		configuration.Sources.Sloth,
 		configuration.Sources.Pyrra,
+		configuration.Sources.KEDA,
 	}
 	for _, group := range groups {
 		for index := range group {

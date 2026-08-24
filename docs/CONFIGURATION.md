@@ -10,6 +10,9 @@ sources:
   prometheusRules:
     - path: ./monitoring/*.yaml
       required: true
+  keda:
+    - path: ./deploy/scaledobjects/*.yaml
+      required: true
 analysis:
   includeTransitiveDependencies: true
   unresolvedReferencePolicy: error
@@ -80,6 +83,7 @@ the requested inputs.
 
 Implemented sources and their failure semantics are documented in the
 [adapter guide](ADAPTERS.md), [Perses guide](PERSES.md),
-[runtime evidence guide](RUNTIME_EVIDENCE.md), and [Tempo guide](TEMPO.md).
+[runtime evidence guide](RUNTIME_EVIDENCE.md), [Tempo guide](TEMPO.md), and
+[KEDA guide](KEDA.md).
 Generic safety policy and migration-readiness policy remain separate as
 documented in the [safety engine guide](SAFETY_ENGINE.md).

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/grafana"
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/keda"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/persesusage"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/prometheusrules"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/pyrra"
@@ -144,6 +145,10 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 	loadPatterns(ctx, "pyrra", configuration.Sources.Pyrra, &discovery,
 		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
 			return (pyrra.Loader{Required: required}).LoadFile(ctx, path)
+		})
+	loadPatterns(ctx, "keda", configuration.Sources.KEDA, &discovery,
+		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
+			return (keda.Loader{Required: required}).LoadFile(ctx, path)
 		})
 	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, &discovery)
 	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)

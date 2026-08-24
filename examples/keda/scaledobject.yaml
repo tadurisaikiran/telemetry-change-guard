@@ -1,0 +1,19 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: orders-worker-scaler
+  namespace: commerce
+  labels:
+    app.kubernetes.io/environment: production
+spec:
+  scaleTargetRef:
+    name: orders-worker
+  minReplicaCount: 2
+  maxReplicaCount: 40
+  triggers:
+    - type: prometheus
+      name: checkout-request-rate
+      metadata:
+        serverAddress: http://prometheus.monitoring.svc.cluster.local:9090
+        threshold: "100"
+        query: sum(rate(checkout_requests_total{service="checkout"}[2m]))

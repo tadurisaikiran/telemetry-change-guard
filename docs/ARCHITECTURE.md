@@ -98,6 +98,11 @@ The consumer adapters normalize Prometheus rule YAML, PrometheusRule CRDs, Grafa
 dashboard JSON, Sloth SLO YAML, and Pyrra SLO YAML. Malformed or unresolved
 required input becomes a diagnostic rather than evidence of absence.
 
+`adapters/keda` reads local `keda.sh/v1alpha1` ScaledObjects and routes every
+Prometheus trigger query through the shared PromQL AST analyzer. Each trigger
+becomes an `autoscaler` consumer, which the impact layer independently maps to
+`SCALING_RISK`. Connection and authentication metadata is never retained.
+
 `adapters/persesusage` is an optional remote evidence boundary around the
 Perses metrics-usage HTTP API. It imports usage associations, then independently
 parses returned rule expressions and models recording-rule productions. It

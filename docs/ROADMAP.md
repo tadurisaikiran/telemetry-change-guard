@@ -40,11 +40,14 @@ deployment is supported.
   provider-neutral query-history format (Milestone 15).
 - Tempo-validated TraceQL consumers with explicit OpenTelemetry span/resource
   attribute mappings (Milestone 16).
+- KEDA ScaledObject Prometheus dependencies with production-aware autoscaler
+  criticality and deterministic `SCALING_RISK` enforcement.
 - Pinned live Prometheus/Grafana/Sloth migration lifecycle.
 
 ## Current release path
 
-1. Add prioritized control-plane adapters such as KEDA and Argo Rollouts.
+1. Add Argo Rollouts deployment-gate analysis as the next control-plane
+   adapter.
 2. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
    release-provenance, and reproducible-demo gates for the first TCG release.
 
