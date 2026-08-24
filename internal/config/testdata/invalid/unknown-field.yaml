@@ -1,0 +1,7 @@
+apiVersion: telemetry-migration/v1alpha1
+kind: Migration
+metadata:
+  name: unknown-field
+spec:
+  changes: []
+  surprise: true

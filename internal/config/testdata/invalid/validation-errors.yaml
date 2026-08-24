@@ -1,0 +1,24 @@
+apiVersion: telemetry-migration/v1alpha1
+kind: Migration
+metadata: {}
+spec:
+  changes:
+    - id: duplicate
+      kind: metric_rename
+      domain: prometheus
+      from:
+        metric: old_metric
+    - id: duplicate
+      kind: metric_remove
+      domain: prometheus
+      from:
+        metric: ""
+      to:
+        metric: replacement_metric
+    - id: label-change
+      kind: label_rename
+      domain: prometheus
+      from:
+        label: http_method
+      to:
+        label: http_method

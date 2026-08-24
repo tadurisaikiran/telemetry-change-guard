@@ -1,0 +1,33 @@
+apiVersion: telemetry-migration/v1alpha1
+kind: Migration
+metadata:
+  name: checkout-http-migration
+spec:
+  description: Migrate checkout telemetry to its new Prometheus contract.
+  changes:
+    - id: checkout-duration
+      kind: metric_rename
+      domain: prometheus
+      from:
+        metric: checkout_request_duration_seconds
+      to:
+        metric: checkout_server_request_duration_seconds
+    - id: checkout-legacy-total
+      kind: metric_remove
+      domain: prometheus
+      from:
+        metric: checkout_legacy_requests_total
+    - id: checkout-method
+      kind: label_rename
+      domain: prometheus
+      metric: checkout_server_request_duration_seconds
+      from:
+        label: http_method
+      to:
+        label: http_request_method
+    - id: checkout-node-label
+      kind: label_remove
+      domain: prometheus
+      metric: checkout_server_request_duration_seconds
+      from:
+        label: legacy_node

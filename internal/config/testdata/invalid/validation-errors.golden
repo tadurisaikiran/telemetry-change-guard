@@ -1,0 +1,8 @@
+migration manifest is invalid:
+  - metadata.name: is required
+  - spec.changes[0].to: is required for a rename
+  - spec.changes[1].id: duplicates spec.changes[0].id
+  - spec.changes[1].from.metric: is required
+  - spec.changes[1].to: must be omitted for a removal
+  - spec.changes[2].metric: parent metric is required for a label change
+  - spec.changes[2].to: must differ from the source of a rename

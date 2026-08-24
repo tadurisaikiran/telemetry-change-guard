@@ -1,0 +1,2 @@
+decode migration manifest: yaml: unmarshal errors:
+  line 7: field surprise not found in type config.migrationSpecDocument
