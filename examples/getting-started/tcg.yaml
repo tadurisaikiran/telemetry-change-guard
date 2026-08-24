@@ -1,0 +1,15 @@
+apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  prometheusRules:
+    - path: ./examples/getting-started/prometheus/*.yaml
+      required: true
+analysis:
+  includeTransitiveDependencies: true
+  unresolvedReferencePolicy: error
+policy:
+  failOnCriticalLegacyConsumer: true
+  failOnCriticalUnknown: true
+  minimumBlockingCriticality: high
+output:
+  formats: [console, json, markdown]
