@@ -20,9 +20,9 @@ Assets requiring protection include:
 ## Trust boundaries
 
 Local migration/configuration files, dashboards, comments, descriptions,
-expressions, CODEOWNERS entries, ownership metadata, dashboard tags, API
-responses, and model output are untrusted data. They never become instructions
-to TMR.
+expressions, CODEOWNERS entries, ownership metadata, dashboard tags, runtime
+query logs, API responses, and model output are untrusted data. They never
+become instructions to TMR.
 
 The deterministic parsers, graph, and readiness evaluator form the safety
 boundary. Optional adapters may add evidence or diagnostics but cannot mark a
@@ -58,6 +58,12 @@ errors and rendered output are redacted too. Pattern redaction cannot prove
 that arbitrary secret formats are absent, so users must inspect artifacts and
 the provider's data-retention policy before sending sensitive data remotely.
 
+Runtime evidence retains query text, timestamps, aggregate counts, and bounded
+origin details because they are needed for migration analysis. The Prometheus
+query-log decoder deliberately discards `clientIP`; TMR does not need it to
+establish a dependency. Users should still treat exported query text and rule
+paths as sensitive operational data.
+
 ## Decision integrity
 
 Only `internal/readiness` produces `READY`, `BLOCKED`, or `INCOMPLETE`. The AI
@@ -81,6 +87,10 @@ Configuration, adapter responses, explanation requests, provider responses,
 stderr, and execution time are bounded. AI providers have a maximum two-minute
 timeout. Oversized or malformed responses fail as tool errors instead of being
 partially trusted.
+
+Runtime query input has explicit file, line, record, query, origin, and window
+limits. Time windows are anchored to the newest valid event, not wall time, to
+avoid nondeterministic results and clock-dependent safety decisions.
 
 Deterministic graph traversal is cycle-safe. Parser fuzz tests and live failure
 scenarios protect against malformed inputs and fail-open regressions.

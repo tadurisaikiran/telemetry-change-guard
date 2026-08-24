@@ -137,5 +137,6 @@ func sourceCount(configuration config.Config) int {
 		len(configuration.Sources.Grafana) +
 		len(configuration.Sources.Sloth) +
 		len(configuration.Sources.Pyrra) +
-		len(configuration.Sources.PersesUsage)
+		len(configuration.Sources.PersesUsage) +
+		len(configuration.Sources.RuntimeQueries)
 }

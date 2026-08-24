@@ -52,7 +52,9 @@ It contains:
   criticality, classification, change, and consumer ID;
 - advisory owner, provenance, confidence, and ambiguity when deterministic
   ownership discovery found them;
-- relevant reference evidence and readable dependency paths; and
+- relevant reference evidence and readable dependency paths;
+- bounded runtime execution counts, observation ranges, windows, and origins
+  for included findings; and
 - adapter diagnostics.
 
 Already-migrated and unaffected repository contents are not transmitted. TMR

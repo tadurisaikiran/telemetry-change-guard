@@ -19,6 +19,9 @@ import (
 const (
 	ConfigAPIVersion = "tmr/v1alpha1"
 	maxConfigBytes   = 1 << 20
+
+	RuntimeQueryFormatPrometheusLog = "prometheus_query_log"
+	RuntimeQueryFormatTMRHistory    = "tmr_query_history"
 )
 
 // SourcePattern configures one local filesystem source.
@@ -36,13 +39,24 @@ type PersesUsageSource struct {
 	BearerTokenEnv string `json:"bearerTokenEnv,omitempty"`
 }
 
+// RuntimeQuerySource configures one bounded local runtime-query export. Window
+// is anchored to the newest valid event in that file, never the wall clock.
+type RuntimeQuerySource struct {
+	Pattern     string `json:"pattern"`
+	Required    bool   `json:"required"`
+	Format      string `json:"format"`
+	Window      string `json:"window"`
+	Criticality string `json:"criticality"`
+}
+
 // Sources configures implemented local and optional remote consumer adapters.
 type Sources struct {
-	PrometheusRules []SourcePattern     `json:"prometheusRules,omitempty"`
-	Grafana         []SourcePattern     `json:"grafana,omitempty"`
-	Sloth           []SourcePattern     `json:"sloth,omitempty"`
-	Pyrra           []SourcePattern     `json:"pyrra,omitempty"`
-	PersesUsage     []PersesUsageSource `json:"persesUsage,omitempty"`
+	PrometheusRules []SourcePattern      `json:"prometheusRules,omitempty"`
+	Grafana         []SourcePattern      `json:"grafana,omitempty"`
+	Sloth           []SourcePattern      `json:"sloth,omitempty"`
+	Pyrra           []SourcePattern      `json:"pyrra,omitempty"`
+	PersesUsage     []PersesUsageSource  `json:"persesUsage,omitempty"`
+	RuntimeQueries  []RuntimeQuerySource `json:"runtimeQueries,omitempty"`
 }
 
 // AnalysisConfig controls graph behavior.
@@ -146,11 +160,12 @@ func (source *ownershipMetadataSourceDocument) UnmarshalYAML(node *yaml.Node) er
 }
 
 type sourcesDocument struct {
-	PrometheusRules []sourcePatternDocument     `yaml:"prometheusRules"`
-	Grafana         []sourcePatternDocument     `yaml:"grafana"`
-	Sloth           []sourcePatternDocument     `yaml:"sloth"`
-	Pyrra           []sourcePatternDocument     `yaml:"pyrra"`
-	PersesUsage     []persesUsageSourceDocument `yaml:"persesUsage"`
+	PrometheusRules []sourcePatternDocument      `yaml:"prometheusRules"`
+	Grafana         []sourcePatternDocument      `yaml:"grafana"`
+	Sloth           []sourcePatternDocument      `yaml:"sloth"`
+	Pyrra           []sourcePatternDocument      `yaml:"pyrra"`
+	PersesUsage     []persesUsageSourceDocument  `yaml:"persesUsage"`
+	RuntimeQueries  []runtimeQuerySourceDocument `yaml:"runtimeQueries"`
 }
 
 type persesUsageSourceDocument struct {
@@ -158,6 +173,14 @@ type persesUsageSourceDocument struct {
 	Required       *bool  `yaml:"required"`
 	Timeout        string `yaml:"timeout"`
 	BearerTokenEnv string `yaml:"bearerTokenEnv"`
+}
+
+type runtimeQuerySourceDocument struct {
+	Path        string `yaml:"path"`
+	Required    *bool  `yaml:"required"`
+	Format      string `yaml:"format"`
+	Window      string `yaml:"window"`
+	Criticality string `yaml:"criticality"`
 }
 
 type sourcePatternDocument struct {
@@ -304,6 +327,25 @@ func ValidateConfig(config Config) error {
 			issues.add(path+".bearerTokenEnv", "must be a valid environment variable name")
 		}
 	}
+	totalSources += len(config.Sources.RuntimeQueries)
+	for index, source := range config.Sources.RuntimeQueries {
+		path := fmt.Sprintf("sources.runtimeQueries[%d]", index)
+		if isBlank(source.Pattern) {
+			issues.add(path+".path", "is required")
+		}
+		switch source.Format {
+		case RuntimeQueryFormatPrometheusLog, RuntimeQueryFormatTMRHistory:
+		default:
+			issues.add(path+".format", fmt.Sprintf("must be %q or %q", RuntimeQueryFormatPrometheusLog, RuntimeQueryFormatTMRHistory))
+		}
+		window, err := time.ParseDuration(source.Window)
+		if err != nil || window < 0 || window > 365*24*time.Hour {
+			issues.add(path+".window", "must be a non-negative duration no greater than 8760h")
+		}
+		if !validCriticality(source.Criticality) {
+			issues.add(path+".criticality", "must be low, medium, high, or critical")
+		}
+	}
 	if config.Ownership.Enabled {
 		if isBlank(config.Ownership.RepositoryRoot) {
 			issues.add("ownership.repositoryRoot", "is required when ownership discovery is enabled")
@@ -328,9 +370,7 @@ func ValidateConfig(config Config) error {
 		config.Analysis.UnresolvedReferencePolicy != "error" {
 		issues.add("analysis.unresolvedReferencePolicy", `must be "warn" or "error"`)
 	}
-	switch config.Policy.MinimumBlockingCriticality {
-	case "low", "medium", "high", "critical":
-	default:
+	if !validCriticality(config.Policy.MinimumBlockingCriticality) {
 		issues.add("policy.minimumBlockingCriticality", "must be low, medium, high, or critical")
 	}
 	if len(config.Output.Formats) == 0 {
@@ -380,6 +420,7 @@ func normalizeConfig(document configDocument) Config {
 			Sloth:           normalizePatterns(document.Sources.Sloth),
 			Pyrra:           normalizePatterns(document.Sources.Pyrra),
 			PersesUsage:     normalizePersesUsageSources(document.Sources.PersesUsage),
+			RuntimeQueries:  normalizeRuntimeQuerySources(document.Sources.RuntimeQueries),
 		},
 		Ownership: normalizeOwnership(document.Ownership),
 		Analysis: AnalysisConfig{
@@ -392,6 +433,41 @@ func normalizeConfig(document configDocument) Config {
 			MinimumBlockingCriticality:   minimumCriticality,
 		},
 		Output: OutputConfig{Formats: formats},
+	}
+}
+
+func normalizeRuntimeQuerySources(documents []runtimeQuerySourceDocument) []RuntimeQuerySource {
+	sources := make([]RuntimeQuerySource, 0, len(documents))
+	for _, document := range documents {
+		required := true
+		if document.Required != nil {
+			required = *document.Required
+		}
+		window := strings.TrimSpace(document.Window)
+		if window == "" {
+			window = "0s"
+		}
+		criticality := strings.ToLower(strings.TrimSpace(document.Criticality))
+		if criticality == "" {
+			criticality = "high"
+		}
+		sources = append(sources, RuntimeQuerySource{
+			Pattern:     strings.TrimSpace(document.Path),
+			Required:    required,
+			Format:      strings.TrimSpace(document.Format),
+			Window:      window,
+			Criticality: criticality,
+		})
+	}
+	return sources
+}
+
+func validCriticality(value string) bool {
+	switch value {
+	case "low", "medium", "high", "critical":
+		return true
+	default:
+		return false
 	}
 }
 

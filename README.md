@@ -39,6 +39,8 @@ Implemented:
   validated by parsing, adapter reload, graph rebuild, and readiness reanalysis.
 - Optional advisory ownership discovery from explicit repository metadata,
   GitHub CODEOWNERS, and conventional Grafana tags.
+- Optional runtime PromQL evidence from bounded Prometheus query logs and a
+  provider-neutral, versioned JSONL history format.
 - A pinned live Prometheus/Grafana/Sloth migration lifecycle that verifies
   predictions against runtime behavior.
 
@@ -159,6 +161,27 @@ explicit TMR metadata, GitHub CODEOWNERS, and Grafana `team:`/`owner:` tags.
 Ownership provenance and ambiguity remain visible in JSON and optional AI
 explanations, but ownership never changes readiness. See
 [the ownership discovery guide](docs/OWNERSHIP.md).
+
+## Runtime query evidence
+
+TMR can add observed PromQL executions to configured dashboards, rules, and
+SLOs without treating an empty history as proof of non-use:
+
+```yaml
+sources:
+  runtimeQueries:
+    - path: ./evidence/prometheus-query.log
+      format: prometheus_query_log
+      window: 168h
+      criticality: high
+      required: true
+```
+
+Each expression is parsed with the official PromQL parser and reported with a
+deterministic execution count, first/last observation, origin, and evidence
+window. The window is anchored to the newest valid record in the file rather
+than the machine clock, so the same input produces the same result later. See
+[the runtime query evidence guide](docs/RUNTIME_EVIDENCE.md).
 
 ## Optional AI explanations
 

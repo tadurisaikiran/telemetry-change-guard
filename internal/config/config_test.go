@@ -172,3 +172,63 @@ ownership:
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestParseConfigSupportsRuntimeQuerySources(t *testing.T) {
+	t.Parallel()
+
+	configuration, err := ParseConfig(strings.NewReader(`apiVersion: tmr/v1alpha1
+sources:
+  runtimeQueries:
+    - path: ./runtime/prometheus-query.log
+      format: prometheus_query_log
+      window: 720h
+    - path: ./runtime/history.jsonl
+      format: tmr_query_history
+      required: false
+      criticality: critical
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(configuration.Sources.RuntimeQueries), 2; got != want {
+		t.Fatalf("runtime sources = %d, want %d", got, want)
+	}
+	first := configuration.Sources.RuntimeQueries[0]
+	if !first.Required || first.Window != "720h" || first.Criticality != "high" || first.Format != RuntimeQueryFormatPrometheusLog {
+		t.Fatalf("first runtime source = %#v", first)
+	}
+	second := configuration.Sources.RuntimeQueries[1]
+	if second.Required || second.Window != "0s" || second.Criticality != "critical" || second.Format != RuntimeQueryFormatTMRHistory {
+		t.Fatalf("second runtime source = %#v", second)
+	}
+}
+
+func TestParseConfigRejectsUnsafeRuntimeQuerySources(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseConfig(strings.NewReader(`apiVersion: tmr/v1alpha1
+sources:
+  runtimeQueries:
+    - path: ""
+      format: invented
+      window: -1s
+      criticality: urgent
+    - path: huge.log
+      format: prometheus_query_log
+      window: 8761h
+`))
+	if err == nil {
+		t.Fatal("ParseConfig() error = nil")
+	}
+	for _, expected := range []string{
+		"sources.runtimeQueries[0].path",
+		"sources.runtimeQueries[0].format",
+		"sources.runtimeQueries[0].window",
+		"sources.runtimeQueries[0].criticality",
+		"sources.runtimeQueries[1].window",
+	} {
+		if !strings.Contains(err.Error(), expected) {
+			t.Errorf("error = %q, want %q", err, expected)
+		}
+	}
+}

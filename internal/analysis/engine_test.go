@@ -215,6 +215,93 @@ func TestOwnershipEnrichmentDoesNotChangeReadiness(t *testing.T) {
 	}
 }
 
+func TestRuntimeQueryEvidenceIsAdditiveAndFailClosed(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	queryLog := filepath.Join(root, "query.log")
+	writeLog := func(contents string) {
+		t.Helper()
+		if err := os.WriteFile(queryLog, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	source := config.RuntimeQuerySource{
+		Pattern:     queryLog,
+		Required:    true,
+		Format:      config.RuntimeQueryFormatPrometheusLog,
+		Window:      "24h",
+		Criticality: "high",
+	}
+	configuration := testConfiguration(config.Sources{RuntimeQueries: []config.RuntimeQuerySource{source}})
+	migration := mustParseRemovalMigration(t)
+
+	writeLog(`{"params":{"query":"old_metric"},"ts":"2026-08-24T12:00:00Z"}` + "\n")
+	blocked, _, discovery, err := Run(context.Background(), configuration, migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocked.Summary.Status != readiness.StatusBlocked || len(discovery.Consumers) != 1 || discovery.Consumers[0].Runtime == nil {
+		t.Fatalf("blocked result = %+v consumers = %#v", blocked.Summary, discovery.Consumers)
+	}
+	if len(discovery.References) != 1 || discovery.References[0].Evidence.Method != domain.EvidenceMethodRuntimeQuery {
+		t.Fatalf("references = %#v", discovery.References)
+	}
+
+	writeLog(`{"params":{"query":"new_metric"},"ts":"2026-08-24T12:00:00Z"}` + "\n")
+	ready, _, _, err := Run(context.Background(), configuration, migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ready.Summary.Status != readiness.StatusReady {
+		t.Fatalf("new-only runtime status = %s, want READY", ready.Summary.Status)
+	}
+
+	writeLog("not-json\n")
+	incomplete, _, malformed, err := Run(context.Background(), configuration, migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if incomplete.Summary.Status != readiness.StatusIncomplete || len(malformed.Diagnostics) != 1 || !malformed.Diagnostics[0].Required {
+		t.Fatalf("malformed result = %+v diagnostics = %#v", incomplete.Summary, malformed.Diagnostics)
+	}
+
+	configuration.Sources.RuntimeQueries[0].Required = false
+	optional, _, _, err := Run(context.Background(), configuration, migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if optional.Summary.Status != readiness.StatusReady {
+		t.Fatalf("optional malformed runtime status = %s, want READY", optional.Summary.Status)
+	}
+
+	rulesPath := filepath.Join(root, "rules.yaml")
+	if err := os.WriteFile(rulesPath, []byte(`groups:
+  - name: runtime-absence
+    rules:
+      - alert: ConfiguredLegacyQuery
+        expr: old_metric > 0
+        labels: {severity: critical}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeLog("\n")
+	configuredAndEmptyRuntime := testConfiguration(config.Sources{
+		PrometheusRules: []config.SourcePattern{{Pattern: rulesPath, Required: true}},
+		RuntimeQueries: []config.RuntimeQuerySource{{
+			Pattern: queryLog, Required: true, Format: config.RuntimeQueryFormatPrometheusLog,
+			Window: "24h", Criticality: "high",
+		}},
+	})
+	stillBlocked, _, _, err := Run(context.Background(), configuredAndEmptyRuntime, migration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stillBlocked.Summary.Status != readiness.StatusBlocked {
+		t.Fatalf("empty runtime evidence weakened configured dependency: status = %s", stillBlocked.Summary.Status)
+	}
+}
+
 func testConfiguration(sources config.Sources) config.Config {
 	return config.Config{
 		APIVersion: config.ConfigAPIVersion,
