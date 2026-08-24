@@ -3,9 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
 )
 
 func TestRunValidateSuccess(t *testing.T) {
@@ -56,7 +62,7 @@ func TestRunValidateRequiresMigrationFlag(t *testing.T) {
 	if got, want := exitCode, 1; got != want {
 		t.Fatalf("exit code = %d, want %d", got, want)
 	}
-	if got, want := stderr.String(), "--migration is required\n"; got != want {
+	if got, want := stderr.String(), "--migration or --config is required\n"; got != want {
 		t.Errorf("stderr = %q, want %q", got, want)
 	}
 }
@@ -66,12 +72,104 @@ func TestRunRejectsUnknownCommand(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := run(context.Background(), []string{"analyze"}, &stdout, &stderr)
+	exitCode := run(context.Background(), []string{"bogus"}, &stdout, &stderr)
 
 	if got, want := exitCode, 1; got != want {
 		t.Fatalf("exit code = %d, want %d", got, want)
 	}
-	if got := stderr.String(); !strings.Contains(got, `unknown command "analyze"`) {
+	if got := stderr.String(); !strings.Contains(got, `unknown command "bogus"`) {
 		t.Errorf("stderr = %q, want unknown-command error", got)
+	}
+}
+
+func TestAnalyzeCLIContract(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Clean(filepath.Join("..", ".."))
+	command := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--",
+		"analyze",
+		"--config", "examples/checkout-migration/tmr.yaml",
+		"--migration", "examples/checkout-migration/migration.yaml",
+		"--format", "json",
+	)
+	command.Dir = root
+	command.Env = append(os.Environ(), "TMR_CLI_HELPER=1")
+	output, err := command.Output()
+	if err == nil {
+		t.Fatal("analyze succeeded, want blocked exit code 2")
+	}
+	var exitError *exec.ExitError
+	if !errorsAs(err, &exitError) || exitError.ExitCode() != 2 {
+		t.Fatalf("analyze error = %v, want exit code 2", err)
+	}
+	var result readiness.Result
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("decode report: %v\n%s", err, output)
+	}
+	if result.SchemaVersion != readiness.ResultSchemaVersion || result.Summary.Status != readiness.StatusBlocked {
+		t.Fatalf("result schema/status = %q/%q", result.SchemaVersion, result.Summary.Status)
+	}
+}
+
+func TestCheckoutReportGolden(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Clean(filepath.Join("..", ".."))
+	command := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--",
+		"analyze",
+		"--config", "examples/checkout-migration/tmr.yaml",
+		"--migration", "examples/checkout-migration/migration.yaml",
+		"--format", "json",
+	)
+	command.Dir = root
+	command.Env = append(os.Environ(), "TMR_CLI_HELPER=1")
+	actual, err := command.Output()
+	if exitError, ok := err.(*exec.ExitError); !ok || exitError.ExitCode() != 2 {
+		t.Fatalf("analyze error = %v, want blocked exit code 2", err)
+	}
+	expected, err := os.ReadFile(filepath.Join(root, "examples", "checkout-migration", "expected", "report.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(actual, expected) {
+		t.Fatalf("report differs from examples/checkout-migration/expected/report.json")
+	}
+}
+
+func TestCLIHelperProcess(t *testing.T) {
+	if os.Getenv("TMR_CLI_HELPER") != "1" {
+		return
+	}
+	separator := 0
+	for index, argument := range os.Args {
+		if argument == "--" {
+			separator = index + 1
+			break
+		}
+	}
+	os.Exit(run(context.Background(), os.Args[separator:], os.Stdout, os.Stderr))
+}
+
+func errorsAs(err error, target **exec.ExitError) bool {
+	exitError, ok := err.(*exec.ExitError)
+	if ok {
+		*target = exitError
+	}
+	return ok
+}
+
+func TestReadinessExitCodesArePermanentContract(t *testing.T) {
+	t.Parallel()
+	for status, expected := range map[readiness.Status]int{
+		readiness.StatusReady:      0,
+		readiness.StatusBlocked:    2,
+		readiness.StatusIncomplete: 3,
+		readiness.StatusError:      1,
+	} {
+		t.Run(string(status), func(t *testing.T) {
+			if actual := readinessExitCode(status); actual != expected {
+				t.Fatalf("readinessExitCode(%s) = %s, want %d", status, strconv.Itoa(actual), expected)
+			}
+		})
 	}
 }

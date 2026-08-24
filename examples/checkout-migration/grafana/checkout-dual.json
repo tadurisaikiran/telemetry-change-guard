@@ -1,0 +1,17 @@
+{
+  "uid": "checkout-dual",
+  "title": "Checkout Dual Compatible",
+  "panels": [
+    {
+      "id": 3,
+      "title": "Dual request rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m])) or sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))"
+        }
+      ]
+    }
+  ]
+}

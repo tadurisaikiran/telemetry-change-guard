@@ -25,8 +25,8 @@ const (
 // Parent is required for labels and contains the parent metric name. It is
 // empty for metrics.
 type Symbol struct {
-	Domain Domain
-	Kind   SymbolKind
-	Name   string
-	Parent string
+	Domain Domain     `json:"domain"`
+	Kind   SymbolKind `json:"kind"`
+	Name   string     `json:"name"`
+	Parent string     `json:"parent,omitempty"`
 }

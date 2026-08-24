@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: payment-rules
+spec:
+  groups:
+    - name: payment
+      rules:
+        - record: payment:error_rate
+          expr: rate(payment_requests_total{status=~"5.."}[5m])
+        - alert: PaymentErrorsHigh
+          expr: payment:error_rate > 0.1
+          labels:
+            severity: warning

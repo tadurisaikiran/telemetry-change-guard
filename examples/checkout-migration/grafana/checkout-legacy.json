@@ -1,0 +1,18 @@
+{
+  "uid": "checkout-legacy",
+  "title": "Checkout Legacy",
+  "tags": ["production"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Legacy request rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))"
+        }
+      ]
+    }
+  ]
+}

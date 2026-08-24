@@ -1,0 +1,14 @@
+groups:
+  - name: checkout
+    rules:
+      - record: checkout:p95_latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            rate(checkout_request_duration_seconds_bucket{http_method="GET"}[5m])
+          )
+      - alert: CheckoutLatencyHigh
+        expr: checkout:p95_latency > 1
+        for: 10m
+        labels:
+          severity: page

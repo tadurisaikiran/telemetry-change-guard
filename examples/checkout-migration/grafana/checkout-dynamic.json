@@ -1,0 +1,18 @@
+{
+  "uid": "checkout-dynamic",
+  "title": "Checkout Dynamic",
+  "tags": ["critical"],
+  "panels": [
+    {
+      "id": 4,
+      "title": "Dynamic request duration",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(${service}_request_duration_seconds_count[5m])"
+        }
+      ]
+    }
+  ]
+}

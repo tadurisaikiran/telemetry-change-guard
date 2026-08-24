@@ -14,10 +14,17 @@ import (
 const usageText = `Telemetry Migration Readiness
 
 Usage:
+  tmr analyze --config <path> --migration <path> [--format console|json|markdown]
   tmr validate --migration <path>
+  tmr validate --config <path>
+  tmr explain --config <path> --symbol <metric>
+  tmr graph --config <path> [--output <path>]
 
 Commands:
-  validate  Validate a migration manifest
+  analyze   Analyze migration readiness
+  validate  Validate configuration and migration manifests
+  explain   Explain dependency paths for one Prometheus metric
+  graph     Export the dependency graph as JSON
 `
 
 func main() {
@@ -31,8 +38,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 
 	switch args[0] {
+	case "analyze":
+		return runAnalyze(ctx, args[1:], stdout, stderr)
 	case "validate":
 		return runValidate(ctx, args[1:], stdout, stderr)
+	case "explain":
+		return runExplain(ctx, args[1:], stdout, stderr)
+	case "graph":
+		return runGraph(ctx, args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usageText)
 		return 0
@@ -51,6 +64,7 @@ func runValidate(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 
 	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
+	configPath := flags.String("config", "", "path to a TMR YAML configuration")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -61,18 +75,35 @@ func runValidate(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		fmt.Fprintf(stderr, "validate does not accept positional arguments: %v\n", flags.Args())
 		return 1
 	}
-	if *migrationPath == "" {
-		fmt.Fprintln(stderr, "--migration is required")
+	if *migrationPath == "" && *configPath == "" {
+		fmt.Fprintln(stderr, "--migration or --config is required")
 		return 1
 	}
 
-	migration, err := config.LoadMigration(ctx, *migrationPath)
-	if err != nil {
-		fmt.Fprintf(stderr, "Error: %v\n", err)
-		return 1
+	if *migrationPath != "" {
+		migration, err := config.LoadMigration(ctx, *migrationPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, "Migration manifest is valid.")
+		fmt.Fprintf(stdout, "Changes: %d\n", len(migration.Changes))
 	}
-
-	fmt.Fprintln(stdout, "Migration manifest is valid.")
-	fmt.Fprintf(stdout, "Changes: %d\n", len(migration.Changes))
+	if *configPath != "" {
+		configuration, err := config.LoadConfig(ctx, *configPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, "TMR configuration is valid.")
+		fmt.Fprintf(stdout, "Sources: %d\n", sourceCount(configuration))
+	}
 	return 0
+}
+
+func sourceCount(configuration config.Config) int {
+	return len(configuration.Sources.PrometheusRules) +
+		len(configuration.Sources.Grafana) +
+		len(configuration.Sources.Sloth) +
+		len(configuration.Sources.Pyrra)
 }

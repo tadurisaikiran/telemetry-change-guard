@@ -1,0 +1,17 @@
+{
+  "uid": "unrelated",
+  "title": "Unrelated Infrastructure",
+  "panels": [
+    {
+      "id": 5,
+      "title": "CPU",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(process_cpu_seconds_total[5m]))"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "uid": "checkout-migrated",
+  "title": "Checkout Migrated",
+  "tags": ["production"],
+  "panels": [
+    {
+      "id": 2,
+      "title": "Migrated request rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))"
+        }
+      ]
+    }
+  ]
+}

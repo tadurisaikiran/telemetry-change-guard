@@ -1,0 +1,852 @@
+{
+  "schemaVersion": "tmr-result/v1alpha1",
+  "migration": {
+    "apiVersion": "telemetry-migration/v1alpha1",
+    "kind": "Migration",
+    "metadata": {
+      "name": "checkout-http-migration"
+    },
+    "description": "Migrate checkout HTTP duration telemetry to the new contract.",
+    "changes": [
+      {
+        "id": "checkout-duration",
+        "kind": "metric_rename",
+        "domain": "prometheus",
+        "from": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "checkout_request_duration_seconds"
+        },
+        "to": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "checkout_server_request_duration_seconds"
+        }
+      },
+      {
+        "id": "checkout-method",
+        "kind": "label_rename",
+        "domain": "prometheus",
+        "from": {
+          "domain": "prometheus",
+          "kind": "label",
+          "name": "http_method",
+          "parent": "checkout_server_request_duration_seconds"
+        },
+        "to": {
+          "domain": "prometheus",
+          "kind": "label",
+          "name": "http_request_method",
+          "parent": "checkout_server_request_duration_seconds"
+        }
+      }
+    ]
+  },
+  "summary": {
+    "status": "BLOCKED",
+    "totalConsumers": 9,
+    "legacyOnly": 4,
+    "migrated": 2,
+    "dual": 1,
+    "unaffected": 1,
+    "uncertain": 1,
+    "progressPercent": 37
+  },
+  "changes": [
+    {
+      "change": {
+        "id": "checkout-duration",
+        "kind": "metric_rename",
+        "domain": "prometheus",
+        "from": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "checkout_request_duration_seconds"
+        },
+        "to": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "checkout_server_request_duration_seconds"
+        }
+      },
+      "status": "BLOCKED",
+      "consumers": [
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Dual Compatible / Dual request rate [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-dual.json"
+            },
+            "criticality": "medium",
+            "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m])) or sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+            "metadata": {
+              "dashboard_title": "Checkout Dual Compatible",
+              "dashboard_uid": "checkout-dual",
+              "panel_id": "3",
+              "panel_title": "Dual request rate",
+              "ref_id": "A"
+            }
+          },
+          "classification": "DUAL",
+          "references": [
+            {
+              "consumerId": "grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/grafana/checkout-dual.json"
+                },
+                "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m])) or sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            },
+            {
+              "consumerId": "grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/grafana/checkout-dual.json"
+                },
+                "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m])) or sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_request_duration_seconds_count",
+                "consumer:grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A"
+              ],
+              "Edges": [
+                "references"
+              ]
+            },
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_server_request_duration_seconds_count",
+                "consumer:grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-dynamic.json:checkout-dynamic:panel:4:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Dynamic / Dynamic request duration [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-dynamic.json"
+            },
+            "criticality": "critical",
+            "expression": "rate(${service}_request_duration_seconds_count[5m])",
+            "metadata": {
+              "dashboard_title": "Checkout Dynamic",
+              "dashboard_uid": "checkout-dynamic",
+              "panel_id": "4",
+              "panel_title": "Dynamic request duration",
+              "ref_id": "A"
+            },
+            "unresolved": true
+          },
+          "classification": "UNCERTAIN"
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-legacy.json:checkout-legacy:panel:1:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Legacy / Legacy request rate [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-legacy.json"
+            },
+            "criticality": "high",
+            "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))",
+            "metadata": {
+              "dashboard_title": "Checkout Legacy",
+              "dashboard_uid": "checkout-legacy",
+              "panel_id": "1",
+              "panel_title": "Legacy request rate",
+              "ref_id": "A"
+            }
+          },
+          "classification": "LEGACY_ONLY",
+          "references": [
+            {
+              "consumerId": "grafana:examples/checkout-migration/grafana/checkout-legacy.json:checkout-legacy:panel:1:A",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/grafana/checkout-legacy.json"
+                },
+                "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_request_duration_seconds_count",
+                "consumer:grafana:examples/checkout-migration/grafana/checkout-legacy.json:checkout-legacy:panel:1:A"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-migrated.json:checkout-migrated:panel:2:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Migrated / Migrated request rate [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-migrated.json"
+            },
+            "criticality": "high",
+            "expression": "sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+            "metadata": {
+              "dashboard_title": "Checkout Migrated",
+              "dashboard_uid": "checkout-migrated",
+              "panel_id": "2",
+              "panel_title": "Migrated request rate",
+              "ref_id": "A"
+            }
+          },
+          "classification": "MIGRATED",
+          "references": [
+            {
+              "consumerId": "grafana:examples/checkout-migration/grafana/checkout-migrated.json:checkout-migrated:panel:2:A",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/grafana/checkout-migrated.json"
+                },
+                "expression": "sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_server_request_duration_seconds_count",
+                "consumer:grafana:examples/checkout-migration/grafana/checkout-migrated.json:checkout-migrated:panel:2:A"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/unrelated.json:unrelated:panel:5:A",
+            "kind": "dashboard_panel",
+            "name": "Unrelated Infrastructure / CPU [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/unrelated.json"
+            },
+            "criticality": "medium",
+            "expression": "sum(rate(process_cpu_seconds_total[5m]))",
+            "metadata": {
+              "dashboard_title": "Unrelated Infrastructure",
+              "dashboard_uid": "unrelated",
+              "panel_id": "5",
+              "panel_title": "CPU",
+              "ref_id": "A"
+            }
+          },
+          "classification": "UNAFFECTED"
+        },
+        {
+          "consumer": {
+            "id": "prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:alert:CheckoutLatencyHigh:1",
+            "kind": "alert_rule",
+            "name": "CheckoutLatencyHigh",
+            "source": {
+              "file": "examples/checkout-migration/prometheus/rules.yaml",
+              "line": 12,
+              "column": 9
+            },
+            "criticality": "critical",
+            "expression": "checkout:p95_latency \u003e 1",
+            "metadata": {
+              "for": "10m",
+              "group": "checkout"
+            }
+          },
+          "classification": "LEGACY_ONLY",
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_request_duration_seconds_bucket",
+                "consumer:prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:record:checkout:p95_latency:0",
+                "symbol:prometheus:metric::checkout:p95_latency",
+                "consumer:prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:alert:CheckoutLatencyHigh:1"
+              ],
+              "Edges": [
+                "references",
+                "produces",
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:record:checkout:p95_latency:0",
+            "kind": "recording_rule",
+            "name": "checkout:p95_latency",
+            "source": {
+              "file": "examples/checkout-migration/prometheus/rules.yaml",
+              "line": 4,
+              "column": 9
+            },
+            "criticality": "high",
+            "expression": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(checkout_request_duration_seconds_bucket{http_method=\"GET\"}[5m])\n  )\n)\n",
+            "metadata": {
+              "group": "checkout"
+            }
+          },
+          "classification": "LEGACY_ONLY",
+          "references": [
+            {
+              "consumerId": "prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:record:checkout:p95_latency:0",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_request_duration_seconds_bucket"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/prometheus/rules.yaml",
+                  "line": 4,
+                  "column": 9
+                },
+                "expression": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(checkout_request_duration_seconds_bucket{http_method=\"GET\"}[5m])\n  )\n)\n",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_request_duration_seconds_bucket",
+                "consumer:prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:record:checkout:p95_latency:0"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1",
+            "kind": "slo",
+            "name": "checkout-migrated-availability",
+            "source": {
+              "file": "examples/checkout-migration/pyrra/checkout-slo.yaml",
+              "line": 1,
+              "column": 1
+            },
+            "criticality": "critical",
+            "expression": "checkout_server_request_duration_seconds_count{http_request_method=\"GET\", status=~\"5..\"}\ncheckout_server_request_duration_seconds_count{http_request_method=\"GET\"}",
+            "metadata": {
+              "api_version": "pyrra.dev/v1alpha1"
+            }
+          },
+          "classification": "MIGRATED",
+          "references": [
+            {
+              "consumerId": "pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/pyrra/checkout-slo.yaml",
+                  "line": 1,
+                  "column": 1
+                },
+                "expression": "checkout_server_request_duration_seconds_count{http_request_method=\"GET\", status=~\"5..\"}",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            },
+            {
+              "consumerId": "pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/pyrra/checkout-slo.yaml",
+                  "line": 1,
+                  "column": 1
+                },
+                "expression": "checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_server_request_duration_seconds_count",
+                "consumer:pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "sloth:examples/checkout-migration/sloth/checkout-slo.yaml:checkout:availability:0",
+            "kind": "slo",
+            "name": "checkout / availability",
+            "source": {
+              "file": "examples/checkout-migration/sloth/checkout-slo.yaml",
+              "line": 4,
+              "column": 5
+            },
+            "criticality": "critical",
+            "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\", status=~\"5..\"}[5m]))\n\nsum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))\n",
+            "metadata": {
+              "objective": "99.9",
+              "service": "checkout"
+            }
+          },
+          "classification": "LEGACY_ONLY",
+          "references": [
+            {
+              "consumerId": "sloth:examples/checkout-migration/sloth/checkout-slo.yaml:checkout:availability:0",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/sloth/checkout-slo.yaml",
+                  "line": 4,
+                  "column": 5
+                },
+                "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\", status=~\"5..\"}[5m]))\n",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            },
+            {
+              "consumerId": "sloth:examples/checkout-migration/sloth/checkout-slo.yaml:checkout:availability:0",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "metric",
+                "name": "checkout_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/sloth/checkout-slo.yaml",
+                  "line": 4,
+                  "column": 5
+                },
+                "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))\n",
+                "explanation": "metric selector"
+              },
+              "usage": "selector"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:metric::checkout_request_duration_seconds_count",
+                "consumer:sloth:examples/checkout-migration/sloth/checkout-slo.yaml:checkout:availability:0"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "change": {
+        "id": "checkout-method",
+        "kind": "label_rename",
+        "domain": "prometheus",
+        "from": {
+          "domain": "prometheus",
+          "kind": "label",
+          "name": "http_method",
+          "parent": "checkout_server_request_duration_seconds"
+        },
+        "to": {
+          "domain": "prometheus",
+          "kind": "label",
+          "name": "http_request_method",
+          "parent": "checkout_server_request_duration_seconds"
+        }
+      },
+      "status": "INCOMPLETE",
+      "consumers": [
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Dual Compatible / Dual request rate [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-dual.json"
+            },
+            "criticality": "medium",
+            "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m])) or sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+            "metadata": {
+              "dashboard_title": "Checkout Dual Compatible",
+              "dashboard_uid": "checkout-dual",
+              "panel_id": "3",
+              "panel_title": "Dual request rate",
+              "ref_id": "A"
+            }
+          },
+          "classification": "MIGRATED",
+          "references": [
+            {
+              "consumerId": "grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "label",
+                "name": "http_request_method",
+                "parent": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/grafana/checkout-dual.json"
+                },
+                "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m])) or sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+                "explanation": "label matcher"
+              },
+              "usage": "filter"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:label:checkout_server_request_duration_seconds_count:http_request_method",
+                "consumer:grafana:examples/checkout-migration/grafana/checkout-dual.json:checkout-dual:panel:3:A"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-dynamic.json:checkout-dynamic:panel:4:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Dynamic / Dynamic request duration [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-dynamic.json"
+            },
+            "criticality": "critical",
+            "expression": "rate(${service}_request_duration_seconds_count[5m])",
+            "metadata": {
+              "dashboard_title": "Checkout Dynamic",
+              "dashboard_uid": "checkout-dynamic",
+              "panel_id": "4",
+              "panel_title": "Dynamic request duration",
+              "ref_id": "A"
+            },
+            "unresolved": true
+          },
+          "classification": "UNCERTAIN"
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-legacy.json:checkout-legacy:panel:1:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Legacy / Legacy request rate [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-legacy.json"
+            },
+            "criticality": "high",
+            "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))",
+            "metadata": {
+              "dashboard_title": "Checkout Legacy",
+              "dashboard_uid": "checkout-legacy",
+              "panel_id": "1",
+              "panel_title": "Legacy request rate",
+              "ref_id": "A"
+            }
+          },
+          "classification": "UNAFFECTED"
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/checkout-migrated.json:checkout-migrated:panel:2:A",
+            "kind": "dashboard_panel",
+            "name": "Checkout Migrated / Migrated request rate [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/checkout-migrated.json"
+            },
+            "criticality": "high",
+            "expression": "sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+            "metadata": {
+              "dashboard_title": "Checkout Migrated",
+              "dashboard_uid": "checkout-migrated",
+              "panel_id": "2",
+              "panel_title": "Migrated request rate",
+              "ref_id": "A"
+            }
+          },
+          "classification": "MIGRATED",
+          "references": [
+            {
+              "consumerId": "grafana:examples/checkout-migration/grafana/checkout-migrated.json:checkout-migrated:panel:2:A",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "label",
+                "name": "http_request_method",
+                "parent": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/grafana/checkout-migrated.json"
+                },
+                "expression": "sum(rate(checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}[5m]))",
+                "explanation": "label matcher"
+              },
+              "usage": "filter"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:label:checkout_server_request_duration_seconds_count:http_request_method",
+                "consumer:grafana:examples/checkout-migration/grafana/checkout-migrated.json:checkout-migrated:panel:2:A"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "grafana:examples/checkout-migration/grafana/unrelated.json:unrelated:panel:5:A",
+            "kind": "dashboard_panel",
+            "name": "Unrelated Infrastructure / CPU [A]",
+            "source": {
+              "file": "examples/checkout-migration/grafana/unrelated.json"
+            },
+            "criticality": "medium",
+            "expression": "sum(rate(process_cpu_seconds_total[5m]))",
+            "metadata": {
+              "dashboard_title": "Unrelated Infrastructure",
+              "dashboard_uid": "unrelated",
+              "panel_id": "5",
+              "panel_title": "CPU",
+              "ref_id": "A"
+            }
+          },
+          "classification": "UNAFFECTED"
+        },
+        {
+          "consumer": {
+            "id": "prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:alert:CheckoutLatencyHigh:1",
+            "kind": "alert_rule",
+            "name": "CheckoutLatencyHigh",
+            "source": {
+              "file": "examples/checkout-migration/prometheus/rules.yaml",
+              "line": 12,
+              "column": 9
+            },
+            "criticality": "critical",
+            "expression": "checkout:p95_latency \u003e 1",
+            "metadata": {
+              "for": "10m",
+              "group": "checkout"
+            }
+          },
+          "classification": "UNAFFECTED"
+        },
+        {
+          "consumer": {
+            "id": "prometheus:examples/checkout-migration/prometheus/rules.yaml:1:checkout:record:checkout:p95_latency:0",
+            "kind": "recording_rule",
+            "name": "checkout:p95_latency",
+            "source": {
+              "file": "examples/checkout-migration/prometheus/rules.yaml",
+              "line": 4,
+              "column": 9
+            },
+            "criticality": "high",
+            "expression": "histogram_quantile(\n  0.95,\n  sum by (le) (\n    rate(checkout_request_duration_seconds_bucket{http_method=\"GET\"}[5m])\n  )\n)\n",
+            "metadata": {
+              "group": "checkout"
+            }
+          },
+          "classification": "UNAFFECTED"
+        },
+        {
+          "consumer": {
+            "id": "pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1",
+            "kind": "slo",
+            "name": "checkout-migrated-availability",
+            "source": {
+              "file": "examples/checkout-migration/pyrra/checkout-slo.yaml",
+              "line": 1,
+              "column": 1
+            },
+            "criticality": "critical",
+            "expression": "checkout_server_request_duration_seconds_count{http_request_method=\"GET\", status=~\"5..\"}\ncheckout_server_request_duration_seconds_count{http_request_method=\"GET\"}",
+            "metadata": {
+              "api_version": "pyrra.dev/v1alpha1"
+            }
+          },
+          "classification": "MIGRATED",
+          "references": [
+            {
+              "consumerId": "pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "label",
+                "name": "http_request_method",
+                "parent": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/pyrra/checkout-slo.yaml",
+                  "line": 1,
+                  "column": 1
+                },
+                "expression": "checkout_server_request_duration_seconds_count{http_request_method=\"GET\", status=~\"5..\"}",
+                "explanation": "label matcher"
+              },
+              "usage": "filter"
+            },
+            {
+              "consumerId": "pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1",
+              "symbol": {
+                "domain": "prometheus",
+                "kind": "label",
+                "name": "http_request_method",
+                "parent": "checkout_server_request_duration_seconds_count"
+              },
+              "evidence": {
+                "method": "promql_ast",
+                "confidence": "confirmed",
+                "source": {
+                  "file": "examples/checkout-migration/pyrra/checkout-slo.yaml",
+                  "line": 1,
+                  "column": 1
+                },
+                "expression": "checkout_server_request_duration_seconds_count{http_request_method=\"GET\"}",
+                "explanation": "label matcher"
+              },
+              "usage": "filter"
+            }
+          ],
+          "paths": [
+            {
+              "Nodes": [
+                "symbol:prometheus:label:checkout_server_request_duration_seconds_count:http_request_method",
+                "consumer:pyrra:examples/checkout-migration/pyrra/checkout-slo.yaml:checkout-migrated-availability:1"
+              ],
+              "Edges": [
+                "references"
+              ]
+            }
+          ]
+        },
+        {
+          "consumer": {
+            "id": "sloth:examples/checkout-migration/sloth/checkout-slo.yaml:checkout:availability:0",
+            "kind": "slo",
+            "name": "checkout / availability",
+            "source": {
+              "file": "examples/checkout-migration/sloth/checkout-slo.yaml",
+              "line": 4,
+              "column": 5
+            },
+            "criticality": "critical",
+            "expression": "sum(rate(checkout_request_duration_seconds_count{http_method=\"GET\", status=~\"5..\"}[5m]))\n\nsum(rate(checkout_request_duration_seconds_count{http_method=\"GET\"}[5m]))\n",
+            "metadata": {
+              "objective": "99.9",
+              "service": "checkout"
+            }
+          },
+          "classification": "UNAFFECTED"
+        }
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "adapter": "grafana",
+      "source": {
+        "file": "examples/checkout-migration/grafana/checkout-dynamic.json"
+      },
+      "message": "expression contains an unresolved template variable",
+      "required": true
+    }
+  ]
+}

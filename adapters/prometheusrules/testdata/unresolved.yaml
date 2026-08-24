@@ -1,0 +1,5 @@
+groups:
+  - name: checkout
+    rules:
+      - alert: BrokenQuery
+        expr: rate(checkout_requests_total[)

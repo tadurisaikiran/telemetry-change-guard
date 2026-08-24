@@ -1,0 +1,26 @@
+apiVersion: tmr/v1alpha1
+sources:
+  prometheusRules:
+    - path: ./examples/checkout-migration/prometheus/*.yaml
+      required: true
+  grafana:
+    - path: ./examples/checkout-migration/grafana/*.json
+      required: true
+  sloth:
+    - path: ./examples/checkout-migration/sloth/*.yaml
+      required: true
+  pyrra:
+    - path: ./examples/checkout-migration/pyrra/*.yaml
+      required: true
+analysis:
+  includeTransitiveDependencies: true
+  unresolvedReferencePolicy: warn
+policy:
+  failOnCriticalLegacyConsumer: true
+  failOnCriticalUnknown: true
+  minimumBlockingCriticality: high
+output:
+  formats:
+    - console
+    - json
+    - markdown

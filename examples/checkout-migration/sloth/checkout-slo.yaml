@@ -1,0 +1,11 @@
+version: prometheus/v1
+service: checkout
+slos:
+  - name: availability
+    objective: 99.9
+    sli:
+      events:
+        error_query: |
+          sum(rate(checkout_request_duration_seconds_count{http_method="GET", status=~"5.."}[5m]))
+        total_query: |
+          sum(rate(checkout_request_duration_seconds_count{http_method="GET"}[5m]))

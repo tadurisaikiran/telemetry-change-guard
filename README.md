@@ -11,17 +11,22 @@ those migrations before backward compatibility is removed.
 
 ## Current status
 
-The project is in its first implementation milestone. The current CLI validates
-the canonical migration manifest. Consumer discovery, dependency analysis, and
-readiness decisions are roadmap capabilities and are not implemented yet.
+The deterministic Prometheus v0.1 engine is implemented through the reporting
+milestone. It works entirely from local files and does not require AI, a
+database, a network connection, or a hosted service.
 
-Implemented in v0.1 foundation:
+Implemented:
 
 - Prometheus-domain metric renames and removals.
 - Prometheus-domain label renames and removals.
 - Strict YAML decoding with unknown-field rejection.
-- Deterministic semantic validation with actionable field paths.
-- A local `tmr validate` command.
+- Official Prometheus PromQL AST analysis, including selectors, matchers,
+  aggregations, vector matching, and label functions.
+- Prometheus rule, PrometheusRule CRD, Grafana, Sloth, and Pyrra adapters.
+- Cycle-safe transitive dependency graphs through recording rules.
+- Fail-closed `READY`, `BLOCKED`, and `INCOMPLETE` decisions.
+- Console, versioned JSON, Markdown, and graph JSON output.
+- `analyze`, `validate`, `explain`, and `graph` CLI commands.
 
 ## Requirements
 
@@ -32,6 +37,9 @@ Implemented in v0.1 foundation:
 ```bash
 go build -o ./bin/tmr ./cmd/tmr
 ./bin/tmr validate --migration ./examples/checkout-migration/migration.yaml
+./bin/tmr analyze \
+  --config ./examples/checkout-migration/tmr.yaml \
+  --migration ./examples/checkout-migration/migration.yaml
 ```
 
 Successful validation prints:
@@ -42,6 +50,10 @@ Changes: 2
 ```
 
 Invalid input is written to standard error and returns a nonzero exit code.
+
+The analysis exit-code contract is permanent: `0` means policy passed, `1`
+means a tool/configuration/runtime error, `2` means the migration is blocked,
+and `3` means required evidence is incomplete.
 
 ## Example manifest
 
@@ -76,12 +88,12 @@ schema and validation rules.
 
 ## Design principles
 
-- Deterministic analysis owns facts and future safety decisions.
+- Deterministic analysis owns facts and safety decisions.
 - Parsing or adapter failures must never be interpreted as absence of risk.
 - TMR remains useful without an LLM, network connection, database, or hosted
   service.
 - Telemetry domains remain separate unless an explicit mapping connects them.
-- Every future dependency finding must retain evidence and provenance.
+- Every dependency finding retains evidence and provenance.
 
 The architecture and milestone boundaries are documented in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The mandatory verification plan is

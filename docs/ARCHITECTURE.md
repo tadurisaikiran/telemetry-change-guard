@@ -8,7 +8,7 @@ downstream consumers. The long-term product answers three questions:
 3. Has deterministic policy established that backward compatibility can be
    removed?
 
-Only the migration-model foundation described below is implemented today.
+The local deterministic pipeline described below is implemented today.
 
 ## Non-negotiable rules
 
@@ -22,22 +22,25 @@ Only the migration-model foundation described below is implemented today.
 7. External systems enter through adapters and do not shape the core model.
 8. The core remains local-first and does not phone home.
 
-## Implemented foundation
+## Implemented deterministic pipeline
 
 ```text
-YAML manifest
-     |
-     v
-strict config decoder
-     |
-     v
-shape + semantic validation
-     |
-     v
-canonical domain.Migration
-     |
-     v
-tmr validate
+migration + source configuration
+             |
+             v
+strict validation and local adapters
+             |
+             v
+official PromQL AST reference extraction
+             |
+             v
+in-memory dependency graph
+             |
+             v
+deterministic impact + readiness policy
+             |
+             v
+console / JSON / Markdown reports
 ```
 
 `internal/config` owns YAML-specific document structs. It rejects unknown
@@ -45,37 +48,33 @@ fields, multiple YAML documents, oversized input, and invalid change shapes.
 It then normalizes the document into `internal/domain` and applies reusable
 domain validation.
 
-`internal/domain` contains only the implemented canonical concepts: migration,
-change, domain, and symbol. It intentionally contains no Grafana, Prometheus
-rule, graph, evidence, AI, or persistence abstractions yet.
+`internal/domain` contains vendor-neutral migrations, symbols, consumers,
+references, evidence, productions, diagnostics, source locations, and owners.
+Adapter-specific document shapes never leak into this package.
 
-`cmd/tmr` is a thin CLI boundary. It converts validation outcomes to human
-output and process exit behavior without embedding migration rules.
+`adapters` normalizes Prometheus rule YAML, PrometheusRule CRDs, Grafana
+dashboard JSON, Sloth SLO YAML, and Pyrra SLO YAML. Malformed or unresolved
+required input becomes a diagnostic rather than evidence of absence.
 
-## Planned deterministic pipeline
+`pkg/promql` uses Prometheus's official parser and walks the typed AST. It does
+not use substring matching to establish metric or label dependencies.
 
-Later milestones will add components in this order:
+`internal/graph`, `internal/impact`, and `internal/readiness` form the safety
+core. The graph is rebuilt in memory for every run, traversal is cycle-safe,
+and the readiness evaluator is the only component allowed to produce a safety
+status.
 
-```text
-change source -> consumer adapters -> reference analysis
-     -> dependency graph -> impact classification
-     -> readiness policy -> versioned reports
-```
+`cmd/tmr` is a thin CLI boundary over that engine. Versioned JSON is the stable
+machine API for Actions and future optional integrations. Exit codes are part
+of the public contract. Progress percentages remain informational and never
+establish safety.
 
-The first consumer ecosystem will be Prometheus rules, PrometheusRule CRDs,
-Grafana PromQL dashboards, Sloth SLOs, and Pyrra SLOs loaded from local files.
-The PromQL analyzer will use Prometheus's parser and AST.
+## Next architectural layers
 
-The readiness states will eventually be `READY`, `BLOCKED`, `INCOMPLETE`, and
-`ERROR`. Progress percentages will be informational and will not establish
-safety.
-
-## Explicitly outside the current milestone
-
-- PromQL parsing and dependency extraction.
-- Grafana, Prometheus rule, Sloth, or Pyrra adapters.
-- Dependency graphs and readiness evaluation.
 - OpenTelemetry, trace, and log analysis.
 - AI explanation or remediation.
-- Runtime backends, databases, APIs, web UI, or hosted services.
+- Runtime evidence, APIs, MCP, and server/UI modes.
 - The live end-to-end stack described in `TESTING.md`.
+
+These remain adapters or optional consumers of the deterministic engine. None
+may weaken or override its readiness result.

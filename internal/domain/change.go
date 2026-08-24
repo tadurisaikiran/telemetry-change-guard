@@ -17,9 +17,9 @@ const (
 // Change describes one telemetry contract transition. To is nil for removal
 // changes and required for rename changes.
 type Change struct {
-	ID     string
-	Kind   ChangeKind
-	Domain Domain
-	From   Symbol
-	To     *Symbol
+	ID     string     `json:"id"`
+	Kind   ChangeKind `json:"kind"`
+	Domain Domain     `json:"domain"`
+	From   Symbol     `json:"from"`
+	To     *Symbol    `json:"to,omitempty"`
 }

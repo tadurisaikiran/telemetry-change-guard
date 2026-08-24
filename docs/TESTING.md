@@ -5,12 +5,18 @@ mistaken for evidence that a dependency does not exist.
 
 ## Implemented test layers
 
-The current foundation has:
+The current deterministic engine has:
 
 - unit tests for every required migration validation rule;
 - valid YAML fixtures covering all four implemented change kinds;
 - invalid YAML fixtures with exact golden diagnostics;
-- CLI tests for output and exit behavior;
+- PromQL AST unit and fuzz tests;
+- component fixtures for Prometheus rules, PrometheusRule CRDs, Grafana, Sloth,
+  and Pyrra;
+- cycle and transitive-chain graph tests;
+- fail-closed readiness and required-source failure tests;
+- an exact JSON golden report for the checkout migration;
+- CLI integration tests for output and the permanent `0/1/2/3` exit contract;
 - CI checks for formatting, vetting, and race-enabled tests.
 
 Run the local checks with:
@@ -21,10 +27,10 @@ go vet ./...
 go test -race ./...
 ```
 
-## Mandatory future live E2E release gate
+## Mandatory live E2E release gate
 
-The live harness is not implemented in the current milestone. It is mandatory
-before TMR is described as stable.
+The live harness is the next release gate. TMR must not be described as stable
+until it passes.
 
 The harness will run a pinned Docker Compose stack containing a controlled
 exporter, Prometheus, Grafana, and Sloth, with Pyrra added as a second tier. It
