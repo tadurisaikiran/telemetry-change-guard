@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/config"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	filesource "github.com/tadurisaikiran/telemetry-migration-readiness/internal/source"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	filesource "github.com/tadurisaikiran/telemetry-change-guard/internal/source"
 )
 
 const (

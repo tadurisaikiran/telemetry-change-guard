@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 // NodeKind identifies the role of a graph node.

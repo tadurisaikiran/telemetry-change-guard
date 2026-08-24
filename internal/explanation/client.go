@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/agentprocess"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/agentprocess"
 )
 
 const (

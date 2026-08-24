@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 func TestValidateMigrationRules(t *testing.T) {

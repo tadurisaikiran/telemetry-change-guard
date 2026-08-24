@@ -206,8 +206,8 @@ Sloth versions, starts a fresh Prometheus volume for each scenario, and checks
 both the predicted failure and the successful final removal.
 
 ```bash
-git clone https://github.com/tadurisaikiran/telemetry-migration-readiness.git
-cd telemetry-migration-readiness
+git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
+cd telemetry-change-guard
 go test -race ./...
 ./e2e/scripts/run-e2e.sh
 ```

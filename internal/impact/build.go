@@ -5,8 +5,8 @@ package impact
 import (
 	"fmt"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
 )
 
 // BuildGraph converts normalized adapter discovery into an impact-propagation

@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 const maxCodeownersBytes = 3 << 20

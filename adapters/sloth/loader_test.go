@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 func TestParseDiscoversCriticalSLOReferences(t *testing.T) {

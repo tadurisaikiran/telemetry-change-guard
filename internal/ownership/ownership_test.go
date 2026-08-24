@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/config"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 func TestEnrichUsesDeterministicOwnershipPrecedence(t *testing.T) {

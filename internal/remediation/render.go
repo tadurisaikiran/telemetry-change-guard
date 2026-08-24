@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/explanation"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/explanation"
 )
 
 // Render prints validated candidate operations. It never writes the candidate

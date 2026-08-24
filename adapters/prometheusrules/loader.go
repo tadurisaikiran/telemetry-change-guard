@@ -13,8 +13,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	tmrpromql "github.com/tadurisaikiran/telemetry-migration-readiness/pkg/promql"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	tmrpromql "github.com/tadurisaikiran/telemetry-change-guard/pkg/promql"
 )
 
 const maxRuleFileBytes = 8 << 20

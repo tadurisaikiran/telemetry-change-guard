@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 const defaultTimeout = 10 * time.Second

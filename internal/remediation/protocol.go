@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/explanation"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/explanation"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
 
 const (

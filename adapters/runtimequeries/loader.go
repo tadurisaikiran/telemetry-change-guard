@@ -15,8 +15,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	tmrpromql "github.com/tadurisaikiran/telemetry-migration-readiness/pkg/promql"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	tmrpromql "github.com/tadurisaikiran/telemetry-change-guard/pkg/promql"
 )
 
 const (

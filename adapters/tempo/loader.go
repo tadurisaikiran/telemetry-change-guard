@@ -15,8 +15,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	tmrtraceql "github.com/tadurisaikiran/telemetry-migration-readiness/pkg/traceql"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	tmrtraceql "github.com/tadurisaikiran/telemetry-change-guard/pkg/traceql"
 	"gopkg.in/yaml.v3"
 )
 
