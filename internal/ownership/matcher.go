@@ -7,8 +7,8 @@ import (
 )
 
 // pathMatcher implements the documented CODEOWNERS wildcard subset used by
-// TMR. Unsupported gitignore constructs are rejected instead of being treated
-// as evidence for an owner.
+// Telemetry Change Guard. Unsupported gitignore constructs are rejected instead
+// of being treated as evidence for an owner.
 type pathMatcher struct {
 	pattern string
 	regexp  *regexp.Regexp

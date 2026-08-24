@@ -26,8 +26,9 @@ type Client struct {
 	HTTPClient  *http.Client
 }
 
-// Validate submits a bounded search against an empty historical interval. TMR
-// ignores query results; only Tempo's parser acceptance is evidence.
+// Validate submits a bounded search against an empty historical interval.
+// Telemetry Change Guard ignores query results; only Tempo's parser acceptance
+// is evidence.
 func (client Client) Validate(ctx context.Context, expression string) error {
 	baseURL, err := parseTempoURL(client.BaseURL)
 	if err != nil {

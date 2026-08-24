@@ -16,7 +16,7 @@ func Render(writer io.Writer, request Request, candidates []ValidatedCandidate) 
 		return err
 	}
 	var output strings.Builder
-	fmt.Fprintln(&output, "TMR Validated Candidate Remediation")
+	fmt.Fprintln(&output, "Telemetry Change Guard Validated Candidate Remediation")
 	fmt.Fprintln(&output, "CANDIDATES ONLY — NO FILES WERE MODIFIED")
 	fmt.Fprintf(&output, "Current authoritative status: %s\n", request.Authoritative.Status)
 

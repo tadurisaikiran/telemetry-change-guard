@@ -1,4 +1,4 @@
-// Package config loads and validates local TMR configuration documents.
+// Package config loads and validates local product configuration documents.
 package config
 
 import (

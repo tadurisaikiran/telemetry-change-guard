@@ -1,6 +1,6 @@
-name: Telemetry Migration Readiness
-description: Fail closed when critical telemetry consumers have not migrated
-author: Telemetry Migration Readiness contributors
+name: Telemetry Change Guard
+description: Detect downstream impact before telemetry changes reach production
+author: Telemetry Change Guard contributors
 
 branding:
   icon: activity
@@ -24,7 +24,7 @@ outputs:
     description: READY, BLOCKED, INCOMPLETE, or ERROR
     value: ${{ steps.analyze.outputs.status }}
   exit-code:
-    description: TMR process exit code
+    description: Analyzer process exit code
     value: ${{ steps.analyze.outputs.exit-code }}
   report:
     description: Path to the generated Markdown report
@@ -39,7 +39,7 @@ runs:
         go-version-file: ${{ github.action_path }}/go.mod
         cache-dependency-path: ${{ github.action_path }}/go.sum
 
-    - name: Build TMR
+    - name: Build migration compatibility CLI
       shell: bash
       run: go build -trimpath -o "${RUNNER_TEMP}/tmr" "${GITHUB_ACTION_PATH}/cmd/tmr"
 
@@ -60,7 +60,8 @@ runs:
         github-token: ${{ github.token }}
         script: |
           const fs = require('fs');
-          const marker = '<!-- telemetry-migration-readiness -->';
+          const marker = '<!-- telemetry-change-guard -->';
+          const legacyMarker = '<!-- telemetry-migration-readiness -->';
           const body = `${marker}\n${fs.readFileSync(process.env.TMR_REPORT_PATH, 'utf8')}`;
           const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
@@ -69,7 +70,8 @@ runs:
             per_page: 100,
           });
           const existing = comments.find(comment =>
-            comment.user.type === 'Bot' && comment.body?.includes(marker));
+            comment.user?.type === 'Bot' &&
+            (comment.body?.includes(marker) || comment.body?.includes(legacyMarker)));
           if (existing) {
             await github.rest.issues.updateComment({
               owner: context.repo.owner,

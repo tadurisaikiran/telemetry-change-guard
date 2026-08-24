@@ -1,7 +1,8 @@
-# Contributing to TMR
+# Contributing to Telemetry Change Guard
 
-Thank you for helping make telemetry migrations safer. TMR is deterministic
-and fail-closed: a missing dependency is more dangerous than an extra finding.
+Thank you for helping make telemetry migrations safer. Telemetry Change Guard
+is deterministic and fail-closed: a missing dependency is more dangerous than
+an extra finding.
 Changes that affect discovery, graph traversal, or readiness therefore need
 evidence-focused tests.
 
@@ -21,8 +22,8 @@ documentation fixes may skip a prior issue when their scope is self-evident.
 
 ## Local setup
 
-TMR requires the Go version declared in `go.mod` (currently Go 1.27) and uses
-only local fixtures for its core test suite.
+Telemetry Change Guard requires the Go version declared in `go.mod` (currently
+Go 1.27) and uses only local fixtures for its core test suite.
 
 ```bash
 go mod download

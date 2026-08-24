@@ -19,7 +19,7 @@ deployment is supported.
   evidence (Milestone 12).
 - Candidate PromQL remediation for Prometheus rule YAML and Grafana dashboard
   JSON with adapter reparse and full graph/readiness reanalysis (Milestone 13).
-- Advisory consumer ownership discovery from strict TMR metadata, GitHub
+- Advisory consumer ownership discovery from strict Telemetry Change Guard metadata, GitHub
   CODEOWNERS, and conventional Grafana tags (Milestone 14).
 - Deterministic runtime query evidence from Prometheus query logs and a
   provider-neutral query-history format (Milestone 15).

@@ -1,6 +1,6 @@
 # Consumer ownership discovery
 
-TMR can enrich discovered consumers with repository-local ownership evidence so
+Telemetry Change Guard can enrich discovered consumers with repository-local ownership evidence so
 a blocker report identifies who should investigate it. Ownership is advisory:
 it never changes a consumer classification, resolves uncertainty, validates a
 candidate patch, or changes `READY`, `BLOCKED`, or `INCOMPLETE`.
@@ -25,12 +25,12 @@ no ownership file reads or owner assignment.
 
 ## Precedence and confidence
 
-TMR applies the following fixed precedence. A lower-ranked source cannot
+Telemetry Change Guard applies the following fixed precedence. A lower-ranked source cannot
 replace a higher-ranked result.
 
 | Precedence | Evidence | Confidence | Conflict behavior |
 | ---: | --- | --- | --- |
-| 1 | Explicit TMR ownership metadata | `confirmed` | Last matching rule wins |
+| 1 | Explicit Telemetry Change Guard ownership metadata | `confirmed` | Last matching rule wins |
 | 2 | Existing adapter-supplied owner | `confirmed` | Preserved unless explicit metadata matches |
 | 3 | GitHub CODEOWNERS | `high` | Last matching pattern wins; multiple owners remain joint owners |
 | 4 | Grafana `team:`, `owner:`, or `owned-by:` tags | `medium` | Multiple distinct values remain explicit candidates and are marked ambiguous |
@@ -83,11 +83,11 @@ guessed ownership.
 
 ## GitHub CODEOWNERS
 
-When `codeowners.path` is omitted, TMR searches `.github/CODEOWNERS`,
+When `codeowners.path` is omitted, Telemetry Change Guard searches `.github/CODEOWNERS`,
 `CODEOWNERS`, then `docs/CODEOWNERS`, and uses the first file found. This matches
 [GitHub's documented location order](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners#codeowners-file-location).
 
-Matching is repository-relative and case-sensitive. TMR supports `*`, `?`,
+Matching is repository-relative and case-sensitive. Telemetry Change Guard supports `*`, `?`,
 `**`, root anchoring, directory patterns, inline comments, GitHub users and
 teams, email owners, multiple joint owners, empty-owner rules, and last-match
 precedence. GitHub's unsupported negation, character-range, and escaped-leading
@@ -95,7 +95,7 @@ comment syntax is rejected. Invalid lines are skipped with source-line
 diagnostics; they are never interpreted approximately. Files at or above the
 3 MB GitHub limit are rejected.
 
-TMR does not call GitHub to verify that a named user or team exists or has
+Telemetry Change Guard does not call GitHub to verify that a named user or team exists or has
 write access. A CODEOWNERS match is therefore high-confidence repository
 evidence, not identity or authorization verification.
 
@@ -111,7 +111,7 @@ these exact, case-insensitive prefixes:
 
 For example, `team:Checkout` selects `Checkout` if no stronger source matches.
 `team:Checkout` together with `owner:Payments` creates the sorted candidates
-`Checkout` and `Payments`; TMR does not guess between them.
+`Checkout` and `Payments`; Telemetry Change Guard does not guess between them.
 
 ## Failure and safety behavior
 

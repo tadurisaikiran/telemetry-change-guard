@@ -16,6 +16,25 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
 
+func TestHelpUsesProductBrandAndRetainsCompatibilityCommand(t *testing.T) {
+	t.Parallel()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := run(context.Background(), []string{"help"}, &stdout, &stderr)
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
+	}
+	for _, expected := range []string{
+		"Telemetry Change Guard migration compatibility CLI",
+		"tmr analyze",
+		"tmr validate",
+	} {
+		if !strings.Contains(stdout.String(), expected) {
+			t.Errorf("help does not contain %q:\n%s", expected, stdout.String())
+		}
+	}
+}
+
 func TestRunValidateSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -335,7 +354,7 @@ func TestCLIAIProviderHelper(t *testing.T) {
 			"order":      1,
 			"consumerId": request.Findings[0].Consumer.ID,
 			"action":     "Migrate this confirmed legacy consumer.",
-			"rationale":  "TMR ranked it first from deterministic criticality and dependency evidence.",
+			"rationale":  "Telemetry Change Guard ranked it first from deterministic criticality and dependency evidence.",
 		}},
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(response); err != nil {

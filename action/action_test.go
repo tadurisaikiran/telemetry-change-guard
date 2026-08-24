@@ -18,15 +18,18 @@ func TestActionMetadataAndScript(t *testing.T) {
 		t.Fatal(err)
 	}
 	var document struct {
-		Name    string                 `yaml:"name"`
-		Inputs  map[string]any         `yaml:"inputs"`
-		Outputs map[string]any         `yaml:"outputs"`
-		Runs    map[string]interface{} `yaml:"runs"`
+		Name        string                 `yaml:"name"`
+		Description string                 `yaml:"description"`
+		Inputs      map[string]any         `yaml:"inputs"`
+		Outputs     map[string]any         `yaml:"outputs"`
+		Runs        map[string]interface{} `yaml:"runs"`
 	}
 	if err := yaml.Unmarshal(contents, &document); err != nil {
 		t.Fatalf("decode action.yml: %v", err)
 	}
-	if document.Name == "" || document.Runs["using"] != "composite" {
+	if document.Name != "Telemetry Change Guard" ||
+		document.Description != "Detect downstream impact before telemetry changes reach production" ||
+		document.Runs["using"] != "composite" {
 		t.Fatalf("invalid action metadata: %+v", document)
 	}
 	for _, input := range []string{"config", "migration"} {
@@ -39,12 +42,28 @@ func TestActionMetadataAndScript(t *testing.T) {
 			t.Errorf("missing %q output", output)
 		}
 	}
+	for _, expected := range []string{
+		"const marker = '<!-- telemetry-change-guard -->'",
+		"const legacyMarker = '<!-- telemetry-migration-readiness -->'",
+		"comment.body?.includes(marker) || comment.body?.includes(legacyMarker)",
+		"const body = `${marker}\\n",
+	} {
+		if !strings.Contains(string(contents), expected) {
+			t.Errorf("action.yml does not contain %q", expected)
+		}
+	}
 
 	script, err := os.ReadFile(filepath.Join("run-action.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"set -euo pipefail", "--format markdown", "GITHUB_STEP_SUMMARY", "GITHUB_OUTPUT"} {
+	for _, expected := range []string{
+		"set -euo pipefail",
+		"--format markdown",
+		"GITHUB_STEP_SUMMARY",
+		"GITHUB_OUTPUT",
+		"# Telemetry Change Guard",
+	} {
 		if !strings.Contains(string(script), expected) {
 			t.Errorf("run-action.sh does not contain %q", expected)
 		}

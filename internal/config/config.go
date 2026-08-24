@@ -127,7 +127,7 @@ type OwnershipConfig struct {
 	DashboardTags  bool                      `json:"dashboardTags"`
 }
 
-// Config is the validated TMR analysis configuration.
+// Config is the validated product analysis configuration.
 type Config struct {
 	APIVersion string          `json:"apiVersion"`
 	Sources    Sources         `json:"sources"`
@@ -280,7 +280,7 @@ type outputDocument struct {
 	Formats []string `yaml:"formats"`
 }
 
-// LoadConfig reads one local TMR config file.
+// LoadConfig reads one local product config file.
 func LoadConfig(ctx context.Context, path string) (Config, error) {
 	if err := ctx.Err(); err != nil {
 		return Config{}, fmt.Errorf("load config %q: %w", path, err)
@@ -298,7 +298,7 @@ func LoadConfig(ctx context.Context, path string) (Config, error) {
 	return result, nil
 }
 
-// ParseConfig strictly decodes and validates one TMR config document.
+// ParseConfig strictly decodes and validates one product config document.
 func ParseConfig(reader io.Reader) (Config, error) {
 	contents, err := io.ReadAll(io.LimitReader(reader, maxConfigBytes+1))
 	if err != nil {
@@ -331,7 +331,7 @@ func ParseConfig(reader io.Reader) (Config, error) {
 	return result, nil
 }
 
-// ValidateConfig validates a normalized TMR config.
+// ValidateConfig validates a normalized product config.
 func ValidateConfig(config Config) error {
 	issues := &ValidationError{}
 	if config.APIVersion != ConfigAPIVersion {

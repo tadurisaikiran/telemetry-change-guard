@@ -36,7 +36,7 @@ func (values *stringListFlag) Set(value string) error {
 func runAnalyze(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("analyze", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	configPath := flags.String("config", "", "path to a TMR YAML configuration")
+	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
@@ -96,7 +96,7 @@ func runAnalyze(ctx context.Context, args []string, stdout, stderr io.Writer) in
 func runAdvise(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("advise", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	configPath := flags.String("config", "", "path to a TMR YAML configuration")
+	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
@@ -167,7 +167,7 @@ func runAdvise(ctx context.Context, args []string, stdout, stderr io.Writer) int
 func runRemediate(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("remediate", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	configPath := flags.String("config", "", "path to a TMR YAML configuration")
+	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
@@ -275,7 +275,7 @@ func isWeaverIncomplete(err error) bool {
 func runGraph(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("graph", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	configPath := flags.String("config", "", "path to a TMR YAML configuration")
+	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	format := flags.String("format", "json", "graph format (json)")
 	output := flags.String("output", "", "optional graph output path")
 	if err := flags.Parse(args); err != nil {
@@ -314,7 +314,7 @@ func runGraph(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 func runExplain(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("explain", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	configPath := flags.String("config", "", "path to a TMR YAML configuration")
+	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	symbolName := flags.String("symbol", "", "Prometheus metric name")
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)

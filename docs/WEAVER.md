@@ -1,8 +1,8 @@
 # OpenTelemetry Weaver Integration
 
-TMR can consume structured JSON produced by `weaver registry diff` as an
+Telemetry Change Guard can consume structured JSON produced by `weaver registry diff` as an
 optional change source. Weaver determines what changed in an OpenTelemetry
-semantic-convention registry; TMR does not reimplement that diff.
+semantic-convention registry; Telemetry Change Guard does not reimplement that diff.
 
 OpenTelemetry and Prometheus remain separate domains. A similar-looking name
 is not evidence that an OpenTelemetry metric or attribute becomes a particular
@@ -30,7 +30,7 @@ weaver registry diff \
   --format json > ./weaver-diff-v2.json
 ```
 
-TMR reads the resulting file. It does not invoke Weaver, clone registries, or
+Telemetry Change Guard reads the resulting file. It does not invoke Weaver, clone registries, or
 make a network request.
 
 ## Write the backend mapping
@@ -106,13 +106,13 @@ tmr analyze \
 `--migration` and the Weaver flags are alternative change sources. They cannot
 be combined in one analysis.
 
-If an actionable change has no entry, TMR reports
+If an actionable change has no entry, Telemetry Change Guard reports
 `requiresMapping=true` and exits `3` (`INCOMPLETE`). It does not run readiness
 evaluation on a partial migration.
 
 ## Supported Weaver changes
 
-TMR can map top-level Weaver metrics and registry attributes into the current
+Telemetry Change Guard can map top-level Weaver metrics and registry attributes into the current
 Prometheus change model. It retains other actionable top-level changes until
 they are explicitly ignored:
 
@@ -126,7 +126,7 @@ they are explicitly ignored:
 | event, span, entity, attribute group | rename/removal/obsoletion | `ignore` only |
 | any item | `added` | no legacy-removal risk; omitted automatically |
 
-Weaver's `updated` placeholder does not identify the changed field, so TMR
+Weaver's `updated` placeholder does not identify the changed field, so Telemetry Change Guard
 rejects it. Events, spans, entities, and attribute groups cannot map to a
 current Prometheus change and therefore require an explicit `ignore` entry.
 

@@ -1,7 +1,7 @@
 # Live End-to-End Harness
 
-This harness experimentally compares TMR predictions with a running telemetry
-stack. It uses a controlled Go exporter, Prometheus, provisioned Grafana, and
+This harness experimentally compares Telemetry Change Guard predictions with a
+running telemetry stack. It uses a controlled Go exporter, Prometheus, provisioned Grafana, and
 Sloth. The normal suite pins:
 
 | Component | Version |
@@ -24,7 +24,7 @@ then starts and queries the stack for each lifecycle stage.
 For every migration stage it also requires the explicit migration manifest and
 the mapped Weaver V2 diff to produce the same status and exit code.
 
-| Scenario | Exporter | Consumers | Expected TMR | Runtime |
+| Scenario | Exporter | Consumers | Expected Telemetry Change Guard | Runtime |
 | --- | --- | --- | --- | --- |
 | `01-before` | old | old | baseline | healthy |
 | `02-dual-write` | old + new | old | `BLOCKED` | healthy |
@@ -34,8 +34,8 @@ the mapped Weaver V2 diff to produce the same status and exit code.
 | `06-premature-cutover` | new | old | `BLOCKED` | predicted recordings absent |
 | `07-legacy-removed` | new | new | `READY` | critical recordings present |
 
-The last two stages prove both directions: TMR predicts an observable failure
-before an unsafe cutover and predicts readiness before a successful cutover.
+The last two stages prove both directions: Telemetry Change Guard predicts an
+observable failure before an unsafe cutover and predicts readiness before a successful cutover.
 Each stack uses a fresh Prometheus data volume, so an old time series cannot
 hide a broken scenario.
 

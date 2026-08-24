@@ -1,13 +1,12 @@
-# Telemetry Migration Readiness
+# Telemetry Change Guard
 
-> Know what will break before changing your telemetry, automatically migrate
-> what can be migrated, and know when it is safe to remove backward
-> compatibility.
+> Know what will break before telemetry changes reach production.
 
 Telemetry changes are API changes. Renaming or removing a metric or label can
 silently empty dashboards, disable alerts, and invalidate SLOs. Telemetry
-Migration Readiness (`tmr`) is an open-source, local-first tool for analyzing
-those migrations before backward compatibility is removed.
+Change Guard is an open-source, local-first tool for analyzing those changes
+before backward compatibility is removed. The existing `tmr` CLI remains the
+supported migration workflow during the compatibility transition.
 
 ## Current status
 
@@ -88,6 +87,10 @@ steps:
       migration: migration.yaml
 ```
 
+The legacy repository coordinate is intentional and remains supported while a
+Telemetry Change Guard Action release is validated. Existing workflows do not
+need to migrate yet.
+
 The Action writes the Markdown report to the job summary and creates or updates
 one pull-request comment by default. See
 [the Action documentation](docs/GITHUB_ACTION.md) for inputs, outputs, and
@@ -136,12 +139,13 @@ tmr analyze \
   --weaver-mapping ./weaver-mapping.yaml
 ```
 
-TMR never assumes that an OpenTelemetry identifier maps directly to a
-Prometheus name. See [the Weaver integration guide](docs/WEAVER.md).
+Telemetry Change Guard never assumes that an OpenTelemetry identifier maps
+directly to a Prometheus name. See
+[the Weaver integration guide](docs/WEAVER.md).
 
 ## Perses metrics-usage evidence
 
-TMR can augment local discovery from a separately deployed Perses
+Telemetry Change Guard can augment local discovery from a separately deployed Perses
 metrics-usage service:
 
 ```yaml
@@ -153,21 +157,24 @@ sources:
       bearerTokenEnv: TMR_PERSES_TOKEN
 ```
 
-The adapter consumes the documented API only; Perses is not a TMR dependency.
-See [the Perses metrics-usage integration guide](docs/PERSES.md).
+The adapter consumes the documented API only; Perses is not a Telemetry Change
+Guard dependency. See
+[the Perses metrics-usage integration guide](docs/PERSES.md).
 
 ## Consumer ownership
 
 An opt-in `ownership` section can enrich blockers and uncertainties from
-explicit TMR metadata, GitHub CODEOWNERS, and Grafana `team:`/`owner:` tags.
+explicit Telemetry Change Guard metadata, GitHub CODEOWNERS, and Grafana
+`team:`/`owner:` tags.
 Ownership provenance and ambiguity remain visible in JSON and optional AI
 explanations, but ownership never changes readiness. See
 [the ownership discovery guide](docs/OWNERSHIP.md).
 
 ## Runtime query evidence
 
-TMR can add observed PromQL executions to configured dashboards, rules, and
-SLOs without treating an empty history as proof of non-use:
+Telemetry Change Guard can add observed PromQL executions to configured
+dashboards, rules, and SLOs without treating an empty history as proof of
+non-use:
 
 ```yaml
 sources:
@@ -187,9 +194,9 @@ than the machine clock, so the same input produces the same result later. See
 
 ## Tempo and TraceQL evidence
 
-TMR can analyze strict local TraceQL consumer manifests while asking a
-configured Tempo deployment to validate each expression with its official
-parser:
+Telemetry Change Guard can analyze strict local TraceQL consumer manifests
+while asking a configured Tempo deployment to validate each expression with
+its official parser:
 
 ```yaml
 sources:
@@ -223,8 +230,8 @@ tmr advise \
   --ai-command ./my-tmr-ai-provider
 ```
 
-TMR sends a bounded, redacted JSON evidence packet over standard input and
-accepts one strict JSON explanation on standard output. The provider cannot
+Telemetry Change Guard sends a bounded, redacted JSON evidence packet over
+standard input and accepts one strict JSON explanation on standard output. The provider cannot
 return a readiness status or a patch. `advise` preserves the deterministic
 exit code, so a useful explanation of a blocked migration still exits `2`.
 See [the AI explanation protocol](docs/AI_AGENT.md) and
@@ -242,8 +249,8 @@ tmr remediate \
   --ai-command ./my-tmr-ai-provider
 ```
 
-TMR labels output as a validated candidate only after the official PromQL
-parser proves the legacy reference is gone and the destination is present, the
+Telemetry Change Guard labels output as a validated candidate only after the
+official PromQL parser proves the legacy reference is gone and the destination is present, the
 in-memory YAML or Grafana JSON artifact reparses through its adapter, and the
 dependency graph/readiness engine succeeds on the simulated artifact. It never
 writes the source file. See [the remediation protocol](docs/REMEDIATION.md).
@@ -252,8 +259,8 @@ writes the source file. See [the remediation protocol](docs/REMEDIATION.md).
 
 - Deterministic analysis owns facts and safety decisions.
 - Parsing or adapter failures must never be interpreted as absence of risk.
-- TMR remains useful without an LLM, network connection, database, or hosted
-  service.
+- Telemetry Change Guard remains useful without an LLM, network connection,
+  database, or hosted service.
 - AI output is explanatory and can neither weaken evidence nor change status.
 - Telemetry domains remain separate unless an explicit mapping connects them.
 - Every dependency finding retains evidence and provenance.

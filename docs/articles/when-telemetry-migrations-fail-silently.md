@@ -200,7 +200,7 @@ evidence.
 
 ## Reproduce the lifecycle
 
-The Telemetry Migration Readiness repository contains the complete controlled
+The Telemetry Change Guard repository contains the complete controlled
 experiment described above. The normal run pins Go, Prometheus, Grafana, and
 Sloth versions, starts a fresh Prometheus volume for each scenario, and checks
 both the predicted failure and the successful final removal.

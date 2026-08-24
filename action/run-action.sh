@@ -12,7 +12,7 @@ exit_code=$?
 set -e
 
 if [[ ! -s "${report_path}" ]]; then
-  printf '# Telemetry Migration Readiness\n\n**Status:** **ERROR**\n' > "${report_path}"
+  printf '# Telemetry Change Guard\n\n**Status:** **ERROR**\n' > "${report_path}"
 fi
 
 status="ERROR"

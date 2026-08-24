@@ -25,7 +25,7 @@ line, expression, extraction method, and confidence where available.
 - `persesusage` calls a configured Perses metrics-usage service and normalizes
   its exact, partial, and pending usage into dashboards, alert rules, recording
   rules, references, and productions. Rule expressions are parsed again with
-  TMR's official PromQL AST walker. Dashboard label usage remains explicitly
+  Telemetry Change Guard's official PromQL AST walker. Dashboard label usage remains explicitly
   unresolved because the API association does not carry dashboard query text.
 
 The adapter has bounded response sizes, a source timeout, optional bearer-token
@@ -49,7 +49,7 @@ guide](TEMPO.md).
 
 ## Runtime evidence adapters
 
-- `runtimequeries` reads local Prometheus query-log JSONL and versioned TMR
+- `runtimequeries` reads local Prometheus query-log JSONL and versioned Telemetry Change Guard
   query-history JSONL. It aggregates exact expressions, preserves execution
   counts and observation bounds, and parses every query with the official
   PromQL AST walker.
@@ -77,5 +77,5 @@ discovery](OWNERSHIP.md).
   Prometheus mapping or a documented ignore decision. Missing mappings produce
   `requiresMapping=true` and prevent readiness evaluation.
 
-Weaver is never invoked by TMR and OpenTelemetry names are never inferred to be
+Weaver is never invoked by Telemetry Change Guard and OpenTelemetry names are never inferred to be
 Prometheus names. See [the Weaver integration guide](WEAVER.md).

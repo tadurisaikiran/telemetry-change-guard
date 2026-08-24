@@ -42,6 +42,9 @@ func TestRenderersPreserveStatusEvidenceAndPaths(t *testing.T) {
 					t.Errorf("output does not contain %q:\n%s", expected, output.String())
 				}
 			}
+			if !strings.Contains(output.String(), "Telemetry Change Guard") {
+				t.Errorf("output does not contain product branding:\n%s", output.String())
+			}
 		})
 	}
 }

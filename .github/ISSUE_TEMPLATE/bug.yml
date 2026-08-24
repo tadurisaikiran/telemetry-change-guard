@@ -12,7 +12,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: TMR version or commit
+      label: Telemetry Change Guard version or commit
       placeholder: v0.1.0 or commit SHA
     validations:
       required: true
@@ -35,9 +35,9 @@ body:
     attributes:
       label: Safety impact
       options:
-        - TMR may incorrectly report READY
-        - TMR may miss or misclassify a dependency
-        - TMR fails closed or cannot complete
+        - Telemetry Change Guard may incorrectly report READY
+        - Telemetry Change Guard may miss or misclassify a dependency
+        - Telemetry Change Guard fails closed or cannot complete
         - Reporting or usability only
     validations:
       required: true

@@ -7,6 +7,6 @@ published
 schema. Both describe the same actionable registry changes so adapter behavior
 can be compared across formats.
 
-The mapping is TMR-owned. It deliberately demonstrates that an OpenTelemetry
-attribute or metric name is never treated as a Prometheus label or metric name
+The mapping belongs to Telemetry Change Guard. It deliberately demonstrates
+that an OpenTelemetry attribute or metric name is never treated as a Prometheus label or metric name
 without an explicit backend mapping.
