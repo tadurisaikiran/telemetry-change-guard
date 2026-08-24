@@ -29,6 +29,34 @@ telemetry-change-guard check \
   --format console
 ```
 
+`check` accepts exactly one deterministic change source. In addition to
+`--changes`, use either a mapped Weaver diff:
+
+```bash
+telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --weaver-diff ./weaver-diff.json \
+  --weaver-mapping ./weaver-mapping.yaml
+```
+
+or a baseline/candidate telemetry snapshot pair:
+
+```bash
+telemetry-change-guard snapshot \
+  --prometheus http://localhost:9090 \
+  --output ./candidate-contract.json
+
+telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --baseline ./main-contract.json \
+  --candidate ./candidate-contract.json
+```
+
+Use `telemetry-change-guard diff --baseline <path> --candidate <path>` for the
+full versioned delta. `--changes-output <path>` additionally writes the
+actionable removal ChangeSet. See [change sources](CHANGE_SOURCES.md) for the
+snapshot schema, resource bounds, semantic uncertainty, and evidence limits.
+
 `--config` is required. A missing configuration is never interpreted as a
 valid empty evidence set. Canonical `tcg/v1alpha1` configuration and existing
 `tmr/v1alpha1` configuration normalize to the same internal model. See the
@@ -114,6 +142,7 @@ identical reports and the same legacy exit code. The existing
 `tmr-result/v1alpha1`, `READY`, `BLOCKED`, `INCOMPLETE`, `ERROR`, and readiness
 classification contracts are unchanged.
 
-The canonical GitHub Action supports generic and migration modes. Existing
+The canonical GitHub Action supports explicit, snapshot, and mapped-Weaver
+generic sources plus migration compatibility mode. Existing
 workflows may continue using the frozen legacy repository coordinate without
 changes; see the [Action guide](GITHUB_ACTION.md).

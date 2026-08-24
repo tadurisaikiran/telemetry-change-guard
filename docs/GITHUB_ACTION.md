@@ -1,7 +1,7 @@
 # GitHub Action
 
 The canonical composite Action runs the deterministic
-`telemetry-change-guard` CLI in either generic ChangeSet mode or migration
+`telemetry-change-guard` CLI in either generic change-source mode or migration
 compatibility mode. Every invocation performs one authoritative evaluation and
 derives its Markdown report, versioned JSON evidence, outputs, job summary, and
 optional pull-request comment from that result.
@@ -26,6 +26,27 @@ Generic mode preserves the CLI status and exit contract: `PASS` and `WARN`
 return `0`, `ERROR` returns `1`, `BLOCK` returns `2`, and `INCOMPLETE` returns
 `3`.
 
+Instead of `changes`, a workflow can compare checked-in or previously
+generated snapshots:
+
+```yaml
+  - id: telemetry
+    uses: tadurisaikiran/telemetry-change-guard@v1
+    with:
+      config: tcg.yaml
+      baseline: telemetry/main-contract.json
+      candidate: telemetry/candidate-contract.json
+```
+
+Mapped Weaver input is also a generic source:
+
+```yaml
+    with:
+      config: tcg.yaml
+      weaver-diff: weaver-diff.json
+      weaver-mapping: weaver-mapping.yaml
+```
+
 ## Migration compatibility mode
 
 ```yaml
@@ -46,17 +67,23 @@ Migration mode preserves `READY`, `BLOCKED`, `INCOMPLETE`, and `ERROR`, plus
 the existing `0`, `2`, `3`, and `1` exit codes respectively. Legacy
 `tmr/v1alpha1` configuration remains valid in this mode and generic mode.
 
-Exactly one of `changes` and `migration` is required. Supplying both or neither
-is a configuration `ERROR`; the Action creates error artifacts and fails with
-exit code `1` instead of choosing a mode silently.
+Exactly one complete generic source (`changes`, a `baseline`/`candidate` pair,
+or a `weaver-diff`/`weaver-mapping` pair) or `migration` is required. Partial
+pairs, multiple generic sources, a generic source combined with migration, and
+missing sources are configuration `ERROR`s. The Action creates error artifacts
+and fails with exit code `1` instead of choosing a mode silently.
 
 ## Inputs
 
 | Input | Default | Description |
 | --- | --- | --- |
 | `config` | `tcg.yaml` | Product configuration relative to the checked-out repository. |
-| `changes` | empty | Generic `tcg/v1alpha1` ChangeSet; mutually exclusive with `migration`. |
-| `migration` | empty | Legacy migration manifest; mutually exclusive with `changes`. |
+| `changes` | empty | Generic `tcg/v1alpha1` ChangeSet; mutually exclusive with other change sources and `migration`. |
+| `baseline` | empty | Baseline `TelemetrySnapshot`; requires `candidate`. |
+| `candidate` | empty | Candidate `TelemetrySnapshot`; requires `baseline`. |
+| `weaver-diff` | empty | Structured Weaver registry diff; requires `weaver-mapping`. |
+| `weaver-mapping` | empty | Explicit backend mapping; requires `weaver-diff`. |
+| `migration` | empty | Legacy migration manifest; mutually exclusive with every generic source. |
 | `comment` | `"true"` | Create or update one pull-request comment. |
 | `artifact-name` | `telemetry-change-guard-report` | Name of the uploaded JSON evidence artifact. |
 

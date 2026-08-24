@@ -34,7 +34,10 @@ func TestActionMetadataAndScript(t *testing.T) {
 		document.Runs["using"] != "composite" {
 		t.Fatalf("invalid action metadata: %+v", document)
 	}
-	for _, input := range []string{"config", "changes", "migration", "comment", "artifact-name"} {
+	for _, input := range []string{
+		"config", "changes", "baseline", "candidate", "weaver-diff", "weaver-mapping",
+		"migration", "comment", "artifact-name",
+	} {
 		if _, exists := document.Inputs[input]; !exists {
 			t.Errorf("missing %q input", input)
 		}
@@ -64,7 +67,7 @@ func TestActionMetadataAndScript(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"set -euo pipefail",
-		"changes and migration are mutually exclusive",
+		"generic change sources and migration are mutually exclusive",
 		"--json-output",
 		"--status-output",
 		"status and process exit code disagreed",
@@ -84,6 +87,10 @@ func TestRunActionSupportsGenericAndMigrationModes(t *testing.T) {
 	tests := []struct {
 		name       string
 		changes    string
+		baseline   string
+		candidate  string
+		weaverDiff string
+		weaverMap  string
 		migration  string
 		status     string
 		wantMode   string
@@ -96,6 +103,16 @@ func TestRunActionSupportsGenericAndMigrationModes(t *testing.T) {
 			unwantArgs: []string{"migration", "--plan"},
 		},
 		{
+			name: "snapshot", baseline: "baseline.json", candidate: "candidate.json", status: "WARN", wantMode: "generic",
+			wantArgs:   []string{"check", "--config", "tcg.yaml", "--baseline", "baseline.json", "--candidate", "candidate.json"},
+			unwantArgs: []string{"migration", "--changes", "--weaver-diff"},
+		},
+		{
+			name: "Weaver", weaverDiff: "diff.json", weaverMap: "mapping.yaml", status: "WARN", wantMode: "generic",
+			wantArgs:   []string{"check", "--config", "tcg.yaml", "--weaver-diff", "diff.json", "--weaver-mapping", "mapping.yaml"},
+			unwantArgs: []string{"migration", "--changes", "--baseline"},
+		},
+		{
 			name: "migration", migration: "migration.yaml", status: "READY", wantMode: "migration",
 			wantArgs:   []string{"migration", "check", "--config", "tcg.yaml", "--plan", "migration.yaml"},
 			unwantArgs: []string{"--changes"},
@@ -106,12 +123,16 @@ func TestRunActionSupportsGenericAndMigrationModes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			result := runActionScript(t, map[string]string{
-				"TCG_CONFIG":      "tcg.yaml",
-				"TCG_CHANGES":     test.changes,
-				"TCG_MIGRATION":   test.migration,
-				"TCG_TEST_SCHEMA": map[string]string{"generic": "tcg-result/v1alpha1", "migration": "tmr-result/v1alpha1"}[test.wantMode],
-				"TCG_TEST_STATUS": test.status,
-				"TCG_TEST_EXIT":   "0",
+				"TCG_CONFIG":         "tcg.yaml",
+				"TCG_CHANGES":        test.changes,
+				"TCG_BASELINE":       test.baseline,
+				"TCG_CANDIDATE":      test.candidate,
+				"TCG_WEAVER_DIFF":    test.weaverDiff,
+				"TCG_WEAVER_MAPPING": test.weaverMap,
+				"TCG_MIGRATION":      test.migration,
+				"TCG_TEST_SCHEMA":    map[string]string{"generic": "tcg-result/v1alpha1", "migration": "tmr-result/v1alpha1"}[test.wantMode],
+				"TCG_TEST_STATUS":    test.status,
+				"TCG_TEST_EXIT":      "0",
 			}, true)
 			if result.outputs["status"] != test.status || result.outputs["exit-code"] != "0" ||
 				result.outputs["mode"] != test.wantMode {
@@ -137,20 +158,31 @@ func TestRunActionRejectsInvalidModeSelectionWithoutInvokingCLI(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
-		name      string
-		changes   string
-		migration string
-		message   string
+		name       string
+		changes    string
+		baseline   string
+		candidate  string
+		weaverDiff string
+		weaverMap  string
+		migration  string
+		message    string
 	}{
 		{name: "both", changes: "changes.yaml", migration: "migration.yaml", message: "mutually exclusive"},
 		{name: "neither", message: "exactly one"},
+		{name: "multiple generic", changes: "changes.yaml", baseline: "baseline.json", candidate: "candidate.json", message: "exactly one"},
+		{name: "partial snapshot", baseline: "baseline.json", message: "provided together"},
+		{name: "partial Weaver", weaverDiff: "diff.json", message: "provided together"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			result := runActionScript(t, map[string]string{
-				"TCG_CONFIG":    "tcg.yaml",
-				"TCG_CHANGES":   test.changes,
-				"TCG_MIGRATION": test.migration,
+				"TCG_CONFIG":         "tcg.yaml",
+				"TCG_CHANGES":        test.changes,
+				"TCG_BASELINE":       test.baseline,
+				"TCG_CANDIDATE":      test.candidate,
+				"TCG_WEAVER_DIFF":    test.weaverDiff,
+				"TCG_WEAVER_MAPPING": test.weaverMap,
+				"TCG_MIGRATION":      test.migration,
 			}, false)
 			if result.outputs["status"] != "ERROR" || result.outputs["exit-code"] != "1" ||
 				result.outputs["mode"] != "invalid" || result.arguments != "" {
@@ -244,6 +276,12 @@ exit "${TCG_TEST_EXIT}"
 		"GITHUB_OUTPUT="+outputPath,
 		"GITHUB_STEP_SUMMARY="+summaryPath,
 		"TCG_TEST_ARGUMENTS="+argumentsPath,
+		"TCG_CHANGES=",
+		"TCG_BASELINE=",
+		"TCG_CANDIDATE=",
+		"TCG_WEAVER_DIFF=",
+		"TCG_WEAVER_MAPPING=",
+		"TCG_MIGRATION=",
 	)
 	for name, value := range values {
 		command.Env = append(command.Env, name+"="+value)

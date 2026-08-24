@@ -112,6 +112,19 @@ func TestConvertRequiresMappingForEveryActionableChange(t *testing.T) {
 	if !errors.As(err, &mappingErr) || !strings.Contains(err.Error(), "requiresMapping=true") {
 		t.Fatalf("error = %v, want MappingRequiredError", err)
 	}
+	changeSet, diagnostics, err := result.ChangeSet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changeSet.Metadata.Name != mapping.Name || len(changeSet.Changes) != 2 ||
+		len(diagnostics) != 1 || !diagnostics[0].Required ||
+		!strings.Contains(diagnostics[0].Message, "explicit backend mapping") {
+		t.Fatalf("changeSet = %#v, diagnostics = %#v", changeSet, diagnostics)
+	}
+	result.Changes[0].Change.Metadata["source.adapter"] = "mutated"
+	if got := changeSet.Changes[0].Metadata["source.adapter"]; got != "weaver" {
+		t.Fatalf("ChangeSet metadata aliased import result: %q", got)
+	}
 }
 
 func TestUnsupportedSignalKindRequiresExplicitIgnore(t *testing.T) {

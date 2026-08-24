@@ -101,6 +101,11 @@ tmr analyze \
   --config ./tmr.yaml \
   --weaver-diff ./weaver-diff.json \
   --weaver-mapping ./weaver-mapping.yaml
+
+telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --weaver-diff ./weaver-diff.json \
+  --weaver-mapping ./weaver-mapping.yaml
 ```
 
 `--migration` and the Weaver flags are alternative change sources. They cannot
@@ -109,6 +114,12 @@ be combined in one analysis.
 If an actionable change has no entry, Telemetry Change Guard reports
 `requiresMapping=true` and exits `3` (`INCOMPLETE`). It does not run readiness
 evaluation on a partial migration.
+
+Generic `check` retains every known mapped change and represents each unmapped
+source change as a required diagnostic. This permits impact evidence for known
+changes to remain visible while the aggregate generic status stays
+`INCOMPLETE`. Migration compatibility keeps its existing all-or-nothing
+partial-migration behavior.
 
 ## Supported Weaver changes
 
@@ -126,9 +137,11 @@ they are explicitly ignored:
 | event, span, entity, attribute group | rename/removal/obsoletion | `ignore` only |
 | any item | `added` | no legacy-removal risk; omitted automatically |
 
-Weaver's `updated` placeholder does not identify the changed field, so Telemetry Change Guard
-rejects it. Events, spans, entities, and attribute groups cannot map to a
-current Prometheus change and therefore require an explicit `ignore` entry.
+Weaver's `updated` placeholder does not identify the changed field. Generic
+analysis retains it as required uncertainty; migration analysis exits
+`INCOMPLETE` before evaluation. Events, spans, entities, and attribute groups
+cannot map to a current Prometheus change and therefore require an explicit
+`ignore` entry.
 
 ## Evidence
 

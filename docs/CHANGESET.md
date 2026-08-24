@@ -42,6 +42,11 @@ Change metadata is bounded to 64 entries, 128 bytes per key, and 4 KiB per
 value. Metadata is evidence and provenance only; it cannot select a safety
 status.
 
+`spec.changes` may be empty. This is required for deterministic discovery: a
+baseline/candidate comparison with only additions has no actionable breaking
+change, but it still needs a valid, auditable ChangeSet and authoritative
+result. Legacy `Migration` manifests continue to require at least one change.
+
 ## Legacy normalization
 
 Existing manifests remain valid without modification:
@@ -58,7 +63,9 @@ adapter provenance are preserved. The normalized value shares no mutable maps,
 slices, or destination pointers with the legacy input.
 
 The canonical `telemetry-change-guard check --changes <path>` workflow accepts
-`ChangeSet` directly and produces `tcg-result/v1alpha1`. The current `tmr` CLI
+`ChangeSet` directly and produces `tcg-result/v1alpha1`. Snapshot and mapped
+Weaver sources normalize into this same model; see [change sources](CHANGE_SOURCES.md).
+The current `tmr` CLI
 and `tmr-result/v1alpha1` readiness result remain the compatibility interface;
 the equivalent canonical workflow is nested under
 `telemetry-change-guard migration`. Generic safety semantics are never silently

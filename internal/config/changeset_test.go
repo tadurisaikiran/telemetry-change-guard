@@ -240,6 +240,31 @@ func TestNormalizeMigrationRejectsInvalidLegacyInput(t *testing.T) {
 	assertErrorContains(t, err, "spec.changes: must contain at least one change")
 }
 
+func TestMarshalChangeSetRoundTripsEmptyDetectedSet(t *testing.T) {
+	t.Parallel()
+
+	changeSet := domain.ChangeSet{
+		APIVersion: domain.ChangeSetAPIVersion,
+		Kind:       domain.ChangeSetKind,
+		Metadata:   domain.ChangeSetMetadata{Name: "no-breaking-changes"},
+		Changes:    []domain.Change{},
+	}
+	contents, err := MarshalChangeSet(changeSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), "to: null") || strings.Contains(string(contents), "metadata: null") {
+		t.Fatalf("manifest contains noisy null fields:\n%s", contents)
+	}
+	parsed, err := ParseChangeSet(strings.NewReader(string(contents)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(parsed, changeSet) {
+		t.Fatalf("round trip mismatch\nparsed: %#v\nwant:   %#v", parsed, changeSet)
+	}
+}
+
 func FuzzParseChangeSetDoesNotPanic(f *testing.F) {
 	seed, err := os.ReadFile("testdata/valid/changeset.yaml")
 	if err != nil {

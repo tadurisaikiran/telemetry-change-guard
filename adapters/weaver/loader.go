@@ -23,6 +23,7 @@ type ImportedChange struct {
 
 // ImportResult is a deterministic, inspectable Weaver conversion result.
 type ImportResult struct {
+	Name     string           `json:"name"`
 	Format   DiffFormat       `json:"format"`
 	Baseline string           `json:"baseline"`
 	Head     string           `json:"head"`
@@ -65,6 +66,7 @@ func Convert(diff Diff, mapping Mapping) (ImportResult, error) {
 	matched := make(map[string]struct{}, len(mapping.Entries))
 	seenChanges := make(map[string]struct{}, len(diff.Changes))
 	result := ImportResult{
+		Name:     mapping.Name,
 		Format:   diff.Format,
 		Baseline: diff.Baseline,
 		Head:     diff.Head,
@@ -122,6 +124,47 @@ func Convert(diff Diff, mapping Mapping) (ImportResult, error) {
 	return result, nil
 }
 
+// ChangeSet returns every explicitly mapped generic change and preserves
+// unmapped source changes as required diagnostics. Unlike the legacy
+// Migration contract, a fully ignored or addition-only generic import may
+// contain no actionable changes.
+func (result ImportResult) ChangeSet() (domain.ChangeSet, []domain.Diagnostic, error) {
+	changeSet := domain.ChangeSet{
+		APIVersion: domain.ChangeSetAPIVersion,
+		Kind:       domain.ChangeSetKind,
+		Metadata:   domain.ChangeSetMetadata{Name: result.Name},
+		Description: fmt.Sprintf(
+			"Imported from Weaver %s diff %s to %s.",
+			result.Format,
+			result.Baseline,
+			result.Head,
+		),
+		Changes: []domain.Change{},
+	}
+	var diagnostics []domain.Diagnostic
+	for _, imported := range result.Changes {
+		if imported.RequiresMapping {
+			diagnostics = append(diagnostics, domain.Diagnostic{
+				Adapter: "weaver",
+				Message: fmt.Sprintf(
+					"Weaver %s %s change %q requires an explicit backend mapping or ignore decision",
+					imported.Source.Kind,
+					imported.Source.Type,
+					imported.Source.From,
+				),
+				Required: true,
+			})
+		}
+		if imported.Change != nil {
+			changeSet.Changes = append(changeSet.Changes, cloneImportedChange(*imported.Change))
+		}
+	}
+	if err := config.ValidateChangeSet(changeSet); err != nil {
+		return domain.ChangeSet{}, diagnostics, fmt.Errorf("validate imported Weaver ChangeSet: %w", err)
+	}
+	return changeSet, diagnostics, nil
+}
+
 // Migration returns the canonical Prometheus migration. It fails with
 // MappingRequiredError if any actionable Weaver change lacks an explicit
 // mapping or ignore decision.
@@ -163,47 +206,95 @@ func LoadMigration(
 	diffPath string,
 	mappingPath string,
 ) (domain.Migration, ImportResult, error) {
-	if err := ctx.Err(); err != nil {
-		return domain.Migration{}, ImportResult{}, err
-	}
-	diffFile, err := os.Open(diffPath)
-	if err != nil {
-		return domain.Migration{}, ImportResult{}, fmt.Errorf("open Weaver diff %q: %w", diffPath, err)
-	}
-	diff, parseErr := ParseDiff(diffFile)
-	closeErr := diffFile.Close()
-	if parseErr != nil {
-		return domain.Migration{}, ImportResult{}, fmt.Errorf("load Weaver diff %q: %w", diffPath, parseErr)
-	}
-	if closeErr != nil {
-		return domain.Migration{}, ImportResult{}, fmt.Errorf("close Weaver diff %q: %w", diffPath, closeErr)
-	}
-
-	mappingFile, err := os.Open(mappingPath)
-	if err != nil {
-		return domain.Migration{}, ImportResult{}, fmt.Errorf("open Weaver mapping %q: %w", mappingPath, err)
-	}
-	mapping, parseErr := ParseMapping(mappingFile)
-	closeErr = mappingFile.Close()
-	if parseErr != nil {
-		return domain.Migration{}, ImportResult{}, fmt.Errorf("load Weaver mapping %q: %w", mappingPath, parseErr)
-	}
-	if closeErr != nil {
-		return domain.Migration{}, ImportResult{}, fmt.Errorf("close Weaver mapping %q: %w", mappingPath, closeErr)
-	}
-	if err := ctx.Err(); err != nil {
-		return domain.Migration{}, ImportResult{}, err
-	}
-
-	result, err := Convert(diff, mapping)
+	result, err := LoadImportResult(ctx, diffPath, mappingPath)
 	if err != nil {
 		return domain.Migration{}, ImportResult{}, err
 	}
-	migration, err := result.Migration(mapping.Name)
+	migration, err := result.Migration(result.Name)
 	if err != nil {
 		return domain.Migration{}, result, err
 	}
 	return migration, result, nil
+}
+
+// LoadImportResult reads and converts a Weaver diff and mapping without
+// applying the legacy Migration requirement that every change be mapped.
+func LoadImportResult(
+	ctx context.Context,
+	diffPath string,
+	mappingPath string,
+) (ImportResult, error) {
+	if err := ctx.Err(); err != nil {
+		return ImportResult{}, err
+	}
+	diffFile, err := os.Open(diffPath)
+	if err != nil {
+		return ImportResult{}, fmt.Errorf("open Weaver diff %q: %w", diffPath, err)
+	}
+	diff, parseErr := ParseDiff(diffFile)
+	closeErr := diffFile.Close()
+	if parseErr != nil {
+		return ImportResult{}, fmt.Errorf("load Weaver diff %q: %w", diffPath, parseErr)
+	}
+	if closeErr != nil {
+		return ImportResult{}, fmt.Errorf("close Weaver diff %q: %w", diffPath, closeErr)
+	}
+
+	mapping, err := LoadMapping(ctx, mappingPath)
+	if err != nil {
+		return ImportResult{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ImportResult{}, err
+	}
+
+	result, err := Convert(diff, mapping)
+	if err != nil {
+		return ImportResult{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ImportResult{}, err
+	}
+	return result, nil
+}
+
+// LoadMapping reads one strict Weaver backend mapping with cancellation and
+// close-error handling shared by generic and migration change sources.
+func LoadMapping(ctx context.Context, mappingPath string) (Mapping, error) {
+	if err := ctx.Err(); err != nil {
+		return Mapping{}, err
+	}
+	mappingFile, err := os.Open(mappingPath)
+	if err != nil {
+		return Mapping{}, fmt.Errorf("open Weaver mapping %q: %w", mappingPath, err)
+	}
+	mapping, parseErr := ParseMapping(mappingFile)
+	closeErr := mappingFile.Close()
+	if parseErr != nil {
+		return Mapping{}, fmt.Errorf("load Weaver mapping %q: %w", mappingPath, parseErr)
+	}
+	if closeErr != nil {
+		return Mapping{}, fmt.Errorf("close Weaver mapping %q: %w", mappingPath, closeErr)
+	}
+	if err := ctx.Err(); err != nil {
+		return Mapping{}, err
+	}
+	return mapping, nil
+}
+
+func cloneImportedChange(source domain.Change) domain.Change {
+	result := source
+	if source.To != nil {
+		destination := *source.To
+		result.To = &destination
+	}
+	if source.Metadata != nil {
+		result.Metadata = make(map[string]string, len(source.Metadata))
+		for key, value := range source.Metadata {
+			result.Metadata[key] = value
+		}
+	}
+	return result
 }
 
 func canonicalChange(entry MappingEntry, source SourceChange, diff Diff) domain.Change {

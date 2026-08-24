@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +16,9 @@ import (
 	"testing"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/snapshot"
 )
 
 func TestCanonicalHelpUsesCollisionFreeExecutableName(t *testing.T) {
@@ -274,6 +278,294 @@ func TestCanonicalCheckRejectsCollidingOutputPathsBeforeInputLoading(t *testing.
 	}
 }
 
+func TestCanonicalCheckRequiresExactlyOneCompleteChangeSource(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "missing", args: nil, want: "exactly one change source"},
+		{name: "partial Weaver", args: []string{"--weaver-diff", "diff.json"}, want: "must be provided together"},
+		{name: "partial snapshot", args: []string{"--baseline", "baseline.json"}, want: "must be provided together"},
+		{name: "multiple", args: []string{"--changes", "changes.yaml", "--baseline", "baseline.json", "--candidate", "candidate.json"}, want: "exactly one change source"},
+		{name: "orphan name", args: []string{"--changes", "changes.yaml", "--change-set-name", "generated"}, want: "requires --baseline"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			args := []string{"check", "--config", "missing-config.yaml"}
+			args = append(args, test.args...)
+			var stdout, stderr bytes.Buffer
+			exitCode := Run(context.Background(), args, &stdout, &stderr)
+			if exitCode != 1 || stdout.Len() != 0 || !strings.Contains(stderr.String(), test.want) ||
+				strings.Contains(stderr.String(), "missing-config.yaml") {
+				t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
+func TestCanonicalDiffWritesFullReportAndActionableChangeSet(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	baselinePath := filepath.Join(root, "baseline.json")
+	candidatePath := filepath.Join(root, "candidate.json")
+	writeSnapshotFixture(t, baselinePath, []snapshot.Metric{
+		{Name: "removed_metric", Type: "counter", Labels: []string{"job"}},
+		{Name: "stable_metric", Type: "gauge", Labels: []string{"job", "zone"}},
+	})
+	writeSnapshotFixture(t, candidatePath, []snapshot.Metric{
+		{Name: "new_metric", Type: "counter", Labels: []string{}},
+		{Name: "stable_metric", Type: "gauge", Labels: []string{"job"}},
+	})
+	diffPath := filepath.Join(root, "diff.json")
+	changesPath := filepath.Join(root, "changes.yaml")
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"diff", "--baseline", baselinePath, "--candidate", candidatePath,
+		"--name", "detected-contract", "--output", diffPath, "--changes-output", changesPath,
+	}, &stdout, &stderr)
+	if exitCode != 0 || stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+	}
+	diffContents, err := os.ReadFile(diffPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result snapshot.Diff
+	if err := json.Unmarshal(diffContents, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.SchemaVersion != snapshot.DiffSchemaVersion || len(result.Differences) != 3 || len(result.ChangeSet.Changes) != 2 {
+		t.Fatalf("diff = %#v", result)
+	}
+	changeSet, err := config.LoadChangeSet(context.Background(), changesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changeSet.Metadata.Name != "detected-contract" || len(changeSet.Changes) != 2 ||
+		changeSet.Changes[0].Metadata["source.candidate.file"] != candidatePath {
+		t.Fatalf("changeSet = %#v", changeSet)
+	}
+
+	var validateOut, validateErr bytes.Buffer
+	if got := Run(context.Background(), []string{"validate", "--snapshot", candidatePath}, &validateOut, &validateErr); got != 0 ||
+		validateOut.String() != "TelemetrySnapshot is valid.\nMetrics: 2\n" || validateErr.Len() != 0 {
+		t.Fatalf("validate exit = %d, stdout = %q, stderr = %q", got, validateOut.String(), validateErr.String())
+	}
+}
+
+func TestCanonicalCheckSnapshotSemanticDriftFailsIncomplete(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	rulesPath := filepath.Join(root, "rules.yaml")
+	writeCLIFixture(t, rulesPath, `groups:
+  - name: requests
+    rules:
+      - alert: RequestsMissing
+        expr: requests_total == 0
+        labels: {severity: critical}
+`)
+	configPath := filepath.Join(root, "tcg.yaml")
+	writeCLIFixture(t, configPath, fmt.Sprintf(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  prometheusRules:
+    - path: %q
+      required: true
+output:
+  formats: [json]
+`, rulesPath))
+	baselinePath := filepath.Join(root, "baseline.json")
+	candidatePath := filepath.Join(root, "candidate.json")
+	writeSnapshotFixture(t, baselinePath, []snapshot.Metric{{Name: "requests_total", Type: "counter", Labels: []string{"job"}}})
+	writeSnapshotFixture(t, candidatePath, []snapshot.Metric{{Name: "requests_total", Type: "gauge", Labels: []string{"job"}}})
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"check", "--config", configPath, "--baseline", baselinePath, "--candidate", candidatePath, "--format", "json",
+	}, &stdout, &stderr)
+	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stderr.Len() != 0 {
+		t.Fatalf("exit = %d, stderr = %q", exitCode, stderr.String())
+	}
+	var result safety.Result
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != safety.StatusIncomplete || len(result.ChangeSet.Changes) != 0 ||
+		len(result.Diagnostics) != 1 || !result.Diagnostics[0].Required {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestCanonicalDiffSemanticDriftWritesEvidenceAndReturnsIncomplete(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	baselinePath := filepath.Join(root, "baseline.json")
+	candidatePath := filepath.Join(root, "candidate.json")
+	writeSnapshotFixture(t, baselinePath, []snapshot.Metric{{Name: "requests", Type: "counter", Labels: []string{}}})
+	writeSnapshotFixture(t, candidatePath, []snapshot.Metric{{Name: "requests", Type: "gauge", Labels: []string{}}})
+	diffPath := filepath.Join(root, "diff.json")
+	changesPath := filepath.Join(root, "changes.yaml")
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"diff", "--baseline", baselinePath, "--candidate", candidatePath,
+		"--output", diffPath, "--changes-output", changesPath,
+	}, &stdout, &stderr)
+	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stdout.Len() != 0 ||
+		!strings.Contains(stderr.String(), "Diagnostic [telemetry_snapshot/required]") {
+		t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+	}
+	contents, err := os.ReadFile(diffPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result snapshot.Diff
+	if err := json.Unmarshal(contents, &result); err != nil {
+		t.Fatal(err)
+	}
+	changeSet, err := config.LoadChangeSet(context.Background(), changesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Diagnostics) != 1 || len(changeSet.Changes) != 0 {
+		t.Fatalf("diff = %#v, changeSet = %#v", result, changeSet)
+	}
+}
+
+func TestCanonicalCheckWeaverMissingMappingFailsIncompleteWithKnownChanges(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(t.TempDir(), "tcg.yaml")
+	writeCLIFixture(t, configPath, `apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  prometheusRules:
+    - path: /definitely/missing/tcg-weaver-optional/*.yaml
+      required: false
+output:
+  formats: [json]
+`)
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"check",
+		"--config", configPath,
+		"--weaver-diff", filepath.Join(root, "adapters", "weaver", "testdata", "diff-v2.json"),
+		"--weaver-mapping", filepath.Join(root, "adapters", "weaver", "testdata", "mapping-incomplete.yaml"),
+		"--format", "json",
+	}, &stdout, &stderr)
+	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stderr.Len() != 0 {
+		t.Fatalf("exit = %d, stderr = %q", exitCode, stderr.String())
+	}
+	var result safety.Result
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != safety.StatusIncomplete || len(result.ChangeSet.Changes) != 2 {
+		t.Fatalf("result = %#v", result)
+	}
+	foundRequiredWeaver := false
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Adapter == "weaver" && diagnostic.Required {
+			foundRequiredWeaver = true
+		}
+	}
+	if !foundRequiredWeaver {
+		t.Fatalf("missing required Weaver diagnostic: %#v", result.Diagnostics)
+	}
+}
+
+func TestCanonicalValidateWeaverMissingMappingReturnsIncomplete(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Clean(filepath.Join("..", ".."))
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"validate",
+		"--weaver-diff", filepath.Join(root, "adapters", "weaver", "testdata", "diff-v2.json"),
+		"--weaver-mapping", filepath.Join(root, "adapters", "weaver", "testdata", "mapping-incomplete.yaml"),
+	}, &stdout, &stderr)
+	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stdout.Len() != 0 ||
+		!strings.Contains(stderr.String(), "Diagnostic [weaver/required]") {
+		t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+	}
+}
+
+func TestCanonicalSnapshotRejectsUnboundedOptionsBeforeNetwork(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "zero metrics", args: []string{"--max-metrics", "0"}, want: "must be positive"},
+		{name: "negative series", args: []string{"--max-series", "-1"}, want: "must be positive"},
+		{name: "long timeout", args: []string{"--timeout", "11m"}, want: "no greater than 10m"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			args := []string{"snapshot", "--prometheus", "http://127.0.0.1:1"}
+			args = append(args, test.args...)
+			var stdout, stderr bytes.Buffer
+			exitCode := Run(context.Background(), args, &stdout, &stderr)
+			if exitCode != 1 || stdout.Len() != 0 || !strings.Contains(stderr.String(), test.want) ||
+				strings.Contains(stderr.String(), "connection refused") {
+				t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+			}
+		})
+	}
+}
+
+func TestCanonicalSnapshotCollectsPrometheusContract(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("Authorization") != "Bearer snapshot-secret" {
+			t.Errorf("missing bearer authorization")
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(request.URL.Path, "/metadata") {
+			fmt.Fprint(writer, `{"status":"success","data":{"requests_total":[{"type":"counter","unit":"requests"}]}}`)
+			return
+		}
+		fmt.Fprint(writer, `{"status":"success","data":[{"__name__":"requests_total","job":"api"}]}`)
+	}))
+	defer server.Close()
+	t.Setenv("TCG_SNAPSHOT_TEST_TOKEN", "snapshot-secret")
+
+	outputPath := filepath.Join(t.TempDir(), "snapshot.json")
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"snapshot", "--prometheus", server.URL, "--name", "checkout", "--output", outputPath,
+		"--bearer-token-env", "TCG_SNAPSHOT_TEST_TOKEN", "--max-metrics", "10", "--max-series", "10",
+	}, &stdout, &stderr)
+	if exitCode != 0 || stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+	}
+	contract, err := snapshot.Load(context.Background(), outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contract.Metadata.Name != "checkout" || len(contract.Spec.Metrics) != 1 ||
+		!reflect.DeepEqual(contract.Spec.Metrics[0].Labels, []string{"job"}) {
+		t.Fatalf("snapshot = %#v", contract)
+	}
+	contents, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(contents), "snapshot-secret") {
+		t.Fatal("snapshot leaked bearer token")
+	}
+}
+
 func TestCanonicalImpactIncludesPrometheusMetricFamilyDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -418,6 +710,23 @@ func runCLIHelper(t *testing.T, root string, args ...string) ([]byte, int) {
 func writeCLIFixture(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeSnapshotFixture(t *testing.T, path string, metrics []snapshot.Metric) {
+	t.Helper()
+	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	contents, err := snapshot.Marshal(snapshot.Snapshot{
+		APIVersion: snapshot.APIVersion,
+		Kind:       snapshot.Kind,
+		Metadata:   snapshot.Metadata{Name: name},
+		Spec:       snapshot.Spec{Domain: domain.DomainPrometheus, Metrics: metrics},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

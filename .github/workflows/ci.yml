@@ -49,6 +49,7 @@ jobs:
         run: |
           go test ./internal/config -run=^$ -fuzz=FuzzParseConfigDoesNotPanic -fuzztime=3s
           go test ./internal/config -run=^$ -fuzz=FuzzParseChangeSetDoesNotPanic -fuzztime=3s
+          go test ./internal/snapshot -run=^$ -fuzz=FuzzParseSnapshotDoesNotPanic -fuzztime=3s
           go test ./pkg/promql -run=^$ -fuzz=FuzzAnalyze -fuzztime=5s
           go test ./pkg/traceql -run=^$ -fuzz=FuzzAnalyzeDoesNotPanic -fuzztime=5s
           go test ./adapters/weaver -run=^$ -fuzz=FuzzParseDiffDoesNotPanic -fuzztime=3s
@@ -71,11 +72,24 @@ jobs:
       matrix:
         include:
           - mode: generic
+            expected_mode: generic
             changes: action/testdata/changes.yaml
+            baseline: ""
+            candidate: ""
+            migration: ""
+            status: WARN
+          - mode: snapshot
+            expected_mode: generic
+            changes: ""
+            baseline: action/testdata/snapshots/baseline.json
+            candidate: action/testdata/snapshots/candidate.json
             migration: ""
             status: WARN
           - mode: migration
+            expected_mode: migration
             changes: ""
+            baseline: ""
+            candidate: ""
             migration: action/testdata/migration.yaml
             status: READY
 
@@ -89,6 +103,8 @@ jobs:
         with:
           config: action/testdata/tcg.yaml
           changes: ${{ matrix.changes }}
+          baseline: ${{ matrix.baseline }}
+          candidate: ${{ matrix.candidate }}
           migration: ${{ matrix.migration }}
           comment: "false"
           artifact-name: telemetry-change-guard-${{ matrix.mode }}
@@ -99,7 +115,7 @@ jobs:
           TCG_ACTUAL_MODE: ${{ steps.guard.outputs.mode }}
           TCG_ACTUAL_STATUS: ${{ steps.guard.outputs.status }}
           TCG_ACTUAL_EXIT: ${{ steps.guard.outputs.exit-code }}
-          TCG_EXPECTED_MODE: ${{ matrix.mode }}
+          TCG_EXPECTED_MODE: ${{ matrix.expected_mode }}
           TCG_EXPECTED_STATUS: ${{ matrix.status }}
         run: |
           [[ "${TCG_ACTUAL_MODE}" == "${TCG_EXPECTED_MODE}" ]]

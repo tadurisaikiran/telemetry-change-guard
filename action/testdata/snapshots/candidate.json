@@ -1,0 +1,11 @@
+{
+  "apiVersion": "tcg/v1alpha1",
+  "kind": "TelemetrySnapshot",
+  "metadata": {
+    "name": "action-candidate"
+  },
+  "spec": {
+    "domain": "prometheus",
+    "metrics": []
+  }
+}

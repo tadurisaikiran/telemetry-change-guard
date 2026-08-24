@@ -18,11 +18,16 @@ Run it from the repository root with Docker Compose v2:
 ./e2e/scripts/run-e2e.sh
 ```
 
-The script builds `tmr`, independently runs `promtool check rules` for every
-scenario, runs `promtool test rules`, validates and generates the Sloth spec,
-then starts and queries the stack for each lifecycle stage.
+The script builds both canonical and compatibility executables, independently
+runs `promtool check rules` for every scenario, runs `promtool test rules`,
+validates and generates the Sloth spec, then starts and queries the stack for
+each lifecycle stage.
 For every migration stage it also requires the explicit migration manifest and
 the mapped Weaver V2 diff to produce the same status and exit code.
+The first and final live Prometheus stages are captured as telemetry snapshots;
+their full diff must detect the old metric removal and new metric addition, the
+generated ChangeSet must validate, and generic analysis against migrated
+consumers must return `PASS`.
 
 | Scenario | Exporter | Consumers | Expected Telemetry Change Guard | Runtime |
 | --- | --- | --- | --- | --- |

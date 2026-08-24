@@ -30,7 +30,8 @@ compatibility API is validated and normalized before entering that pipeline.
 ## Implemented deterministic pipeline
 
 ```text
-explicit migration or mapped Weaver diff + source configuration
+explicit ChangeSet, mapped Weaver diff, or baseline/candidate snapshots
+                         + source configuration
              |
              v
 strict validation and local/remote evidence adapters
@@ -80,6 +81,13 @@ domain validation.
 symbols, consumers, references, evidence, productions, diagnostics, source
 locations, and owners.
 Adapter-specific document shapes never leak into this package.
+
+`internal/changesource` defines the deterministic normalization boundary for
+explicit ChangeSets, mapped Weaver registry diffs, and telemetry snapshot
+pairs. `internal/snapshot` owns the strict, versioned, byte-stable contract and
+full baseline/candidate delta. `adapters/prometheussnapshot` is the bounded
+read-only Prometheus collector. Additions remain inspectable; removals become
+ChangeSet entries; unsupported semantic drift remains required uncertainty.
 
 `adapters/weaver` consumes current structured Weaver V1/V2 registry diffs and
 requires explicit OpenTelemetry-to-Prometheus mappings. Missing mappings stop
@@ -175,6 +183,7 @@ never mutated; simulated status is validation evidence, not current state.
 
 ## Next architectural layers
 
+- KEDA and Argo Rollouts control-plane consumers.
 - Log and Collector configuration analysis.
 - APIs, MCP, and server/UI modes.
 - Additional live end-to-end tiers described in `TESTING.md`.

@@ -31,7 +31,7 @@ type changeSetMetadataDocument struct {
 }
 
 type changeSetSpecDocument struct {
-	Description string                    `yaml:"description"`
+	Description string                    `yaml:"description,omitempty"`
 	Changes     []canonicalChangeDocument `yaml:"changes"`
 }
 
@@ -40,15 +40,62 @@ type canonicalChangeDocument struct {
 	Kind     domain.ChangeKind        `yaml:"kind"`
 	Domain   domain.Domain            `yaml:"domain"`
 	From     canonicalSymbolDocument  `yaml:"from"`
-	To       *canonicalSymbolDocument `yaml:"to"`
-	Metadata map[string]string        `yaml:"metadata"`
+	To       *canonicalSymbolDocument `yaml:"to,omitempty"`
+	Metadata map[string]string        `yaml:"metadata,omitempty"`
 }
 
 type canonicalSymbolDocument struct {
 	Domain domain.Domain     `yaml:"domain"`
 	Kind   domain.SymbolKind `yaml:"kind"`
 	Name   string            `yaml:"name"`
-	Parent string            `yaml:"parent"`
+	Parent string            `yaml:"parent,omitempty"`
+}
+
+// MarshalChangeSet serializes a validated ChangeSet as its canonical YAML
+// manifest envelope. Generated change sources use this instead of exposing
+// internal document structs or relying on the machine-result JSON shape.
+func MarshalChangeSet(changeSet domain.ChangeSet) ([]byte, error) {
+	if err := ValidateChangeSet(changeSet); err != nil {
+		return nil, err
+	}
+	document := changeSetDocument{
+		APIVersion: changeSet.APIVersion,
+		Kind:       changeSet.Kind,
+		Metadata:   changeSetMetadataDocument{Name: changeSet.Metadata.Name},
+		Spec: changeSetSpecDocument{
+			Description: changeSet.Description,
+			Changes:     make([]canonicalChangeDocument, 0, len(changeSet.Changes)),
+		},
+	}
+	for _, change := range changeSet.Changes {
+		var destination *canonicalSymbolDocument
+		if change.To != nil {
+			value := canonicalSymbolFromDomain(*change.To)
+			destination = &value
+		}
+		document.Spec.Changes = append(document.Spec.Changes, canonicalChangeDocument{
+			ID:       change.ID,
+			Kind:     change.Kind,
+			Domain:   change.Domain,
+			From:     canonicalSymbolFromDomain(change.From),
+			To:       destination,
+			Metadata: cloneMetadata(change.Metadata),
+		})
+	}
+	contents, err := yaml.Marshal(document)
+	if err != nil {
+		return nil, fmt.Errorf("encode change set manifest: %w", err)
+	}
+	return contents, nil
+}
+
+func canonicalSymbolFromDomain(symbol domain.Symbol) canonicalSymbolDocument {
+	return canonicalSymbolDocument{
+		Domain: symbol.Domain,
+		Kind:   symbol.Kind,
+		Name:   symbol.Name,
+		Parent: symbol.Parent,
+	}
 }
 
 // LoadChangeSet reads and validates one native ChangeSet manifest from path.

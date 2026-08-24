@@ -72,6 +72,10 @@ discovery](OWNERSHIP.md).
 
 ## Change adapters
 
+- `prometheussnapshot` reads bounded Prometheus metadata and series APIs and
+  creates a deterministic telemetry contract containing names only. Sample and
+  label values are never retained. API warnings, truncation, ambiguity,
+  cross-origin redirects, response bounds, and timeouts fail closed.
 - `weaver` reads current V1 and V2 `weaver registry diff` JSON. Every
   actionable metric or registry-attribute change requires an exact explicit
   Prometheus mapping or a documented ignore decision. Missing mappings produce
@@ -79,3 +83,5 @@ discovery](OWNERSHIP.md).
 
 Weaver is never invoked by Telemetry Change Guard and OpenTelemetry names are never inferred to be
 Prometheus names. See [the Weaver integration guide](WEAVER.md).
+Snapshot format, diff behavior, and evidence limits are documented in
+[change sources](CHANGE_SOURCES.md).

@@ -5,6 +5,10 @@ e2e_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 repo_dir=$(cd "${e2e_dir}/.." && pwd)
 compose=(docker compose --file "${e2e_dir}/docker-compose.yaml")
 tmr_bin=${TMR_BIN:-"${TMPDIR:-/tmp}/tmr-e2e"}
+tcg_bin=${TCG_BIN:-"${TMPDIR:-/tmp}/telemetry-change-guard-e2e"}
+snapshot_dir=$(mktemp -d)
+baseline_snapshot="${snapshot_dir}/baseline.json"
+candidate_snapshot="${snapshot_dir}/candidate.json"
 
 cleanup() {
   if [[ -n "${TMR_SCENARIO_DIR:-}" && -n "${TMR_EXPORT_MODE:-}" ]]; then
@@ -15,6 +19,9 @@ trap cleanup EXIT
 
 if [[ -z "${TMR_BIN:-}" ]]; then
   (cd "${repo_dir}" && go build -trimpath -o "${tmr_bin}" ./cmd/tmr)
+fi
+if [[ -z "${TCG_BIN:-}" ]]; then
+  (cd "${repo_dir}" && go build -trimpath -o "${tcg_bin}" ./cmd/telemetry-change-guard)
 fi
 
 run_analysis() {
@@ -84,6 +91,13 @@ run_scenario() {
   "${compose[@]}" up --detach --build exporter prometheus grafana
   "${e2e_dir}/scripts/wait-for-stack.sh"
   "${e2e_dir}/scripts/assert-prometheus.sh"
+  if [[ "${name}" == "01-before" ]]; then
+    "${tcg_bin}" snapshot --prometheus http://127.0.0.1:19090 \
+      --name lifecycle-baseline --output "${baseline_snapshot}"
+  elif [[ "${name}" == "07-legacy-removed" ]]; then
+    "${tcg_bin}" snapshot --prometheus http://127.0.0.1:19090 \
+      --name lifecycle-candidate --output "${candidate_snapshot}"
+  fi
   "${compose[@]}" down --volumes --remove-orphans
 }
 
@@ -98,5 +112,26 @@ run_scenario 04-uncertain dual INCOMPLETE 3 checkout_server_request_duration_sec
 run_scenario 05-migrated dual READY 0 checkout_server_request_duration_seconds_count '' healthy
 run_scenario 06-premature-cutover new BLOCKED 2 checkout_server_request_duration_seconds_count checkout_request_duration_seconds_count broken
 run_scenario 07-legacy-removed new READY 0 checkout_server_request_duration_seconds_count checkout_request_duration_seconds_count healthy
+
+snapshot_diff="${snapshot_dir}/diff.json"
+snapshot_changes="${snapshot_dir}/changes.yaml"
+snapshot_result="${snapshot_dir}/result.json"
+"${tcg_bin}" diff \
+  --baseline "${baseline_snapshot}" \
+  --candidate "${candidate_snapshot}" \
+  --output "${snapshot_diff}" \
+  --changes-output "${snapshot_changes}"
+grep --quiet '"kind": "metric_removed"' "${snapshot_diff}"
+grep --quiet '"metric": "checkout_request_duration_seconds"' "${snapshot_diff}"
+grep --quiet '"kind": "metric_added"' "${snapshot_diff}"
+grep --quiet '"metric": "checkout_server_request_duration_seconds"' "${snapshot_diff}"
+"${tcg_bin}" validate --changes "${snapshot_changes}"
+"${tcg_bin}" check \
+  --config "${e2e_dir}/scenarios/07-legacy-removed/tmr.yaml" \
+  --baseline "${baseline_snapshot}" \
+  --candidate "${candidate_snapshot}" \
+  --format json \
+  --output "${snapshot_result}"
+grep --quiet '"status": "PASS"' "${snapshot_result}"
 
 printf '\nTelemetry Change Guard live E2E lifecycle passed.\n'
