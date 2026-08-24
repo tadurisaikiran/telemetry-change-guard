@@ -1,9 +1,103 @@
 package config
 
 import (
+	"context"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestCheckoutConfigExamplesNormalizeIdentically(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Clean(filepath.Join("..", "..", "examples", "checkout-migration"))
+	canonical, err := LoadConfig(context.Background(), filepath.Join(root, "tcg.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := LoadConfig(context.Background(), filepath.Join(root, "tmr.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(canonical, legacy) {
+		t.Fatalf("example configurations differ\ncanonical: %#v\nlegacy: %#v", canonical, legacy)
+	}
+}
+
+func TestParseConfigNormalizesCanonicalAndLegacyDocuments(t *testing.T) {
+	t.Parallel()
+
+	canonical, err := ParseConfig(strings.NewReader(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  persesUsage:
+    - url: https://usage.example.test
+      bearerTokenEnv: TCG_PERSES_TOKEN
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := ParseConfig(strings.NewReader(`apiVersion: tmr/v1alpha1
+sources:
+  persesUsage:
+    - url: https://usage.example.test
+      bearerTokenEnv: TMR_PERSES_TOKEN
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(canonical, legacy) {
+		t.Fatalf("normalized configurations differ\ncanonical: %#v\nlegacy: %#v", canonical, legacy)
+	}
+	if canonical.APIVersion != ConfigAPIVersion || canonical.Kind != ConfigKind {
+		t.Fatalf("identity = %q/%q", canonical.APIVersion, canonical.Kind)
+	}
+	if got := canonical.Sources.PersesUsage[0].BearerTokenEnv; got != "TCG_PERSES_TOKEN" {
+		t.Fatalf("bearer token environment = %q", got)
+	}
+}
+
+func TestParseConfigValidatesVersionedEnvelope(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    []string
+	}{
+		{
+			name:    "canonical kind required",
+			content: "apiVersion: tcg/v1alpha1\nsources: {grafana: [dashboards/*.json]}\n",
+			want:    []string{"configuration is invalid", `kind: must be "Config"`},
+		},
+		{
+			name:    "unknown version",
+			content: "apiVersion: tcg/v2\nkind: Config\nsources: {grafana: [dashboards/*.json]}\n",
+			want:    []string{`apiVersion: must be "tcg/v1alpha1" or "tmr/v1alpha1"`},
+		},
+		{
+			name:    "invalid legacy kind",
+			content: "apiVersion: tmr/v1alpha1\nkind: Other\nsources: {grafana: [dashboards/*.json]}\n",
+			want:    []string{`kind: must be omitted or "Config"`},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := ParseConfig(strings.NewReader(test.content))
+			if err == nil {
+				t.Fatal("ParseConfig() error = nil")
+			}
+			for _, want := range test.want {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error = %q, want %q", err, want)
+				}
+			}
+		})
+	}
+}
 
 func TestParseConfigSupportsScalarAndMappedSources(t *testing.T) {
 	t.Parallel()
@@ -305,4 +399,13 @@ mappings:
 			t.Errorf("error = %q, want %q", err, expected)
 		}
 	}
+}
+
+func FuzzParseConfigDoesNotPanic(f *testing.F) {
+	f.Add([]byte("apiVersion: tcg/v1alpha1\nkind: Config\nsources: {grafana: [dashboards/*.json]}\n"))
+	f.Add([]byte("apiVersion: tmr/v1alpha1\nsources: {prometheusRules: [rules/*.yaml]}\n"))
+	f.Add([]byte("apiVersion: ["))
+	f.Fuzz(func(t *testing.T, input []byte) {
+		_, _ = ParseConfig(strings.NewReader(string(input)))
+	})
 }

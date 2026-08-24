@@ -46,7 +46,7 @@ func TestCanonicalCheckCheckoutContract(t *testing.T) {
 	command := exec.Command(os.Args[0], "-test.run=TestCanonicalCLIHelperProcess", "--",
 		"canonical",
 		"check",
-		"--config", "examples/checkout-migration/tmr.yaml",
+		"--config", "examples/checkout-migration/tcg.yaml",
 		"--changes", "examples/checkout-migration/changes.yaml",
 		"--format", "json",
 	)
@@ -64,6 +64,59 @@ func TestCanonicalCheckCheckoutContract(t *testing.T) {
 	if result.SchemaVersion != safety.ResultSchemaVersion || result.Status != safety.StatusIncomplete ||
 		len(result.Findings) == 0 || len(result.Decisions) != len(result.Findings) {
 		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestCanonicalCheckRejectsConflictingEnvironmentWithoutSecretDisclosure(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "tcg.yaml")
+	writeCLIFixture(t, configPath, `apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  persesUsage:
+    - url: https://usage.example.test
+      bearerTokenEnv: TCG_CLI_CONFLICT_TOKEN
+output:
+  formats: [json]
+`)
+	changesPath := filepath.Join(root, "changes.yaml")
+	writeCLIFixture(t, changesPath, `apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata: {name: conflict}
+spec:
+  changes:
+    - id: remove-old
+      kind: metric_remove
+      domain: prometheus
+      from: {domain: prometheus, kind: metric, name: old_metric}
+`)
+	t.Setenv("TCG_CLI_CONFLICT_TOKEN", "canonical-secret")
+	t.Setenv("TMR_CLI_CONFLICT_TOKEN", "legacy-secret")
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"check", "--config", configPath, "--changes", changesPath, "--format", "json",
+	}, &stdout, &stderr)
+	if exitCode != 1 {
+		t.Fatalf("exit code = %d, want ERROR exit 1; stderr = %q", exitCode, stderr.String())
+	}
+	var result safety.Result
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatalf("decode result: %v\n%s", err, stdout.String())
+	}
+	if result.Status != safety.StatusError || len(result.Errors) != 1 {
+		t.Fatalf("result = %#v", result)
+	}
+	combined := stdout.String() + stderr.String()
+	for _, name := range []string{"TCG_CLI_CONFLICT_TOKEN", "TMR_CLI_CONFLICT_TOKEN"} {
+		if !strings.Contains(combined, name) {
+			t.Errorf("output missing environment name %q: %s", name, combined)
+		}
+	}
+	for _, secret := range []string{"canonical-secret", "legacy-secret"} {
+		if strings.Contains(combined, secret) {
+			t.Errorf("output leaked secret %q: %s", secret, combined)
+		}
 	}
 }
 

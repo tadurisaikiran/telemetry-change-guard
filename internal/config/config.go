@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	ConfigAPIVersion = "tmr/v1alpha1"
-	maxConfigBytes   = 1 << 20
+	ConfigAPIVersion       = "tcg/v1alpha1"
+	LegacyConfigAPIVersion = "tmr/v1alpha1"
+	ConfigKind             = "Config"
+	maxConfigBytes         = 1 << 20
 
 	RuntimeQueryFormatPrometheusLog = "prometheus_query_log"
 	RuntimeQueryFormatTMRHistory    = "tmr_query_history"
@@ -130,6 +132,7 @@ type OwnershipConfig struct {
 // Config is the validated product analysis configuration.
 type Config struct {
 	APIVersion string          `json:"apiVersion"`
+	Kind       string          `json:"kind"`
 	Sources    Sources         `json:"sources"`
 	Mappings   MappingsConfig  `json:"mappings,omitempty"`
 	Ownership  OwnershipConfig `json:"ownership,omitempty"`
@@ -140,6 +143,7 @@ type Config struct {
 
 type configDocument struct {
 	APIVersion string             `yaml:"apiVersion"`
+	Kind       string             `yaml:"kind"`
 	Sources    sourcesDocument    `yaml:"sources"`
 	Mappings   mappingsDocument   `yaml:"mappings"`
 	Ownership  *ownershipDocument `yaml:"ownership"`
@@ -323,6 +327,9 @@ func ParseConfig(reader io.Reader) (Config, error) {
 	} else if !errors.Is(err, io.EOF) {
 		return Config{}, fmt.Errorf("decode trailing config document: %w", err)
 	}
+	if err := validateConfigEnvelope(document); err != nil {
+		return Config{}, err
+	}
 
 	result := normalizeConfig(document)
 	if err := ValidateConfig(result); err != nil {
@@ -333,9 +340,12 @@ func ParseConfig(reader io.Reader) (Config, error) {
 
 // ValidateConfig validates a normalized product config.
 func ValidateConfig(config Config) error {
-	issues := &ValidationError{}
+	issues := &ConfigValidationError{}
 	if config.APIVersion != ConfigAPIVersion {
 		issues.add("apiVersion", fmt.Sprintf("must be %q", ConfigAPIVersion))
+	}
+	if config.Kind != ConfigKind {
+		issues.add("kind", fmt.Sprintf("must be %q", ConfigKind))
 	}
 
 	totalSources := 0
@@ -513,7 +523,8 @@ func normalizeConfig(document configDocument) Config {
 	}
 
 	return Config{
-		APIVersion: document.APIVersion,
+		APIVersion: ConfigAPIVersion,
+		Kind:       ConfigKind,
 		Sources: Sources{
 			PrometheusRules: normalizePatterns(document.Sources.PrometheusRules),
 			Grafana:         normalizePatterns(document.Sources.Grafana),
@@ -536,6 +547,29 @@ func normalizeConfig(document configDocument) Config {
 		},
 		Output: OutputConfig{Formats: formats},
 	}
+}
+
+func validateConfigEnvelope(document configDocument) error {
+	issues := &ConfigValidationError{}
+	switch document.APIVersion {
+	case ConfigAPIVersion:
+		if document.Kind != ConfigKind {
+			issues.add("kind", fmt.Sprintf("must be %q for apiVersion %q", ConfigKind, ConfigAPIVersion))
+		}
+	case LegacyConfigAPIVersion:
+		if document.Kind != "" && document.Kind != ConfigKind {
+			issues.add("kind", fmt.Sprintf("must be omitted or %q for apiVersion %q", ConfigKind, LegacyConfigAPIVersion))
+		}
+	default:
+		issues.add(
+			"apiVersion",
+			fmt.Sprintf("must be %q or %q", ConfigAPIVersion, LegacyConfigAPIVersion),
+		)
+		if document.Kind != "" && document.Kind != ConfigKind {
+			issues.add("kind", fmt.Sprintf("must be %q", ConfigKind))
+		}
+	}
+	return issues.errOrNil()
 }
 
 func normalizeRuntimeQuerySources(documents []runtimeQuerySourceDocument) []RuntimeQuerySource {
@@ -584,7 +618,7 @@ func normalizeTempoQuerySources(documents []tempoQuerySourceDocument) []TempoQue
 			Pattern:        strings.TrimSpace(document.Path),
 			Required:       required,
 			Timeout:        timeout,
-			BearerTokenEnv: strings.TrimSpace(document.BearerTokenEnv),
+			BearerTokenEnv: canonicalEnvironmentName(strings.TrimSpace(document.BearerTokenEnv)),
 			Criticality:    criticality,
 		})
 	}
@@ -603,7 +637,7 @@ func normalizeMappings(document mappingsDocument) MappingsConfig {
 	return MappingsConfig{TraceAttributes: mappings}
 }
 
-func validateTraceAttributeName(issues *ValidationError, path, value string) {
+func validateTraceAttributeName(issues validationIssues, path, value string) {
 	if isBlank(value) {
 		issues.add(path, "is required")
 		return
@@ -693,7 +727,7 @@ func normalizePersesUsageSources(documents []persesUsageSourceDocument) []Perses
 			URL:            strings.TrimRight(strings.TrimSpace(document.URL), "/"),
 			Required:       required,
 			Timeout:        timeout,
-			BearerTokenEnv: strings.TrimSpace(document.BearerTokenEnv),
+			BearerTokenEnv: canonicalEnvironmentName(strings.TrimSpace(document.BearerTokenEnv)),
 		})
 	}
 	return sources

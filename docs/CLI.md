@@ -23,17 +23,17 @@ Evaluate downstream operational impact:
 
 ```bash
 telemetry-change-guard check \
-  --config ./tmr.yaml \
+  --config ./tcg.yaml \
   --changes ./changes.yaml \
   --mode enforce \
   --format console
 ```
 
 `--config` is required. A missing configuration is never interpreted as a
-valid empty evidence set. The current CLI milestone accepts the existing strict
-`tmr/v1alpha1` analysis configuration; the isolated configuration transition
-will add `tcg/v1alpha1` normalization without making existing users rewrite
-their files.
+valid empty evidence set. Canonical `tcg/v1alpha1` configuration and existing
+`tmr/v1alpha1` configuration normalize to the same internal model. See the
+[configuration guide](CONFIGURATION.md) for envelope and environment fallback
+rules.
 
 Supported report formats are `console`, `json`, and `markdown`. If `--format`
 is omitted, the first configured output format is used. `--output <path>` writes
@@ -63,7 +63,7 @@ Explain confirmed dependency paths from one Prometheus metric:
 
 ```bash
 telemetry-change-guard impact \
-  --config ./tmr.yaml \
+  --config ./tcg.yaml \
   --symbol checkout_requests_total
 ```
 
@@ -71,7 +71,7 @@ Export the complete deterministic graph:
 
 ```bash
 telemetry-change-guard graph \
-  --config ./tmr.yaml \
+  --config ./tcg.yaml \
   --output ./dependency-graph.json
 ```
 
@@ -87,7 +87,7 @@ Migration readiness is available as a first-class nested workflow:
 
 ```bash
 telemetry-change-guard migration check \
-  --config ./tmr.yaml \
+  --config ./tcg.yaml \
   --plan ./migration.yaml
 ```
 

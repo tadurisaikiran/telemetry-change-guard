@@ -5,7 +5,6 @@ package analysis
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/grafana"
@@ -112,6 +111,10 @@ func ReadinessPolicy(configuration config.Config) readiness.Policy {
 // Discover runs configured adapters and constructs the dependency graph.
 func Discover(ctx context.Context, configuration config.Config) (domain.Discovery, *graph.Graph, error) {
 	var discovery domain.Discovery
+	environment, err := resolveEnvironmentReferences(configuration)
+	if err != nil {
+		return discovery, nil, err
+	}
 	loadPatterns(ctx, "prometheus_rules", configuration.Sources.PrometheusRules, &discovery,
 		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
 			return (prometheusrules.Loader{Required: required}).LoadFile(ctx, path)
@@ -128,9 +131,9 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
 			return (pyrra.Loader{Required: required}).LoadFile(ctx, path)
 		})
-	loadPersesUsage(ctx, configuration.Sources.PersesUsage, &discovery)
+	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, &discovery)
 	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)
-	loadTempoQueries(ctx, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, &discovery)
+	loadTempoQueries(ctx, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, environment, &discovery)
 	if err := ownership.Enrich(ctx, configuration.Ownership, &discovery); err != nil {
 		return domain.Discovery{}, nil, fmt.Errorf("enrich consumer ownership: %w", err)
 	}
@@ -149,6 +152,7 @@ func loadTempoQueries(
 	ctx context.Context,
 	sources []config.TempoQuerySource,
 	mappings []config.TraceAttributeMapping,
+	environment map[string]environmentValue,
 	discovery *domain.Discovery,
 ) {
 	adapterMappings := make([]tempo.AttributeMapping, 0, len(mappings))
@@ -171,9 +175,9 @@ func loadTempoQueries(
 		}
 		var token string
 		if source.BearerTokenEnv != "" {
-			var exists bool
-			token, exists = os.LookupEnv(source.BearerTokenEnv)
-			if !exists || token == "" {
+			resolved := environment[source.BearerTokenEnv]
+			token = resolved.value
+			if !resolved.exists || token == "" {
 				discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(
 					source,
 					source.Pattern,
@@ -345,6 +349,7 @@ func runtimeQueryDiagnostic(source config.RuntimeQuerySource, path, message stri
 func loadPersesUsage(
 	ctx context.Context,
 	sources []config.PersesUsageSource,
+	environment map[string]environmentValue,
 	discovery *domain.Discovery,
 ) {
 	for _, source := range sources {
@@ -358,9 +363,9 @@ func loadPersesUsage(
 		}
 		var token string
 		if source.BearerTokenEnv != "" {
-			var exists bool
-			token, exists = os.LookupEnv(source.BearerTokenEnv)
-			if !exists || token == "" {
+			resolved := environment[source.BearerTokenEnv]
+			token = resolved.value
+			if !resolved.exists || token == "" {
 				discovery.Diagnostics = append(discovery.Diagnostics, persesDiagnostic(
 					source,
 					fmt.Sprintf("bearer token environment variable %q is unset or empty", source.BearerTokenEnv),
@@ -380,6 +385,38 @@ func loadPersesUsage(
 		}
 		discovery.Append(additional)
 	}
+}
+
+type environmentValue struct {
+	value  string
+	exists bool
+}
+
+func resolveEnvironmentReferences(configuration config.Config) (map[string]environmentValue, error) {
+	names := make([]string, 0, len(configuration.Sources.PersesUsage)+len(configuration.Sources.TempoQueries))
+	for _, source := range configuration.Sources.PersesUsage {
+		if source.BearerTokenEnv != "" {
+			names = append(names, source.BearerTokenEnv)
+		}
+	}
+	for _, source := range configuration.Sources.TempoQueries {
+		if source.BearerTokenEnv != "" {
+			names = append(names, source.BearerTokenEnv)
+		}
+	}
+
+	resolved := make(map[string]environmentValue, len(names))
+	for _, name := range names {
+		if _, exists := resolved[name]; exists {
+			continue
+		}
+		value, exists, err := config.LookupEnvironment(name)
+		if err != nil {
+			return nil, fmt.Errorf("resolve bearer token environment variable %q: %w", name, err)
+		}
+		resolved[name] = environmentValue{value: value, exists: exists}
+	}
+	return resolved, nil
 }
 
 func persesDiagnostic(source config.PersesUsageSource, message string) domain.Diagnostic {

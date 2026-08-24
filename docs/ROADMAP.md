@@ -14,6 +14,8 @@ deployment is supported.
 - Canonical `telemetry-change-guard` CLI over shared command code, with generic
   check/impact workflows, nested migration commands, and the temporary `tmr`
   compatibility binary.
+- Canonical `tcg/v1alpha1` configuration with normalized `tmr/v1alpha1`
+  compatibility and explicit `TCG_*`/`TMR_*` environment conflict handling.
 - Repository and canonical migration model (Milestones 0–1).
 - PromQL AST extraction and Prometheus rule discovery (Milestones 2–3).
 - In-memory transitive graph (Milestone 4).
@@ -37,13 +39,11 @@ deployment is supported.
 
 ## Current release path
 
-1. Normalize `tcg/v1alpha1` and legacy configuration, with conflict-safe
-   `TCG_*` and `TMR_*` environment handling.
-2. Publish the new generic/migration dual-mode GitHub Action without breaking
+1. Publish the new generic/migration dual-mode GitHub Action without breaking
    the legacy repository Action.
-3. Add explicit and snapshot/diff change-source adapters, then prioritized
+2. Add explicit and snapshot/diff change-source adapters, then prioritized
    control-plane adapters such as KEDA and Argo Rollouts.
-4. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
+3. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
    release-provenance, and reproducible-demo gates for the first TCG release.
 
 ## Optional integrations after the core release gate

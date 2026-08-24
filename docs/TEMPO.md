@@ -83,7 +83,7 @@ sources:
       path: ./trace-queries/*.yaml
       required: true
       timeout: 60s
-      bearerTokenEnv: TMR_TEMPO_TOKEN
+      bearerTokenEnv: TCG_TEMPO_TOKEN
       criticality: high
 ```
 
@@ -91,6 +91,8 @@ Per-query criticality overrides the source default. Required files, mappings,
 validation calls, and conservative extraction diagnostics prevent `READY`.
 The 60-second default accommodates a cold local Tempo querier; deployments with
 known warm-up behavior can set any positive timeout up to two minutes.
+Canonical `TCG_*` token references retain conflict-safe fallback to matching
+legacy `TMR_*` names; see the [configuration guide](CONFIGURATION.md).
 
 ## Official validation boundary
 

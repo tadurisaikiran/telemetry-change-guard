@@ -144,6 +144,13 @@ stable machine API for Actions and future optional integrations. Exit codes are
 part of the public contract. Progress percentages remain informational and
 never establish safety.
 
+`internal/config` strictly accepts the canonical `tcg/v1alpha1` `Config`
+envelope and the existing `tmr/v1alpha1` envelope, then normalizes both to one
+canonical value. Product-owned environment references use `TCG_*` with
+conflict-safe `TMR_*` fallback. Environment values are snapshotted before
+adapter execution, and conflicts fail as runtime errors without exposing
+secret values.
+
 `internal/explanation` builds a minimal packet containing only blockers,
 uncertainties, diagnostics, migration changes, and aggregate counts. It invokes
 a user-selected executable directly through a strict JSON protocol, with no

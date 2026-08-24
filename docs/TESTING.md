@@ -50,6 +50,10 @@ The current deterministic engine has:
 - canonical CLI tests for generic machine results, rollout and exit contracts,
   strict ChangeSet validation, collision-free executable naming, and bytewise
   equality between nested migration checks and the `tmr` compatibility path;
+- configuration tests proving canonical and legacy documents normalize
+  identically, plus environment tests for canonical, fallback, matching,
+  conflicting, empty, and unrelated names without secret disclosure, with
+  configuration parsing included in CI fuzz smoke coverage;
 - unit tests for every required migration validation rule;
 - valid YAML fixtures and validation tests covering all implemented metric,
   label, span-attribute, and resource-attribute change kinds;

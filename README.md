@@ -30,6 +30,9 @@ Implemented:
 - A canonical `telemetry-change-guard` CLI for generic checks, validation,
   impact exploration, graph export, and nested migration workflows, backed by
   the same command implementation as the temporary `tmr` compatibility binary.
+- Strict canonical `tcg/v1alpha1` configuration with transparent
+  `tmr/v1alpha1` document normalization and conflict-safe `TCG_*`/`TMR_*`
+  environment fallback for configured secret references.
 - Prometheus-domain metric renames and removals.
 - Prometheus-domain label renames and removals.
 - Strict YAML decoding with unknown-field rejection.
@@ -71,7 +74,7 @@ go build -o ./bin/tmr ./cmd/tmr
 ./bin/telemetry-change-guard validate \
   --changes ./examples/checkout-migration/changes.yaml
 ./bin/telemetry-change-guard check \
-  --config ./examples/checkout-migration/tmr.yaml \
+  --config ./examples/checkout-migration/tcg.yaml \
   --changes ./examples/checkout-migration/changes.yaml
 ```
 
@@ -149,6 +152,10 @@ The generic `ChangeSet` contract is documented in
 continues to accept legacy migration manifests unchanged while normalizing them
 into that model internally.
 
+Canonical and legacy analysis configuration, defaults, and environment
+fallback rules are documented in the
+[configuration guide](docs/CONFIGURATION.md).
+
 The generic impact taxonomy, default policy, status precedence, machine schema,
 and exit-code contract are documented in
 [the safety engine guide](docs/SAFETY_ENGINE.md). Command usage, rollout modes,
@@ -181,7 +188,7 @@ sources:
     - url: https://metrics-usage.example.com
       required: true
       timeout: 10s
-      bearerTokenEnv: TMR_PERSES_TOKEN
+      bearerTokenEnv: TCG_PERSES_TOKEN
 ```
 
 The adapter consumes the documented API only; Perses is not a Telemetry Change
@@ -232,7 +239,7 @@ sources:
       path: ./trace-queries/*.yaml
       required: true
       timeout: 60s
-      bearerTokenEnv: TMR_TEMPO_TOKEN
+      bearerTokenEnv: TCG_TEMPO_TOKEN
 mappings:
   traceAttributes:
     - scope: span

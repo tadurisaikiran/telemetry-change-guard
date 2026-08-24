@@ -11,7 +11,8 @@ Prometheus can write every engine query as one JSON object per line. Configure
 the exported or locally mounted log as follows:
 
 ```yaml
-apiVersion: tmr/v1alpha1
+apiVersion: tcg/v1alpha1
+kind: Config
 sources:
   runtimeQueries:
     - path: ./evidence/prometheus-query.log

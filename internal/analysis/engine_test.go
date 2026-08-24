@@ -219,11 +219,56 @@ func TestGenericSafetyRuntimeFailureIsError(t *testing.T) {
 	}
 }
 
+func TestEnvironmentReferenceLegacyFallbackAndConflict(t *testing.T) {
+	t.Setenv("TMR_ANALYSIS_TEST_TOKEN", "legacy-token")
+	configuration := testConfiguration(config.Sources{PersesUsage: []config.PersesUsageSource{{
+		URL:            "https://usage.example.test",
+		Required:       true,
+		Timeout:        "1s",
+		BearerTokenEnv: "TCG_ANALYSIS_TEST_TOKEN",
+	}}})
+
+	resolved, err := resolveEnvironmentReferences(configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := resolved["TCG_ANALYSIS_TEST_TOKEN"]; !got.exists || got.value != "legacy-token" {
+		t.Fatalf("legacy fallback = %#v", got)
+	}
+
+	t.Setenv("TCG_ANALYSIS_TEST_TOKEN", "canonical-secret")
+	changeSet, err := config.NormalizeMigration(mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, dependencyGraph, discovery, err := RunSafety(
+		context.Background(),
+		configuration,
+		changeSet,
+		safety.DefaultPolicy(),
+	)
+	if err == nil || result.Status != safety.StatusError || dependencyGraph != nil || len(discovery.Consumers) != 0 {
+		t.Fatalf("result = %#v, graph = %#v, discovery = %#v, error = %v", result, dependencyGraph, discovery, err)
+	}
+	message := err.Error()
+	for _, name := range []string{"TCG_ANALYSIS_TEST_TOKEN", "TMR_ANALYSIS_TEST_TOKEN"} {
+		if !strings.Contains(message, name) {
+			t.Errorf("error = %q, want variable %q", message, name)
+		}
+	}
+	for _, secret := range []string{"canonical-secret", "legacy-token"} {
+		if strings.Contains(message, secret) {
+			t.Errorf("error leaked secret %q: %s", secret, message)
+		}
+	}
+}
+
 func TestRequiredMissingSourceIsIncomplete(t *testing.T) {
 	t.Parallel()
 
 	configuration := config.Config{
 		APIVersion: config.ConfigAPIVersion,
+		Kind:       config.ConfigKind,
 		Sources: config.Sources{PrometheusRules: []config.SourcePattern{{
 			Pattern:  filepath.Join(t.TempDir(), "missing", "*.yaml"),
 			Required: true,
@@ -559,6 +604,7 @@ func TestOptionalTempoMappingDiagnosticIsAdvisory(t *testing.T) {
 func testConfiguration(sources config.Sources) config.Config {
 	return config.Config{
 		APIVersion: config.ConfigAPIVersion,
+		Kind:       config.ConfigKind,
 		Sources:    sources,
 		Analysis: config.AnalysisConfig{
 			IncludeTransitiveDependencies: true,
