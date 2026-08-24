@@ -1,14 +1,14 @@
 # Validated candidate remediation
 
-`tmr remediate` asks an explicitly configured AI provider for expression
-replacements, then independently validates each proposal. It never applies a
-patch.
+`telemetry-change-guard migration remediate` asks an explicitly configured AI
+provider for expression replacements, then independently validates each
+proposal. It never applies a patch.
 
 ```bash
-tmr remediate \
-  --config ./tmr.yaml \
-  --migration ./migration.yaml \
-  --ai-command ./my-tmr-ai-provider \
+telemetry-change-guard migration remediate \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
+  --ai-command ./my-tcg-ai-provider \
   --ai-timeout 30s
 ```
 
@@ -103,3 +103,6 @@ state.
 
 See [the threat model](THREAT_MODEL.md) before connecting a provider to
 sensitive artifacts.
+
+See [AI-assisted workflows](AI_WORKFLOWS.md) for the human-governed branch and
+change-request loop that can be orchestrated around a validated candidate.
