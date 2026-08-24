@@ -16,7 +16,7 @@ import (
 const compatibilityUsage = `Telemetry Change Guard migration compatibility CLI
 
 Usage:
-  tmr analyze --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) [--format console|json|markdown]
+  tmr analyze --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) [--format console|json|markdown] [--json-output <path>] [--status-output <path>]
   tmr advise --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) --question <text> --ai-command <executable>
   tmr remediate --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) --ai-command <executable>
   tmr validate --migration <path>

@@ -8,20 +8,29 @@ branding:
 
 inputs:
   config:
-    description: Path to tmr.yaml relative to the repository root
-    required: true
-    default: tmr.yaml
+    description: Path to the product configuration relative to the repository root
+    required: false
+    default: tcg.yaml
+  changes:
+    description: Path to a generic ChangeSet; mutually exclusive with migration
+    required: false
+    default: ""
   migration:
-    description: Path to the migration manifest relative to the repository root
-    required: true
+    description: Path to a legacy migration manifest; mutually exclusive with changes
+    required: false
+    default: ""
   comment:
     description: Create or update a pull-request comment
     required: false
     default: "true"
+  artifact-name:
+    description: Name of the uploaded JSON evidence artifact
+    required: false
+    default: telemetry-change-guard-report
 
 outputs:
   status:
-    description: READY, BLOCKED, INCOMPLETE, or ERROR
+    description: PASS, WARN, BLOCK, READY, BLOCKED, INCOMPLETE, or ERROR
     value: ${{ steps.analyze.outputs.status }}
   exit-code:
     description: Analyzer process exit code
@@ -29,6 +38,12 @@ outputs:
   report:
     description: Path to the generated Markdown report
     value: ${{ steps.analyze.outputs.report }}
+  json-report:
+    description: Path to the generated versioned JSON result
+    value: ${{ steps.analyze.outputs.json-report }}
+  mode:
+    description: generic, migration, or invalid for input configuration errors
+    value: ${{ steps.analyze.outputs.mode }}
 
 runs:
   using: composite
@@ -39,30 +54,48 @@ runs:
         go-version-file: ${{ github.action_path }}/go.mod
         cache-dependency-path: ${{ github.action_path }}/go.sum
 
-    - name: Build migration compatibility CLI
+    - name: Build Telemetry Change Guard
       shell: bash
-      run: go build -trimpath -o "${RUNNER_TEMP}/tmr" "${GITHUB_ACTION_PATH}/cmd/tmr"
+      working-directory: ${{ github.action_path }}
+      run: go build -trimpath -o "${RUNNER_TEMP}/telemetry-change-guard" ./cmd/telemetry-change-guard
 
-    - name: Analyze migration
+    - name: Analyze telemetry change
       id: analyze
       shell: bash
       env:
-        TMR_CONFIG: ${{ inputs.config }}
-        TMR_MIGRATION: ${{ inputs.migration }}
+        TCG_CONFIG: ${{ inputs.config }}
+        TCG_CHANGES: ${{ inputs.changes }}
+        TCG_MIGRATION: ${{ inputs.migration }}
       run: "${GITHUB_ACTION_PATH}/action/run-action.sh"
+
+    - name: Upload JSON evidence
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.analyze.outputs.json-report }}
+        if-no-files-found: error
 
     - name: Post pull-request summary
       if: always() && github.event_name == 'pull_request' && inputs.comment == 'true'
       uses: actions/github-script@v8
+      continue-on-error: true
       env:
-        TMR_REPORT_PATH: ${{ steps.analyze.outputs.report }}
+        TCG_REPORT_PATH: ${{ steps.analyze.outputs.report }}
       with:
         github-token: ${{ github.token }}
         script: |
           const fs = require('fs');
           const marker = '<!-- telemetry-change-guard -->';
           const legacyMarker = '<!-- telemetry-migration-readiness -->';
-          const body = `${marker}\n${fs.readFileSync(process.env.TMR_REPORT_PATH, 'utf8')}`;
+          const report = fs.readFileSync(process.env.TCG_REPORT_PATH, 'utf8');
+          const suffix = '\n\n_Report truncated. Full JSON evidence is available in the workflow artifact._';
+          const limit = 65536;
+          const prefix = `${marker}\n`;
+          const visibleReport = prefix.length + report.length <= limit
+            ? report
+            : `${report.slice(0, limit - prefix.length - suffix.length)}${suffix}`;
+          const body = `${prefix}${visibleReport}`;
           const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -88,9 +121,9 @@ runs:
             });
           }
 
-    - name: Enforce readiness result
+    - name: Enforce deterministic result
       if: always()
       shell: bash
       env:
-        TMR_EXIT_CODE: ${{ steps.analyze.outputs.exit-code }}
-      run: exit "${TMR_EXIT_CODE:-1}"
+        TCG_EXIT_CODE: ${{ steps.analyze.outputs.exit-code }}
+      run: exit "${TCG_EXIT_CODE:-1}"

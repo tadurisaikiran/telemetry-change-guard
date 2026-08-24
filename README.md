@@ -100,19 +100,22 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: actions/checkout@v5
-  - uses: tadurisaikiran/telemetry-migration-readiness@v1
+  - uses: actions/checkout@v7
+  - uses: tadurisaikiran/telemetry-change-guard@v1
     with:
-      config: tmr.yaml
-      migration: migration.yaml
+      config: tcg.yaml
+      changes: changes.yaml
 ```
 
-The legacy repository coordinate is intentional and remains supported while a
-Telemetry Change Guard Action release is validated. Existing workflows do not
-need to migrate yet.
+Use `migration: migration.yaml` instead of `changes` for the compatibility
+workflow. Supplying both or neither fails as a configuration error. The Action
+runs one authoritative evaluation, writes the Markdown job summary, uploads a
+versioned JSON artifact, and preserves the CLI status and exit code.
 
-The Action writes the Markdown report to the job summary and creates or updates
-one pull-request comment by default. See
+Existing `tadurisaikiran/telemetry-migration-readiness@v1` workflows remain
+supported by the frozen legacy repository and do not need to migrate
+immediately. The canonical Action creates or updates one pull-request comment
+by default. See
 [the Action documentation](docs/GITHUB_ACTION.md) for inputs, outputs, and
 permission details.
 

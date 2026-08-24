@@ -18,11 +18,11 @@ import (
 const canonicalUsage = `Telemetry Change Guard
 
 Usage:
-  telemetry-change-guard check --config <path> --changes <path> [--mode audit|warn|enforce] [--format console|json|markdown]
+  telemetry-change-guard check --config <path> --changes <path> [--mode audit|warn|enforce] [--format console|json|markdown] [--json-output <path>] [--status-output <path>]
   telemetry-change-guard validate [--changes <path>] [--config <path>]
   telemetry-change-guard impact --config <path> --symbol <metric>
   telemetry-change-guard graph --config <path> [--output <path>]
-  telemetry-change-guard migration check --config <path> (--plan <path> | --weaver-diff <path> --weaver-mapping <path>)
+  telemetry-change-guard migration check --config <path> (--plan <path> | --weaver-diff <path> --weaver-mapping <path>) [--json-output <path>] [--status-output <path>]
   telemetry-change-guard migration validate --plan <path>
   telemetry-change-guard migration advise --config <path> --plan <path> --question <text> --ai-command <executable>
   telemetry-change-guard migration remediate --config <path> --plan <path> --ai-command <executable>
@@ -40,7 +40,7 @@ The temporary tmr binary remains available for existing migration automation.
 const migrationUsage = `Telemetry Change Guard migration workflow
 
 Usage:
-  telemetry-change-guard migration check --config <path> --plan <path>
+  telemetry-change-guard migration check --config <path> --plan <path> [--json-output <path>] [--status-output <path>]
   telemetry-change-guard migration validate --plan <path>
   telemetry-change-guard migration advise --config <path> --plan <path> --question <text> --ai-command <executable>
   telemetry-change-guard migration remediate --config <path> --plan <path> --ai-command <executable>
@@ -77,7 +77,7 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	flags := flag.NewFlagSet("check", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: telemetry-change-guard check --config <path> --changes <path> [--mode audit|warn|enforce] [--format console|json|markdown]")
+		fmt.Fprintln(stderr, "Usage: telemetry-change-guard check --config <path> --changes <path> [--mode audit|warn|enforce] [--format console|json|markdown] [--json-output <path>] [--status-output <path>]")
 		flags.PrintDefaults()
 	}
 	configPath := flags.String("config", "", "path to an analysis configuration")
@@ -85,11 +85,17 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	rollout := flags.String("mode", string(safety.RolloutEnforce), "policy rollout mode: audit, warn, or enforce")
 	format := flags.String("format", "", "report format: console, json, or markdown")
 	output := flags.String("output", "", "optional report output path")
+	jsonOutput := flags.String("json-output", "", "optional companion JSON report path")
+	statusOutput := flags.String("status-output", "", "optional authoritative status output path")
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
 	if flags.NArg() != 0 || *configPath == "" || *changeSetPath == "" {
 		fmt.Fprintln(stderr, "check requires --config and --changes and accepts no positional arguments")
+		return 1
+	}
+	if err := validateOutputPaths(*output, *jsonOutput, *statusOutput); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
 	mode, err := parseRolloutMode(*rollout)
@@ -121,9 +127,29 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	var jsonContents []byte
+	if *jsonOutput != "" {
+		jsonContents, err = renderSafetyResult("json", result)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+	}
 	if err := writeOutput(*output, contents, stdout); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
+	}
+	if *jsonOutput != "" {
+		if err := writeOutput(*jsonOutput, jsonContents, io.Discard); err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+	}
+	if *statusOutput != "" {
+		if err := writeOutput(*statusOutput, []byte(result.Status+"\n"), io.Discard); err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
 	}
 	if analysisErr != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", analysisErr)

@@ -61,3 +61,47 @@ jobs:
 
       - name: Check reachable Go vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
+  action-smoke:
+    name: action-${{ matrix.mode }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: generic
+            changes: action/testdata/changes.yaml
+            migration: ""
+            status: WARN
+          - mode: migration
+            changes: ""
+            migration: action/testdata/migration.yaml
+            status: READY
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Run local dual-mode Action
+        id: guard
+        uses: ./
+        with:
+          config: action/testdata/tcg.yaml
+          changes: ${{ matrix.changes }}
+          migration: ${{ matrix.migration }}
+          comment: "false"
+          artifact-name: telemetry-change-guard-${{ matrix.mode }}
+
+      - name: Verify Action outputs
+        shell: bash
+        env:
+          TCG_ACTUAL_MODE: ${{ steps.guard.outputs.mode }}
+          TCG_ACTUAL_STATUS: ${{ steps.guard.outputs.status }}
+          TCG_ACTUAL_EXIT: ${{ steps.guard.outputs.exit-code }}
+          TCG_EXPECTED_MODE: ${{ matrix.mode }}
+          TCG_EXPECTED_STATUS: ${{ matrix.status }}
+        run: |
+          [[ "${TCG_ACTUAL_MODE}" == "${TCG_EXPECTED_MODE}" ]]
+          [[ "${TCG_ACTUAL_STATUS}" == "${TCG_EXPECTED_STATUS}" ]]
+          [[ "${TCG_ACTUAL_EXIT}" == "0" ]]
