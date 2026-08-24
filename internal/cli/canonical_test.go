@@ -213,6 +213,67 @@ func TestCanonicalMigrationCheckIsBytewiseCompatibleWithTMR(t *testing.T) {
 	}
 }
 
+func TestCanonicalCheckWritesCompanionJSONFromSameEvaluation(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Clean(filepath.Join("..", ".."))
+	reportPath := filepath.Join(t.TempDir(), "report.md")
+	jsonPath := filepath.Join(t.TempDir(), "report.json")
+	statusPath := filepath.Join(t.TempDir(), "status")
+	output, exitCode := runCLIHelper(t, root, "canonical",
+		"check",
+		"--config", "examples/checkout-migration/tcg.yaml",
+		"--changes", "examples/checkout-migration/changes.yaml",
+		"--format", "markdown",
+		"--output", reportPath,
+		"--json-output", jsonPath,
+		"--status-output", statusPath,
+	)
+	if exitCode != safety.ExitCode(safety.StatusIncomplete) || len(output) != 0 {
+		t.Fatalf("exit = %d, stdout = %q", exitCode, output)
+	}
+	markdown, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := os.ReadFile(statusPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result safety.Result
+	if err := json.Unmarshal(contents, &result); err != nil {
+		t.Fatalf("decode JSON companion: %v\n%s", err, contents)
+	}
+	if result.Status != safety.StatusIncomplete || string(status) != "INCOMPLETE\n" ||
+		!strings.Contains(string(markdown), "**Status:** **INCOMPLETE**") {
+		t.Fatalf("markdown and JSON disagree\nmarkdown:\n%s\nJSON: %#v", markdown, result)
+	}
+}
+
+func TestCanonicalCheckRejectsCollidingOutputPathsBeforeInputLoading(t *testing.T) {
+	t.Parallel()
+
+	for _, flags := range [][]string{
+		{"--output", "report", "--json-output", "./report"},
+		{"--output", "report", "--status-output", "./report"},
+		{"--json-output", "report", "--status-output", "./report"},
+	} {
+		var stdout, stderr bytes.Buffer
+		args := []string{"check", "--config", "missing-config.yaml", "--changes", "missing-changes.yaml"}
+		args = append(args, flags...)
+		exitCode := Run(context.Background(), args, &stdout, &stderr)
+		if exitCode != 1 || stdout.Len() != 0 ||
+			!strings.Contains(stderr.String(), "must identify different files") ||
+			strings.Contains(stderr.String(), "missing-config.yaml") {
+			t.Fatalf("flags = %v, exit = %d, stdout = %q, stderr = %q", flags, exitCode, stdout.String(), stderr.String())
+		}
+	}
+}
+
 func TestCanonicalImpactIncludesPrometheusMetricFamilyDependencies(t *testing.T) {
 	t.Parallel()
 

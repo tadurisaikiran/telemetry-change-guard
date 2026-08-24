@@ -54,6 +54,9 @@ The current deterministic engine has:
   identically, plus environment tests for canonical, fallback, matching,
   conflicting, empty, and unrelated names without secret disclosure, with
   configuration parsing included in CI fuzz smoke coverage;
+- Action contract tests cover both modes, mutually exclusive inputs, required
+  inputs, Markdown/JSON artifact creation, and status/exit disagreement; a
+  hosted matrix invokes the local composite Action in both modes on every PR;
 - unit tests for every required migration validation rule;
 - valid YAML fixtures and validation tests covering all implemented metric,
   label, span-attribute, and resource-attribute change kinds;

@@ -38,6 +38,12 @@ rules.
 Supported report formats are `console`, `json`, and `markdown`. If `--format`
 is omitted, the first configured output format is used. `--output <path>` writes
 the report to an explicit file instead of standard output.
+`--json-output <path>` writes a companion versioned JSON result from the same
+evaluation; it must identify a different file than `--output`. The canonical
+Action uses this option to avoid running remote discovery twice.
+`--status-output <path>` writes the authoritative status from that evaluation
+for integrations that must not infer a top-level decision from nested JSON
+fields. All requested output paths must be distinct.
 
 Policy rollout can be selected explicitly:
 
@@ -108,6 +114,6 @@ identical reports and the same legacy exit code. The existing
 `tmr-result/v1alpha1`, `READY`, `BLOCKED`, `INCOMPLETE`, `ERROR`, and readiness
 classification contracts are unchanged.
 
-The current GitHub Action remains migration-only until its separate dual-mode
-transition. Existing workflows continue to use the legacy repository
-coordinate without changes.
+The canonical GitHub Action supports generic and migration modes. Existing
+workflows may continue using the frozen legacy repository coordinate without
+changes; see the [Action guide](GITHUB_ACTION.md).

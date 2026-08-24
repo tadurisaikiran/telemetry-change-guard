@@ -151,6 +151,12 @@ conflict-safe `TMR_*` fallback. Environment values are snapshotted before
 adapter execution, and conflicts fail as runtime errors without exposing
 secret values.
 
+The root composite Action selects exactly one generic or migration workflow and
+invokes the canonical CLI once. Companion Markdown and JSON files are rendered
+from that same result. The Action uploads JSON evidence, updates at most one
+bounded pull-request comment, and enforces the exact CLI exit code after
+reporting steps. Missing artifacts or status/exit disagreement fail closed.
+
 `internal/explanation` builds a minimal packet containing only blockers,
 uncertainties, diagnostics, migration changes, and aggregate counts. It invokes
 a user-selected executable directly through a strict JSON protocol, with no

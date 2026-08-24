@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -54,11 +55,17 @@ func runMigrationCheck(
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	format := flags.String("format", "", "report format: console, json, or markdown")
 	output := flags.String("output", "", "optional report output path")
+	jsonOutput := flags.String("json-output", "", "optional companion JSON report path")
+	statusOutput := flags.String("status-output", "", "optional authoritative status output path")
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
 	if flags.NArg() != 0 || *configPath == "" {
 		fmt.Fprintf(stderr, "%s requires --config and one change source and accepts no positional arguments\n", commandName)
+		return 1
+	}
+	if err := validateOutputPaths(*output, *jsonOutput, *statusOutput); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
 	if *migrationPath != "" && (*weaverDiffPath != "" || *weaverMappingPath != "") {
@@ -98,9 +105,29 @@ func runMigrationCheck(
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	var jsonContents []byte
+	if *jsonOutput != "" {
+		jsonContents, err = renderResult("json", result)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+	}
 	if err := writeOutput(*output, contents, stdout); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
+	}
+	if *jsonOutput != "" {
+		if err := writeOutput(*jsonOutput, jsonContents, io.Discard); err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+	}
+	if *statusOutput != "" {
+		if err := writeOutput(*statusOutput, []byte(result.Summary.Status+"\n"), io.Discard); err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
 	}
 	return ReadinessExitCode(result.Summary.Status)
 }
@@ -516,6 +543,33 @@ func writeOutput(path string, contents []byte, stdout io.Writer) error {
 	}
 	if err := os.WriteFile(path, contents, 0o644); err != nil {
 		return fmt.Errorf("write output %q: %w", path, err)
+	}
+	return nil
+}
+
+func validateOutputPaths(outputPath, jsonOutputPath, statusOutputPath string) error {
+	paths := []struct {
+		flag string
+		path string
+	}{
+		{flag: "--output", path: outputPath},
+		{flag: "--json-output", path: jsonOutputPath},
+		{flag: "--status-output", path: statusOutputPath},
+	}
+	resolved := make(map[string]string, len(paths))
+	for _, candidate := range paths {
+		if candidate.path == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(candidate.path)
+		if err != nil {
+			return fmt.Errorf("resolve %s path %q: %w", candidate.flag, candidate.path, err)
+		}
+		absolute = filepath.Clean(absolute)
+		if previous, exists := resolved[absolute]; exists {
+			return fmt.Errorf("%s and %s must identify different files", previous, candidate.flag)
+		}
+		resolved[absolute] = candidate.flag
 	}
 	return nil
 }
