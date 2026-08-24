@@ -23,6 +23,10 @@ reference, production, and diagnostic model. They never decide readiness.
   ClusterAnalysisTemplate resources. Prometheus measurements become
   deployment-gate consumers, with safe label-value argument substitution and
   fail-closed dynamic identity. See [Argo Rollouts analysis](ARGO_ROLLOUTS.md).
+- `hpa` reads Kubernetes `autoscaling/v2` HorizontalPodAutoscaler resources.
+  External/custom metrics become autoscaler dependencies only through a
+  strict explicit backend mapping; same-name inference is forbidden. See
+  [Kubernetes HPA analysis](HPA.md).
 
 Every configured source can be marked `required`. A load, parse, or expansion
 failure on a required source prevents `READY`. All adapters preserve file,

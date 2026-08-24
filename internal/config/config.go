@@ -32,6 +32,15 @@ type SourcePattern struct {
 	Required bool   `json:"required"`
 }
 
+// HorizontalPodAutoscalerSource configures local autoscaling/v2 HPA
+// manifests together with the explicit backend mapping required to relate
+// Kubernetes metric identifiers to Prometheus symbols.
+type HorizontalPodAutoscalerSource struct {
+	Pattern     string `json:"pattern"`
+	MappingPath string `json:"mapping"`
+	Required    bool   `json:"required"`
+}
+
 // PersesUsageSource configures one optional Perses metrics-usage API.
 // Secrets are referenced by environment-variable name and never stored here.
 type PersesUsageSource struct {
@@ -64,15 +73,16 @@ type TempoQuerySource struct {
 
 // Sources configures implemented local and optional remote consumer adapters.
 type Sources struct {
-	PrometheusRules []SourcePattern      `json:"prometheusRules,omitempty"`
-	Grafana         []SourcePattern      `json:"grafana,omitempty"`
-	Sloth           []SourcePattern      `json:"sloth,omitempty"`
-	Pyrra           []SourcePattern      `json:"pyrra,omitempty"`
-	KEDA            []SourcePattern      `json:"keda,omitempty"`
-	ArgoRollouts    []SourcePattern      `json:"argoRollouts,omitempty"`
-	PersesUsage     []PersesUsageSource  `json:"persesUsage,omitempty"`
-	RuntimeQueries  []RuntimeQuerySource `json:"runtimeQueries,omitempty"`
-	TempoQueries    []TempoQuerySource   `json:"tempoQueries,omitempty"`
+	PrometheusRules          []SourcePattern                 `json:"prometheusRules,omitempty"`
+	Grafana                  []SourcePattern                 `json:"grafana,omitempty"`
+	Sloth                    []SourcePattern                 `json:"sloth,omitempty"`
+	Pyrra                    []SourcePattern                 `json:"pyrra,omitempty"`
+	KEDA                     []SourcePattern                 `json:"keda,omitempty"`
+	ArgoRollouts             []SourcePattern                 `json:"argoRollouts,omitempty"`
+	HorizontalPodAutoscalers []HorizontalPodAutoscalerSource `json:"horizontalPodAutoscalers,omitempty"`
+	PersesUsage              []PersesUsageSource             `json:"persesUsage,omitempty"`
+	RuntimeQueries           []RuntimeQuerySource            `json:"runtimeQueries,omitempty"`
+	TempoQueries             []TempoQuerySource              `json:"tempoQueries,omitempty"`
 }
 
 // TraceAttributeMapping explicitly connects one OpenTelemetry attribute to
@@ -194,15 +204,16 @@ func (source *ownershipMetadataSourceDocument) UnmarshalYAML(node *yaml.Node) er
 }
 
 type sourcesDocument struct {
-	PrometheusRules []sourcePatternDocument      `yaml:"prometheusRules"`
-	Grafana         []sourcePatternDocument      `yaml:"grafana"`
-	Sloth           []sourcePatternDocument      `yaml:"sloth"`
-	Pyrra           []sourcePatternDocument      `yaml:"pyrra"`
-	KEDA            []sourcePatternDocument      `yaml:"keda"`
-	ArgoRollouts    []sourcePatternDocument      `yaml:"argoRollouts"`
-	PersesUsage     []persesUsageSourceDocument  `yaml:"persesUsage"`
-	RuntimeQueries  []runtimeQuerySourceDocument `yaml:"runtimeQueries"`
-	TempoQueries    []tempoQuerySourceDocument   `yaml:"tempoQueries"`
+	PrometheusRules          []sourcePatternDocument                 `yaml:"prometheusRules"`
+	Grafana                  []sourcePatternDocument                 `yaml:"grafana"`
+	Sloth                    []sourcePatternDocument                 `yaml:"sloth"`
+	Pyrra                    []sourcePatternDocument                 `yaml:"pyrra"`
+	KEDA                     []sourcePatternDocument                 `yaml:"keda"`
+	ArgoRollouts             []sourcePatternDocument                 `yaml:"argoRollouts"`
+	HorizontalPodAutoscalers []horizontalPodAutoscalerSourceDocument `yaml:"horizontalPodAutoscalers"`
+	PersesUsage              []persesUsageSourceDocument             `yaml:"persesUsage"`
+	RuntimeQueries           []runtimeQuerySourceDocument            `yaml:"runtimeQueries"`
+	TempoQueries             []tempoQuerySourceDocument              `yaml:"tempoQueries"`
 }
 
 type mappingsDocument struct {
@@ -242,6 +253,12 @@ type tempoQuerySourceDocument struct {
 type sourcePatternDocument struct {
 	Path     string
 	Required *bool
+}
+
+type horizontalPodAutoscalerSourceDocument struct {
+	Path     string `yaml:"path"`
+	Mapping  string `yaml:"mapping"`
+	Required *bool  `yaml:"required"`
 }
 
 func (source *sourcePatternDocument) UnmarshalYAML(node *yaml.Node) error {
@@ -367,6 +384,16 @@ func ValidateConfig(config Config) error {
 	validateSourcePatterns("sources.pyrra", config.Sources.Pyrra)
 	validateSourcePatterns("sources.keda", config.Sources.KEDA)
 	validateSourcePatterns("sources.argoRollouts", config.Sources.ArgoRollouts)
+	totalSources += len(config.Sources.HorizontalPodAutoscalers)
+	for index, source := range config.Sources.HorizontalPodAutoscalers {
+		path := fmt.Sprintf("sources.horizontalPodAutoscalers[%d]", index)
+		if isBlank(source.Pattern) {
+			issues.add(path+".path", "is required")
+		}
+		if isBlank(source.MappingPath) {
+			issues.add(path+".mapping", "is required")
+		}
+	}
 	totalSources += len(config.Sources.PersesUsage)
 	for index, source := range config.Sources.PersesUsage {
 		path := fmt.Sprintf("sources.persesUsage[%d]", index)
@@ -532,15 +559,16 @@ func normalizeConfig(document configDocument) Config {
 		APIVersion: ConfigAPIVersion,
 		Kind:       ConfigKind,
 		Sources: Sources{
-			PrometheusRules: normalizePatterns(document.Sources.PrometheusRules),
-			Grafana:         normalizePatterns(document.Sources.Grafana),
-			Sloth:           normalizePatterns(document.Sources.Sloth),
-			Pyrra:           normalizePatterns(document.Sources.Pyrra),
-			KEDA:            normalizePatterns(document.Sources.KEDA),
-			ArgoRollouts:    normalizePatterns(document.Sources.ArgoRollouts),
-			PersesUsage:     normalizePersesUsageSources(document.Sources.PersesUsage),
-			RuntimeQueries:  normalizeRuntimeQuerySources(document.Sources.RuntimeQueries),
-			TempoQueries:    normalizeTempoQuerySources(document.Sources.TempoQueries),
+			PrometheusRules:          normalizePatterns(document.Sources.PrometheusRules),
+			Grafana:                  normalizePatterns(document.Sources.Grafana),
+			Sloth:                    normalizePatterns(document.Sources.Sloth),
+			Pyrra:                    normalizePatterns(document.Sources.Pyrra),
+			KEDA:                     normalizePatterns(document.Sources.KEDA),
+			ArgoRollouts:             normalizePatterns(document.Sources.ArgoRollouts),
+			HorizontalPodAutoscalers: normalizeHorizontalPodAutoscalerSources(document.Sources.HorizontalPodAutoscalers),
+			PersesUsage:              normalizePersesUsageSources(document.Sources.PersesUsage),
+			RuntimeQueries:           normalizeRuntimeQuerySources(document.Sources.RuntimeQueries),
+			TempoQueries:             normalizeTempoQuerySources(document.Sources.TempoQueries),
 		},
 		Mappings:  normalizeMappings(document.Mappings),
 		Ownership: normalizeOwnership(document.Ownership),
@@ -751,4 +779,22 @@ func normalizePatterns(documents []sourcePatternDocument) []SourcePattern {
 		patterns = append(patterns, SourcePattern{Pattern: strings.TrimSpace(document.Path), Required: required})
 	}
 	return patterns
+}
+
+func normalizeHorizontalPodAutoscalerSources(
+	documents []horizontalPodAutoscalerSourceDocument,
+) []HorizontalPodAutoscalerSource {
+	sources := make([]HorizontalPodAutoscalerSource, 0, len(documents))
+	for _, document := range documents {
+		required := true
+		if document.Required != nil {
+			required = *document.Required
+		}
+		sources = append(sources, HorizontalPodAutoscalerSource{
+			Pattern:     strings.TrimSpace(document.Path),
+			MappingPath: strings.TrimSpace(document.Mapping),
+			Required:    required,
+		})
+	}
+	return sources
 }

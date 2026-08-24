@@ -39,6 +39,14 @@ provenance, Prometheus authentication, response and count bounds, API
 warnings, metadata conflicts, timeout, redirect rejection, CLI source
 exclusivity, and hosted snapshot-mode Action execution.
 
+Control-plane coverage includes KEDA Prometheus triggers, Argo Rollouts
+Prometheus measurements, and Kubernetes HPA external/custom metrics. HPA tests
+prove that same-name metrics remain unresolved without explicit backend
+evidence, every selector label is mapped or documented as adapter-only,
+non-Prometheus ignore decisions suppress false dependencies, conflicting
+mappings fail closed, sensitive selector values are discarded, and mapping and
+manifest decoders remain bounded and panic-free under fuzzing.
+
 ## Implemented test layers
 
 The current deterministic engine has:
@@ -75,7 +83,7 @@ The current deterministic engine has:
 - Prometheus query-log and Telemetry Change Guard query-history unit and fuzz tests;
 - TraceQL attribute-scanner unit and fuzz tests plus Tempo API component tests;
 - component fixtures for Prometheus rules, PrometheusRule CRDs, Grafana, Sloth,
-  and Pyrra;
+  Pyrra, KEDA, Argo Rollouts, and explicitly mapped Kubernetes HPA resources;
 - cycle and transitive-chain graph tests;
 - fail-closed readiness and required-source failure tests;
 - an exact JSON golden report for the checkout migration;

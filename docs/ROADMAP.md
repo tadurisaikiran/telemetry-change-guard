@@ -45,12 +45,14 @@ deployment is supported.
 - Argo Rollouts AnalysisTemplate and ClusterAnalysisTemplate Prometheus
   deployment gates with fail-closed argument handling and deterministic
   `DEPLOYMENT_GATE_RISK` enforcement.
+- Kubernetes autoscaling/v2 HPA External/Object/Pods dependencies backed only
+  by explicit Kubernetes-to-Prometheus metric and selector-label mappings.
 - Pinned live Prometheus/Grafana/Sloth migration lifecycle.
 
 ## Current release path
 
-1. Add Kubernetes HPA dependencies only where external/custom metric backend
-   identity can be proven, then complete the combined control-plane E2E gate.
+1. Complete the combined KEDA, Argo Rollouts, and Kubernetes HPA control-plane
+   E2E gate.
 2. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
    release-provenance, and reproducible-demo gates for the first TCG release.
 

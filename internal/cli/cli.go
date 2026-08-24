@@ -145,6 +145,7 @@ func sourceCount(configuration config.Config) int {
 		len(configuration.Sources.Pyrra) +
 		len(configuration.Sources.KEDA) +
 		len(configuration.Sources.ArgoRollouts) +
+		len(configuration.Sources.HorizontalPodAutoscalers) +
 		len(configuration.Sources.PersesUsage) +
 		len(configuration.Sources.RuntimeQueries) +
 		len(configuration.Sources.TempoQueries)
