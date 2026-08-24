@@ -47,12 +47,15 @@ deployment is supported.
   `DEPLOYMENT_GATE_RISK` enforcement.
 - Kubernetes autoscaling/v2 HPA External/Object/Pods dependencies backed only
   by explicit Kubernetes-to-Prometheus metric and selector-label mappings.
+- Combined KEDA, Argo Rollouts, and HPA control-plane lifecycle covering exact
+  blocking findings, completed migration, and required uncertainty.
 - Pinned live Prometheus/Grafana/Sloth migration lifecycle.
 
 ## Current release path
 
-1. Complete the combined KEDA, Argo Rollouts, and Kubernetes HPA control-plane
-   E2E gate.
+1. Define AWS CloudWatch Classic and OTel identities, cross-domain mappings,
+   dimensions, units, and intrinsic-resolution boundaries in an ADR before
+   implementing the synthesized CloudFormation adapter.
 2. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
    release-provenance, and reproducible-demo gates for the first TCG release.
 

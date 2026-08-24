@@ -1,0 +1,21 @@
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: control-plane-cutover
+spec:
+  changes:
+    - id: remove-legacy-request-metric
+      kind: metric_remove
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: checkout_requests_total
+    - id: remove-legacy-route-label
+      kind: label_remove
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: label
+        name: route
+        parent: checkout_requests_total
