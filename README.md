@@ -16,6 +16,7 @@
   <a href="#install">Install</a> ·
   <a href="#run-your-first-check">First check</a> ·
   <a href="#use-it-on-your-repository">Inputs and outputs</a> ·
+  <a href="#ai-assisted-telemetry-engineering">AI workflows</a> ·
   <a href="#what-telemetry-change-guard-protects">Coverage</a> ·
   <a href="#github-action">GitHub Action</a> ·
   <a href="#documentation">Documentation</a>
@@ -53,6 +54,78 @@ flowchart LR
 TCG is local-first, open source, and useful without AI, a database, or a hosted
 service. Optional remote evidence and AI assistance are isolated behind
 explicit, bounded interfaces; neither can override the deterministic result.
+
+## AI-assisted telemetry engineering
+
+**AI can be the reader, explainer, fixer, and migration assistant—never the
+judge. Humans approve. TCG verifies and decides.**
+
+That separation makes AI useful without letting plausible prose become a
+production-safety decision. Models are good at interpreting unfamiliar code,
+turning findings into an action plan, and drafting repetitive migrations. TCG
+is responsible for strict input validation, dependency evidence, impact
+classification, policy, and reproducible status and exit codes.
+
+TCG can anchor an end-to-end, human-governed AI workflow today:
+
+| AI role | What it can do | Availability | Boundary that keeps the claim honest |
+| --- | --- | --- | --- |
+| **Change reader** | Inspect application code, instrumentation, or a diff and draft a candidate ChangeSet, TelemetrySnapshot, configuration, mapping, or ownership file | External coding-agent workflow | TCG does not scan arbitrary source code. AI cannot guarantee it found every change; a human reviews scope, and `validate` checks format rather than completeness. Prefer TCG-captured snapshots or mapped Weaver diffs when available. |
+| **Risk explainer** | Explain blockers and dependency paths, identify missing evidence, and prioritize consumers using criticality, ownership, and runtime context | Built in: `migration advise` | The provider receives a bounded, redacted packet. Its answer is labeled non-authoritative and cannot change a finding, status, or exit code. |
+| **Fixer** | Draft replacement PromQL for eligible direct rename targets in local Prometheus rule YAML or exported Grafana JSON | Built in: `migration remediate` | TCG accepts expressions, not arbitrary patches; it reparses and tests each candidate in memory, never edits the source file, and does not claim semantic equivalence. |
+| **Migration agent** | Apply a reviewed candidate on a branch, draft tests and a change request, and summarize the migration | External coding-agent or CI orchestration | TCG does not create branches or change requests. A human reviews and approves the real diff, independent tests run, and TCG re-evaluates the checked-out change. |
+| **Runbook and reporting assistant** | Turn versioned JSON findings into migration steps, test ideas, tickets, or review summaries | External AI workflow | Generated material must preserve the authoritative TCG status and evidence; prose cannot resolve uncertainty or create evidence. |
+
+An AI assistant can normalize the code and telemetry evidence it observes into
+TCG's accepted formats. Neither the model nor `validate` can certify that a
+partial observation contains every telemetry change or dependency.
+
+```mermaid
+flowchart LR
+    A["Code · diff · telemetry artifacts"] -. "optional external AI drafts" .-> B["Candidate inputs<br/>ChangeSet · config · mappings"]
+    B --> C["Human reviews scope<br/>and semantic mappings"]
+    C --> D["TCG validates<br/>discovers · graphs · decides"]
+    D --> E["Authoritative findings<br/>and status"]
+    E -. "migration advise" .-> F["AI explanation<br/>and priorities"]
+    E -. "eligible rename target" .-> G["AI expression candidate"]
+    G --> H["TCG validates candidate<br/>in memory"]
+    H --> I["Human or external agent<br/>applies reviewed change"]
+    I --> D
+```
+
+For example, an external AI assistant can draft a candidate input and hand it
+to the strict decoder before TCG evaluates any risk:
+
+```bash
+./bin/telemetry-change-guard validate --changes ./candidate-changes.yaml
+./bin/telemetry-change-guard validate --config ./candidate-tcg.yaml
+./bin/telemetry-change-guard check \
+  --config ./candidate-tcg.yaml \
+  --changes ./candidate-changes.yaml
+```
+
+For a planned migration, TCG can invoke a user-selected provider executable
+through a vendor-neutral JSON process protocol:
+
+```bash
+./bin/telemetry-change-guard migration advise \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
+  --question "Why is this blocked, and what should we migrate first?" \
+  --ai-command ./my-tcg-ai-provider
+
+./bin/telemetry-change-guard migration remediate \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
+  --ai-command ./my-tcg-ai-provider
+```
+
+No model SDK or remote model is bundled. The provider can use a local model or
+an approved hosted service, and runs only when explicitly selected. See the
+[complete AI workflow guide](docs/AI_WORKFLOWS.md),
+[explanation protocol](docs/AI_AGENT.md),
+[validated remediation contract](docs/REMEDIATION.md), and
+[threat model](docs/THREAT_MODEL.md).
 
 ## See what it catches
 
@@ -426,24 +499,6 @@ Action coordinate are tracked in
 See the [Action guide](docs/GITHUB_ACTION.md) for all inputs, outputs,
 artifacts, and permission choices.
 
-## AI can assist without becoming the judge
-
-AI is optional and disabled by default. TCG exposes two deliberately narrow
-migration workflows:
-
-- `migration advise` sends a bounded, redacted evidence packet to an explicitly
-  selected local provider process. The strict response schema contains no
-  status or patch field, and the deterministic exit code is unchanged.
-- `migration remediate` accepts candidate expression replacements only for
-  confirmed local Prometheus rule YAML and Grafana JSON targets. TCG applies
-  each proposal in memory, reparses it through the owning adapter, rebuilds the
-  graph, and reruns readiness. It never edits the source file.
-
-AI may explain a finding or propose a candidate. It cannot create, suppress,
-weaken, or override a finding, decision, status, or exit code. See the
-[AI protocol](docs/AI_AGENT.md), [validated remediation](docs/REMEDIATION.md),
-and [threat model](docs/THREAT_MODEL.md).
-
 ## Trust and safety model
 
 TCG is designed for a particularly dangerous failure mode: mistaking missing
@@ -527,7 +582,7 @@ claim without authorization.
 | Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Testing](docs/TESTING.md) |
 | Configure local consumers | [Prometheus/Grafana/SLO adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
-| Add human context | [Ownership](docs/OWNERSHIP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
+| Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
 | Evaluate maturity | [Design-user program](docs/DESIGN_USER_PROGRAM.md) · [Roadmap](docs/ROADMAP.md) · [Related work](RELATED_WORK.md) · [AWS boundary](docs/AWS.md) |
 
 ## Development

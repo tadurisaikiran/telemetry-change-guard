@@ -28,10 +28,12 @@ The deterministic parsers, graph, and readiness evaluator form the safety
 boundary. Optional adapters may add evidence or diagnostics but cannot mark a
 migration safe. Required evidence failures prevent `READY`.
 
-A command supplied to `tmr advise --ai-command` is explicitly trusted local
-code. Telemetry Change Guard executes it without a shell, but it still runs with the user's OS
-permissions and may independently access files, environment, or the network.
-Only use a reviewed provider executable. Telemetry Change Guard does not sandbox it.
+A command supplied to `telemetry-change-guard migration advise --ai-command`
+or `telemetry-change-guard migration remediate --ai-command` is explicitly
+trusted local code. Telemetry Change Guard executes it without a shell, but it
+still runs with the user's OS permissions and may independently access files,
+environment, or the network. Only use a reviewed provider executable.
+Telemetry Change Guard does not sandbox it.
 
 ## Prompt injection
 
@@ -121,10 +123,11 @@ distinction and must not turn explanation text into executable commands.
 
 ## Production mutation
 
-The read-only agent cannot write files, open pull requests, call production
-Grafana/Prometheus mutation APIs, or push branches. Future candidate remediation
-uses a separate protocol and must pass deterministic syntax, artifact, and
-dependency validation before presentation.
+The read-only explanation provider cannot write through the protocol, open
+pull requests, call production Grafana/Prometheus mutation APIs, or push
+branches. Validated candidate remediation uses a separate, implemented
+protocol and must pass deterministic syntax, artifact, and dependency
+validation before presentation.
 
 Candidate remediation changes exactly one expression scalar in an in-memory
 copy. The provider cannot choose a path or locator. Telemetry Change Guard requires the proposed
@@ -137,8 +140,9 @@ current status.
 These checks do not prove semantic equivalence beyond telemetry references. A
 syntactically valid query can change aggregation, ranges, thresholds, or label
 logic. Every candidate therefore requires human review and independent tests.
-After any manual edit, rerun `tmr analyze`; do not rely on an earlier simulation.
-Direct production modification remains out of scope.
+After any manual or externally orchestrated edit, rerun
+`telemetry-change-guard migration check`; do not rely on an earlier
+simulation. Direct production modification remains out of scope.
 
 ## Reporting vulnerabilities
 

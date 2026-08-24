@@ -4,23 +4,24 @@ Telemetry Change Guard's first optional AI capability explains deterministic mig
 It does not decide readiness, edit files, generate patches, execute tools, or
 modify an observability system.
 
-AI remains disabled during `analyze`, `validate`, `explain`, and `graph`. It is
-enabled only when a user invokes `advise` with an explicit provider executable:
+Ordinary `check`, `validate`, `impact`, `graph`, and `migration check` commands
+do not invoke AI. It is enabled only when a user invokes `migration advise`
+with an explicit provider executable:
 
 ```bash
-tmr advise \
-  --config ./tmr.yaml \
-  --migration ./migration.yaml \
+telemetry-change-guard migration advise \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
   --question "Why is this blocked, which consumers are highest risk, and what order should we migrate them?" \
-  --ai-command ./my-tmr-ai-provider \
+  --ai-command ./my-tcg-ai-provider \
   --ai-timeout 30s
 ```
 
 Arguments can be passed directly, without a shell:
 
 ```bash
-tmr advise ... \
-  --ai-command ./my-tmr-ai-provider \
+telemetry-change-guard migration advise ... \
+  --ai-command ./my-tcg-ai-provider \
   --ai-arg model-name \
   --ai-arg concise
 ```
@@ -129,3 +130,7 @@ Good read-only questions include:
 Candidate patches use a separate, narrower protocol described in
 [REMEDIATION.md](REMEDIATION.md). They are not accepted by the read-only
 explanation response.
+
+See [AI-assisted workflows](AI_WORKFLOWS.md) for the broader human-governed
+reader, remediation, change-request, testing, and reporting patterns that can
+be orchestrated around this protocol.
