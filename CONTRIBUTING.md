@@ -6,6 +6,11 @@ an extra finding.
 Changes that affect discovery, graph traversal, or readiness therefore need
 evidence-focused tests.
 
+Project authority and decision-making are documented in
+[`GOVERNANCE.md`](GOVERNANCE.md); current merge authorities are listed in
+[`MAINTAINERS.md`](MAINTAINERS.md). Review [`RELATED_WORK.md`](RELATED_WORK.md)
+before proposing a capability on the basis that no existing tool addresses it.
+
 ## Development workflow
 
 1. Search existing issues and discussions before proposing work.
@@ -75,3 +80,7 @@ maintainer may ask to split unrelated changes.
 By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 Security vulnerabilities must follow [SECURITY.md](SECURITY.md), not a public
 issue.
+
+Organizations that want to identify themselves as users should follow the
+authorized opt-in process in [`ADOPTERS.md`](ADOPTERS.md). Maintainers do not
+turn private evaluations into public adopter claims.

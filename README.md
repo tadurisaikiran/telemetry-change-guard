@@ -1,20 +1,110 @@
 # Telemetry Change Guard
 
-> Know what will break before telemetry changes reach production.
+> **The safety gate for telemetry changes in human- and AI-written code.**
 
-Telemetry changes are API changes. Renaming or removing a metric or label can
-silently empty dashboards, disable alerts, and invalidate SLOs. Telemetry
-Change Guard is an open-source, local-first tool for analyzing those changes
-before merge or deployment. The canonical executable is
-`telemetry-change-guard`; the existing `tmr` executable remains a supported
-migration compatibility entry point during the transition.
+A developer or coding agent can rename a metric, remove a label, or change an
+attribute in a few lines. That telemetry may be consumed elsewhere by an
+alert, SLO, dashboard, recording rule, autoscaler, deployment gate, or
+automation.
+
+The code can compile. The tests can pass. The deployment can succeed. The
+failure may remain invisible until the telemetry was supposed to protect
+production.
+
+**Telemetry Change Guard (TCG) finds the downstream impact before merge or
+deployment.** It builds an evidence-backed dependency graph from explicit,
+deterministic change sources and operational consumer definitions, then
+applies policy to return one reproducible decision:
+
+**PASS · WARN · BLOCK · INCOMPLETE · ERROR**
+
+```text
+ChangeSet / snapshots / mapped schema diff
+                    │
+                    ▼
+        Telemetry Change Guard
+                    │
+          dependency analysis
+                    │
+       ┌────────────┼─────────────┐
+       ▼            ▼             ▼
+ dashboards     alerts/SLOs   recording rules
+       │            │             │
+       ├────────────┼─────────────┤
+       ▼            ▼             ▼
+ autoscalers  deployment gates  runtime queries
+                    │
+                    ▼
+          deterministic policy
+                    │
+       PASS / WARN / BLOCK / INCOMPLETE / ERROR
+```
+
+## AI can propose. TCG verifies.
+
+AI coding assistants increase the speed and surface area of instrumentation
+changes, but an agent editing one repository may not know that another
+operational system depends on the exact telemetry contract.
+
+TCG keeps a deliberate trust boundary:
+
+- AI may explain deterministic findings or propose a candidate remediation.
+- TCG validates candidate remediation by reparsing and reanalyzing it.
+- AI output cannot supply, weaken, or override an authoritative safety status.
+- Missing required evidence returns `INCOMPLETE`; it is never assumed safe.
+
+Today, explicit ChangeSets, bounded telemetry snapshots, and explicitly mapped
+OpenTelemetry Weaver diffs are deterministic change sources. Arbitrary source
+diffs are **not** automatically inferred by the public tool. AI-assisted change
+discovery can be added as advisory input without moving the final decision out
+of the deterministic engine.
+
+## Example: a removal that breaks production scaling
+
+The runnable [`examples/keda`](examples/keda) fixture proposes removing
+`checkout_requests_total`. The service can still build, but a production KEDA
+`ScaledObject` uses that metric to scale `orders-worker`:
+
+```text
+Telemetry Change Guard
+======================
+ChangeSet: checkout-metric-removal
+Status:    BLOCK
+Findings:  1
+
+[BLOCK] SCALING_RISK — orders-worker
+  Change:      remove-checkout-requests
+  Consumer:    keda:...:orders-worker-scaler:prometheus:0 (autoscaler)
+  Criticality: critical
+  Source:      examples/keda/scaledobject.yaml:14
+  Path:        checkout_requests_total -> orders-worker-scaler
+
+STATUS: BLOCK
+```
+
+The change cannot merge until the consumer is migrated or policy is changed
+through an explicit, reviewable decision.
+
+## Why now?
+
+Telemetry has become part of the production control plane. Metrics can drive
+paging, error-budget calculations, KEDA and Kubernetes autoscaling, Argo
+Rollouts deployment decisions, and automation. At the same time, AI coding
+agents are making code changes faster than engineers can manually trace every
+downstream telemetry dependency. TCG turns those hidden dependencies into a
+pre-merge safety check.
 
 ## Current status
 
-The deterministic Prometheus v0.1 engine is implemented through the ecosystem
-integration milestones. Its local adapters do not require AI, a database, a
-network connection, or a hosted service; remote evidence sources are explicit
-and optional.
+TCG is pre-release software. Its deterministic engine currently spans
+Prometheus dependencies, explicit OpenTelemetry mappings, Tempo-validated
+TraceQL evidence, and Kubernetes control-plane consumers. Local adapters do
+not require AI, a database, a network connection, or a hosted service; remote
+evidence sources are explicit and optional.
+
+The canonical executable is `telemetry-change-guard`. The existing `tmr`
+executable remains a supported migration compatibility entry point during the
+transition.
 
 Implemented:
 
@@ -102,7 +192,7 @@ tool/configuration/runtime `ERROR`, `2` for `BLOCK`, and `3` for
 `INCOMPLETE`. The migration compatibility commands retain the existing
 `READY`/`BLOCKED` contract with the same numeric meanings.
 
-Automatic change detection does not require a handwritten ChangeSet:
+Snapshot-based change detection does not require a handwritten ChangeSet:
 
 ```bash
 ./bin/telemetry-change-guard snapshot \
@@ -145,11 +235,16 @@ permissions:
 
 steps:
   - uses: actions/checkout@v7
-  - uses: tadurisaikiran/telemetry-change-guard@v1
+  - uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
     with:
       config: tcg.yaml
       changes: changes.yaml
 ```
+
+The canonical repository does not yet publish a stable release or `v1` tag.
+Until the first honest pre-release is published, pin the exact commit above;
+do not use `@v1`. Release packaging and the immutable pre-release Action
+coordinate are tracked in [issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
 
 Use a `baseline`/`candidate` pair or a `weaver-diff`/`weaver-mapping` pair as
 alternative generic sources. Use `migration: migration.yaml` instead for the
@@ -302,15 +397,15 @@ not create a dependency. Required validation, mapping, or source failures stop
 
 ## Optional AI explanations
 
-AI is disabled unless `tmr advise` is given an explicit local provider
-executable:
+AI is disabled unless `telemetry-change-guard migration advise` is given an
+explicit local provider executable:
 
 ```bash
-tmr advise \
-  --config ./tmr.yaml \
-  --migration ./migration.yaml \
+telemetry-change-guard migration advise \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
   --question "Why is this blocked, and what should migrate first?" \
-  --ai-command ./my-tmr-ai-provider
+  --ai-command ./my-tcg-ai-provider
 ```
 
 Telemetry Change Guard sends a bounded, redacted JSON evidence packet over
@@ -326,10 +421,10 @@ An explicit provider can propose a replacement for a confirmed local legacy
 expression:
 
 ```bash
-tmr remediate \
-  --config ./tmr.yaml \
-  --migration ./migration.yaml \
-  --ai-command ./my-tmr-ai-provider
+telemetry-change-guard migration remediate \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
+  --ai-command ./my-tcg-ai-provider
 ```
 
 Telemetry Change Guard labels output as a validated candidate only after the
@@ -355,10 +450,13 @@ documented in [docs/TESTING.md](docs/TESTING.md).
 For a problem-first explanation of the migration lifecycle, read
 [When Telemetry Migrations Fail Silently](docs/articles/when-telemetry-migrations-fail-silently.md).
 
-See [the roadmap](docs/ROADMAP.md), [contribution guide](CONTRIBUTING.md), and
-[security policy](SECURITY.md) before proposing or reporting work.
+See the [roadmap](docs/ROADMAP.md), [related-work comparison](RELATED_WORK.md),
+[governance](GOVERNANCE.md), [maintainers](MAINTAINERS.md),
+[contribution guide](CONTRIBUTING.md), and [security policy](SECURITY.md) before
+proposing or reporting work. Organizations publicly using TCG may opt in
+through the documented process in [ADOPTERS.md](ADOPTERS.md).
 
-Engineers evaluating a real migration can use the
+Engineers evaluating a real telemetry change can use the
 [design-user program guide](docs/DESIGN_USER_PROGRAM.md) and submit only
 sanitized findings through the design-user feedback issue form.
 
