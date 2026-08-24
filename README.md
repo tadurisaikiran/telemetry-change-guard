@@ -13,10 +13,11 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#run-your-first-check">First check</a> ·
+  <a href="#use-it-on-your-repository">Inputs and outputs</a> ·
   <a href="#what-telemetry-change-guard-protects">Coverage</a> ·
   <a href="#github-action">GitHub Action</a> ·
-  <a href="#trust-and-safety-model">Trust model</a> ·
   <a href="#documentation">Documentation</a>
 </p>
 
@@ -79,10 +80,13 @@ checkout_request_duration_seconds_bucket
 When evidence is malformed or unresolved, TCG keeps every confirmed finding
 and returns `INCOMPLETE`. It never turns an incomplete graph into a clean pass.
 
-## Quick start
+## Install
 
-TCG currently requires Go 1.27 or newer and is built from source while the
-first verified pre-release is prepared:
+### Build the CLI from source
+
+**Download status:** TCG does not yet publish packaged binaries, container
+images, Homebrew packages, or a stable release tag. The current supported
+installation path requires Git and Go 1.27 or newer:
 
 ```bash
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
@@ -91,34 +95,115 @@ mkdir -p ./bin
 go build -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ```
 
-Validate a proposed ChangeSet, then run the KEDA example:
+The resulting executable is `./bin/telemetry-change-guard`. Release binaries,
+checksums, SBOMs, provenance, and signatures are tracked in
+[issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
+Do not download an unofficial binary or use a nonexistent `v1` tag.
+
+### Use the GitHub Action
+
+If TCG will run only in GitHub Actions, no local installation is required. The
+composite Action builds and runs the canonical CLI inside the job. Use the
+exact verified commit in the [GitHub Action example](#github-action); a stable
+release coordinate does not exist yet.
+
+## Run your first check
+
+The minimal [getting-started example](examples/getting-started) contains the
+three inputs involved in a normal check:
+
+| File | Purpose |
+| --- | --- |
+| [`changes.yaml`](examples/getting-started/changes.yaml) | Declares that `checkout_requests_total` will be removed |
+| [`tcg.yaml`](examples/getting-started/tcg.yaml) | Tells TCG which consumer files to inspect and which policy to enforce |
+| [`prometheus/rules.yaml`](examples/getting-started/prometheus/rules.yaml) | Contains a critical alert that still queries the metric |
+
+```text
+changes.yaml       what will change
+tcg.yaml           where to look and how to decide
+Prometheus rules   what currently depends on the telemetry
+       \                 |                 /
+        +----------------+----------------+
+                         |
+             telemetry-change-guard check
+                         |
+              status + findings + exit code
+```
+
+From the repository root, build the CLI as shown above, then validate and
+check the example:
 
 ```bash
 ./bin/telemetry-change-guard validate \
-  --changes ./examples/keda/changes.yaml
+  --changes ./examples/getting-started/changes.yaml
 
 ./bin/telemetry-change-guard check \
-  --config ./examples/keda/tcg.yaml \
-  --changes ./examples/keda/changes.yaml
+  --config ./examples/getting-started/tcg.yaml \
+  --changes ./examples/getting-started/changes.yaml
 ```
 
-Validation exits `0`. The check intentionally exits `2` and reports:
+Validation exits `0`. The check intentionally exits `2` because removing the
+metric would break a critical alert. The essential console output is:
 
 ```text
 Status:    BLOCK
 Findings:  1
 
-[BLOCK] SCALING_RISK — orders-worker
+[BLOCK] ALERTING_RISK — CheckoutTrafficMissing
   Change:      remove-checkout-requests
-  Consumer:    ... (autoscaler)
+  Consumer:    ... (alert_rule)
   Criticality: critical
-  Source:      examples/keda/scaledobject.yaml:14
+  Source:      examples/getting-started/prometheus/rules.yaml:4
+  Path:        checkout_requests_total -> CheckoutTrafficMissing
+  Policy:      block policy for ALERTING_RISK
 
 STATUS: BLOCK
 ```
 
-To evaluate a repository, create a strict `tcg/v1alpha1` configuration that
-points to its operational artifacts:
+Exit `2` means TCG ran successfully and policy rejected the proposed change;
+it is not a tool crash. The report identifies the affected consumer, its
+operational impact, criticality, source location, dependency path, and policy
+decision.
+
+## Use it on your repository
+
+A safety check always needs the proposed change and the evidence to compare it
+against:
+
+| Input | Required? | What to provide |
+| --- | --- | --- |
+| Product configuration | Always | `--config ./tcg.yaml`, pointing to the consumer artifacts and evidence sources TCG should inspect |
+| Change source | Exactly one | An explicit ChangeSet, a baseline/candidate snapshot pair, or a Weaver diff with an explicit backend mapping |
+| Consumer artifacts | As configured | Prometheus rules, Grafana dashboards, SLOs, KEDA resources, Argo Rollouts templates, or explicitly mapped HPA resources |
+| Additional evidence | Optional | Runtime query history, Perses usage, Tempo-validated TraceQL queries, and ownership metadata |
+
+### 1. Describe the proposed change
+
+Create `changes.yaml`. This example removes one Prometheus metric:
+
+```yaml
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: checkout-metric-removal
+spec:
+  changes:
+    - id: remove-checkout-requests
+      kind: metric_remove
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: checkout_requests_total
+```
+
+TCG supports metric, label, span-attribute, and resource-attribute renames and
+removals in their documented domains. See the
+[ChangeSet schema](docs/CHANGESET.md) for every accepted shape.
+
+### 2. Point TCG to consumers
+
+Create `tcg.yaml` with the sources that are authoritative for your repository:
 
 ```yaml
 apiVersion: tcg/v1alpha1
@@ -133,9 +218,6 @@ sources:
   sloth:
     - path: ./slos/*.yaml
       required: true
-  keda:
-    - path: ./deploy/scaledobjects/*.yaml
-      required: true
 analysis:
   includeTransitiveDependencies: true
   unresolvedReferencePolicy: error
@@ -147,9 +229,75 @@ output:
   formats: [console, json, markdown]
 ```
 
-Start with only the sources your repository owns, mark evidence required when
-its absence must stop the decision, and use the
-[configuration guide](docs/CONFIGURATION.md) for the complete schema.
+Start with sources your repository actually owns. Mark a source `required`
+when its absence must prevent a safety decision. Missing or malformed required
+evidence returns `INCOMPLETE` or `ERROR`; it is never treated as an empty safe
+result. See the [configuration guide](docs/CONFIGURATION.md).
+
+### 3. Run one authoritative evaluation
+
+```bash
+./bin/telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --changes ./changes.yaml \
+  --mode enforce \
+  --format console \
+  --json-output ./tcg-result.json
+```
+
+This prints the human-readable report and writes the versioned machine result
+from the same evaluation. No discovery source is queried twice.
+
+The `check` command accepts exactly one change source:
+
+| Workflow | Arguments |
+| --- | --- |
+| Explicit ChangeSet | `--changes ./changes.yaml` |
+| Prometheus snapshot comparison | `--baseline ./main.json --candidate ./candidate.json` |
+| OpenTelemetry Weaver diff | `--weaver-diff ./diff.json --weaver-mapping ./mapping.yaml` |
+
+Partial pairs, multiple change sources, a missing configuration, or no change
+source fail as input errors instead of being guessed. Planned migrations use a
+separate compatibility workflow:
+
+```bash
+./bin/telemetry-change-guard migration check \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml
+```
+
+### 4. Interpret the result
+
+| Status | Exit | Meaning | Typical next action |
+| --- | ---: | --- | --- |
+| `PASS` | `0` | Analysis completed with no remaining finding or diagnostic | Proceed under normal review |
+| `WARN` | `0` | Findings exist, but current policy permits the change | Review and migrate affected consumers when appropriate |
+| `BLOCK` | `2` | Complete evidence proves an enforced policy violation | Migrate the named consumers or make an explicit policy decision |
+| `INCOMPLETE` | `3` | Required evidence is missing, malformed, dynamic, or unresolved | Fix the source, mapping, or query before deciding |
+| `ERROR` | `1` | Configuration, input, tool, or policy evaluation failed | Correct the reported error and rerun |
+
+Findings are never removed merely because a higher-precedence `INCOMPLETE` or
+`ERROR` exists. Review the findings and diagnostics together.
+
+### 5. Choose an output
+
+| Need | Command option |
+| --- | --- |
+| Human-readable terminal report | `--format console` |
+| Versioned machine result | `--format json --output ./tcg-result.json` |
+| Markdown report | `--format markdown --output ./tcg-report.md` |
+| Console or Markdown plus companion JSON | `--json-output ./tcg-result.json` |
+| Status-only integration file | `--status-output ./tcg-status.txt` |
+| Complete dependency graph | `./bin/telemetry-change-guard graph --config ./tcg.yaml --output ./graph.json` |
+
+Use distinct paths for `--output`, `--json-output`, and `--status-output`.
+Machine consumers should use the versioned JSON and authoritative status—not
+parse console prose. The JSON result contains the normalized ChangeSet,
+authoritative status, findings, and policy decisions, plus discovery
+diagnostics and evaluation errors when present, under the
+`tcg-result/v1alpha1` schema. The
+[CLI guide](docs/CLI.md) documents all commands, rollout modes, and exit
+contracts.
 
 ## What Telemetry Change Guard protects
 
@@ -353,9 +501,9 @@ evidence must be visible as incomplete, not marketed as coverage.
 
 ## Choose your next step
 
-- **Five-minute evaluation:** run the [KEDA](examples/keda),
-  [Argo Rollouts](examples/argo-rollouts), [HPA](examples/hpa), or
-  [snapshot](examples/snapshot-diff) fixture.
+- **Five-minute evaluation:** begin with [getting started](examples/getting-started),
+  then try the [KEDA](examples/keda), [Argo Rollouts](examples/argo-rollouts),
+  [HPA](examples/hpa), or [snapshot](examples/snapshot-diff) fixture.
 - **Real repository evaluation:** follow the
   [design-user program](docs/DESIGN_USER_PROGRAM.md) for planned migration,
   proposed-change, and control-plane workflows using sanitized evidence.
