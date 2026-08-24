@@ -49,7 +49,7 @@ func TestActionMetadataAndScript(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"./cmd/telemetry-change-guard",
-		"actions/upload-artifact@v6",
+		"actions/upload-artifact@v7",
 		"const marker = '<!-- telemetry-change-guard -->'",
 		"const legacyMarker = '<!-- telemetry-migration-readiness -->'",
 		"comment.body?.includes(marker) || comment.body?.includes(legacyMarker)",
