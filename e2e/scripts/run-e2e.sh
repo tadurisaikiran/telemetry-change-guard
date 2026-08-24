@@ -31,11 +31,13 @@ run_analysis() {
   local actual_exit=$?
   set -e
   if [[ "${actual_exit}" -ne "${expected_exit}" ]]; then
-    printf 'TMR exit code %s, expected %s for %s\n' "${actual_exit}" "${expected_exit}" "${TMR_SCENARIO_DIR}" >&2
+    printf 'Telemetry Change Guard exit code %s, expected %s for %s\n' \
+      "${actual_exit}" "${expected_exit}" "${TMR_SCENARIO_DIR}" >&2
     return 1
   fi
   if ! grep --quiet '"status": "'"${expected}"'"' "${report_file}"; then
-    printf 'TMR did not report %s for %s\n' "${expected}" "${TMR_SCENARIO_DIR}" >&2
+    printf 'Telemetry Change Guard did not report %s for %s\n' \
+      "${expected}" "${TMR_SCENARIO_DIR}" >&2
     return 1
   fi
 }
@@ -97,4 +99,4 @@ run_scenario 05-migrated dual READY 0 checkout_server_request_duration_seconds_c
 run_scenario 06-premature-cutover new BLOCKED 2 checkout_server_request_duration_seconds_count checkout_request_duration_seconds_count broken
 run_scenario 07-legacy-removed new READY 0 checkout_server_request_duration_seconds_count checkout_request_duration_seconds_count healthy
 
-printf '\nTMR live E2E lifecycle passed.\n'
+printf '\nTelemetry Change Guard live E2E lifecycle passed.\n'

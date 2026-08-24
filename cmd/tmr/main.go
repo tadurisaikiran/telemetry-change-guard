@@ -11,7 +11,7 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
 )
 
-const usageText = `Telemetry Migration Readiness
+const usageText = `Telemetry Change Guard migration compatibility CLI
 
 Usage:
   tmr analyze --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) [--format console|json|markdown]
@@ -75,7 +75,7 @@ func runValidate(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
-	configPath := flags.String("config", "", "path to a TMR YAML configuration")
+	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -126,7 +126,7 @@ func runValidate(ctx context.Context, args []string, stdout, stderr io.Writer) i
 			fmt.Fprintf(stderr, "Error: %v\n", err)
 			return 1
 		}
-		fmt.Fprintln(stdout, "TMR configuration is valid.")
+		fmt.Fprintln(stdout, "Telemetry Change Guard configuration is valid.")
 		fmt.Fprintf(stdout, "Sources: %d\n", sourceCount(configuration))
 	}
 	return 0

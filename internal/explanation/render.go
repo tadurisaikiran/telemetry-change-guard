@@ -23,7 +23,7 @@ func Render(writer io.Writer, request Request, response Response) error {
 	}
 
 	var output strings.Builder
-	fmt.Fprintln(&output, "TMR AI Explanation (non-authoritative)")
+	fmt.Fprintln(&output, "Telemetry Change Guard AI Explanation (non-authoritative)")
 	fmt.Fprintf(&output, "Authoritative status: %s\n", request.Authoritative.Status)
 	fmt.Fprintln(&output, "Only the deterministic readiness engine can change this status.")
 	fmt.Fprintf(&output, "\n%s\n", safeText(response.Answer))

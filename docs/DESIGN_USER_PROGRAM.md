@@ -1,6 +1,6 @@
 # Design User Program
 
-The first design-user cohort should validate whether TMR gives observability
+The first design-user cohort should validate whether Telemetry Change Guard gives observability
 engineers useful, trustworthy evidence during real telemetry migrations. It is
 not a launch list, sales funnel, or request for endorsements.
 
@@ -24,7 +24,7 @@ dependency.
 
 Do not recruit a participant solely because they can provide a testimonial.
 The useful participant is willing to test an uncertain workflow and report
-where TMR is wrong, incomplete, slow, or confusing.
+where Telemetry Change Guard is wrong, incomplete, slow, or confusing.
 
 ## Qualification screen
 
@@ -44,7 +44,7 @@ synthetic reproduction.
 
 ## Safety and privacy
 
-TMR is local-first, but its input files can still contain sensitive names,
+Telemetry Change Guard is local-first, but its input files can still contain sensitive names,
 queries, labels, repository paths, or operational thresholds.
 
 - Never request credentials, tokens, customer data, production endpoints, or
@@ -63,7 +63,7 @@ queries, labels, repository paths, or operational thresholds.
 
 Record the telemetry change, consumer types, critical consumers, and the
 participant's expected `READY`, `BLOCKED`, or `INCOMPLETE` result before running
-TMR. This prevents the tool output from rewriting the expectation after the
+Telemetry Change Guard. This prevents the tool output from rewriting the expectation after the
 fact.
 
 ### 2. Prepare sanitized inputs — 10 minutes
@@ -115,7 +115,7 @@ transitive path are correct.
 
 Ask:
 
-- Did TMR match the expected final decision?
+- Did Telemetry Change Guard match the expected final decision?
 - Did it miss a critical consumer or report a false dependency?
 - Was any `INCOMPLETE` result actionable?
 - Could the participant identify the next file to change?

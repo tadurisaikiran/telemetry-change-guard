@@ -1,8 +1,8 @@
 # Perses metrics-usage integration
 
-TMR can consume downstream-consumer evidence from a separately deployed
+Telemetry Change Guard can consume downstream-consumer evidence from a separately deployed
 [Perses metrics-usage](https://github.com/perses/metrics-usage) service. This is
-an optional HTTP adapter: TMR does not import Perses packages, start the
+an optional HTTP adapter: Telemetry Change Guard does not import Perses packages, start the
 service, or require it for local analysis.
 
 ## Configuration
@@ -28,7 +28,7 @@ scheme and host so credentials cannot be forwarded to another origin.
 
 ## Imported API evidence
 
-For each run, TMR reads:
+For each run, Telemetry Change Guard reads:
 
 - `GET /api/v1/metrics?used=true` for exact metric usage;
 - `GET /api/v1/partial_metrics` for unresolved metric patterns; and
@@ -54,7 +54,7 @@ The adapter produces deterministic canonical evidence:
 ## Deliberate uncertainty
 
 An exact dashboard-to-metric association proves metric usage, but it does not
-identify labels used inside the dashboard query. TMR therefore adds a
+identify labels used inside the dashboard query. Telemetry Change Guard therefore adds a
 label-scoped unresolved reference. Metric rename/removal analysis can still use
 the exact association; a label change on that metric is `UNCERTAIN` unless
 another adapter supplies query-level evidence.

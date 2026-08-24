@@ -1,6 +1,6 @@
 # Threat model
 
-TMR analyzes infrastructure and observability artifacts that can reveal
+Telemetry Change Guard analyzes infrastructure and observability artifacts that can reveal
 internal service names, topology, operational thresholds, customer context,
 and accidentally embedded credentials. The deterministic local core is the
 default. Optional remote evidence and AI provider integrations add explicit
@@ -22,16 +22,16 @@ Assets requiring protection include:
 Local migration/configuration files, dashboards, comments, descriptions,
 expressions, CODEOWNERS entries, ownership metadata, dashboard tags, runtime
 query logs, TraceQL inventories, API responses, and model output are untrusted
-data. They never become instructions to TMR.
+data. They never become instructions to Telemetry Change Guard.
 
 The deterministic parsers, graph, and readiness evaluator form the safety
 boundary. Optional adapters may add evidence or diagnostics but cannot mark a
 migration safe. Required evidence failures prevent `READY`.
 
 A command supplied to `tmr advise --ai-command` is explicitly trusted local
-code. TMR executes it without a shell, but it still runs with the user's OS
+code. Telemetry Change Guard executes it without a shell, but it still runs with the user's OS
 permissions and may independently access files, environment, or the network.
-Only use a reviewed provider executable. TMR does not sandbox it.
+Only use a reviewed provider executable. Telemetry Change Guard does not sandbox it.
 
 ## Prompt injection
 
@@ -60,7 +60,7 @@ the provider's data-retention policy before sending sensitive data remotely.
 
 Runtime evidence retains query text, timestamps, aggregate counts, and bounded
 origin details because they are needed for migration analysis. The Prometheus
-query-log decoder deliberately discards `clientIP`; TMR does not need it to
+query-log decoder deliberately discards `clientIP`; Telemetry Change Guard does not need it to
 establish a dependency. Users should still treat exported query text and rule
 paths as sensitive operational data.
 
@@ -84,7 +84,7 @@ safety. Read-only explanation has no reanalysis input.
 Ownership is routing context, not safety evidence or authorization. Invalid,
 missing, or ambiguous ownership stays visible but cannot alter readiness.
 Repository paths configured for ownership metadata and CODEOWNERS are scoped to
-an explicit repository root. TMR never asks an AI provider to select an owner,
+an explicit repository root. Telemetry Change Guard never asks an AI provider to select an owner,
 verify GitHub permissions, or authorize a candidate patch.
 
 ## Availability and resource limits
@@ -108,7 +108,7 @@ scenarios protect against malformed inputs and fail-open regressions.
 
 ## Output handling
 
-AI output is untrusted prose. TMR strips terminal control characters and labels
+AI output is untrusted prose. Telemetry Change Guard strips terminal control characters and labels
 it non-authoritative. Consumers of future machine interfaces must preserve this
 distinction and must not turn explanation text into executable commands.
 
@@ -120,7 +120,7 @@ uses a separate protocol and must pass deterministic syntax, artifact, and
 dependency validation before presentation.
 
 Candidate remediation changes exactly one expression scalar in an in-memory
-copy. The provider cannot choose a path or locator. TMR requires the proposed
+copy. The provider cannot choose a path or locator. Telemetry Change Guard requires the proposed
 `beforeExpression` to equal deterministic evidence, parses the replacement with
 the official PromQL parser, proves the legacy symbol is absent and destination
 present, reparses the artifact, rebuilds the graph, and reruns readiness. It

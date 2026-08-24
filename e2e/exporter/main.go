@@ -1,5 +1,6 @@
 // Command exporter emits a controlled classic Prometheus histogram in old,
-// dual-write, or new mode. It exists solely for the isolated TMR E2E harness.
+// dual-write, or new mode. It exists solely for the isolated Telemetry Change
+// Guard E2E harness.
 package main
 
 import (
@@ -35,7 +36,7 @@ func main() {
 		writer.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 		_, _ = writer.Write([]byte(render(selected, scrapes.Add(1))))
 	})
-	log.Printf("TMR test exporter listening on :8080 in %s mode", selected)
+	log.Printf("Telemetry Change Guard test exporter listening on :8080 in %s mode", selected)
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
 

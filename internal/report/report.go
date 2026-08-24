@@ -16,6 +16,8 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
 
+const productName = "Telemetry Change Guard"
+
 // JSON renders the versioned machine result.
 func JSON(result readiness.Result) ([]byte, error) {
 	contents, err := json.MarshalIndent(result, "", "  ")
@@ -28,8 +30,8 @@ func JSON(result readiness.Result) ([]byte, error) {
 // Console renders a compact terminal report.
 func Console(writer io.Writer, result readiness.Result) error {
 	var output bytes.Buffer
-	fmt.Fprintln(&output, "Telemetry Migration Readiness")
-	fmt.Fprintln(&output, strings.Repeat("=", 29))
+	fmt.Fprintln(&output, productName)
+	fmt.Fprintln(&output, strings.Repeat("=", len(productName)))
 	fmt.Fprintf(&output, "Migration: %s\n", result.Migration.Metadata.Name)
 	for _, change := range result.Migration.Changes {
 		if change.To == nil {
@@ -100,7 +102,7 @@ func Console(writer io.Writer, result readiness.Result) error {
 // Markdown renders a report suitable for pull-request comments and artifacts.
 func Markdown(writer io.Writer, result readiness.Result) error {
 	var output bytes.Buffer
-	fmt.Fprintln(&output, "# Telemetry Migration Readiness")
+	fmt.Fprintf(&output, "# %s\n", productName)
 	fmt.Fprintf(&output, "\n**Migration:** `%s`  \n", result.Migration.Metadata.Name)
 	fmt.Fprintf(&output, "**Status:** **%s**  \n", result.Summary.Status)
 	fmt.Fprintf(&output, "**Progress:** %d%% _(informational only)_\n", result.Summary.Progress)

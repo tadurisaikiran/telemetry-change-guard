@@ -114,7 +114,7 @@ func decodeTMRQueryHistory(line []byte) (observedEvent, error) {
 		Source        string `json:"source,omitempty"`
 	}
 	if err := decodeJSONLine(line, &document, true); err != nil {
-		return observedEvent{}, fmt.Errorf("decode TMR query history: %w", err)
+		return observedEvent{}, fmt.Errorf("decode runtime query history: %w", err)
 	}
 	if document.SchemaVersion != HistorySchemaVersion {
 		return observedEvent{}, fmt.Errorf("schemaVersion must be %q", HistorySchemaVersion)

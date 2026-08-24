@@ -1,6 +1,6 @@
 # Read-only AI explanation protocol
 
-TMR's first optional AI capability explains deterministic migration evidence.
+Telemetry Change Guard's first optional AI capability explains deterministic migration evidence.
 It does not decide readiness, edit files, generate patches, execute tools, or
 modify an observability system.
 
@@ -32,7 +32,7 @@ exit contract: `0` for `READY`, `2` for `BLOCKED`, and `3` for `INCOMPLETE`.
 ## Process protocol
 
 The provider reads exactly one JSON request from standard input and writes
-exactly one JSON response to standard output. TMR invokes the executable
+exactly one JSON response to standard output. Telemetry Change Guard invokes the executable
 directly with `exec`, never through a command shell.
 
 The request schema is:
@@ -57,7 +57,7 @@ It contains:
   for included findings; and
 - adapter diagnostics.
 
-Already-migrated and unaffected repository contents are not transmitted. TMR
+Already-migrated and unaffected repository contents are not transmitted. Telemetry Change Guard
 does not serialize configuration, process environment, credential files, or
 the repository as a whole. Secret-like strings in included fields are redacted
 before encoding. Requests are limited to 8 MiB.
@@ -106,7 +106,7 @@ lines is explicitly labeled non-authoritative.
 
 ## Provider responsibility
 
-TMR does not bundle a model SDK or make a model network request. The provider
+Telemetry Change Guard does not bundle a model SDK or make a model network request. The provider
 adapter owns model selection, authentication, and any network connection. This
 keeps the core vendor-neutral and permits local models.
 

@@ -77,4 +77,4 @@ run_analysis legacy BLOCKED 2
 run_analysis migrated READY 0
 run_analysis invalid INCOMPLETE 3
 
-printf '\nTMR pinned Tempo TraceQL lifecycle passed.\n'
+printf '\nTelemetry Change Guard pinned Tempo TraceQL lifecycle passed.\n'

@@ -1,6 +1,6 @@
 # Architecture
 
-Telemetry Migration Readiness analyzes telemetry contract changes and their
+Telemetry Change Guard analyzes telemetry contract changes and their
 downstream consumers. The long-term product answers three questions:
 
 1. What changed?
@@ -89,7 +89,7 @@ Missing dashboard query details and partial metric names remain scoped,
 unresolved evidence.
 
 `adapters/runtimequeries` imports bounded local JSONL evidence from the
-Prometheus query log or TMR's provider-neutral runtime-query schema. It
+Prometheus query log or Telemetry Change Guard's provider-neutral runtime-query schema. It
 aggregates identical expressions inside a window anchored to the newest valid
 record, then sends every distinct expression through the same official PromQL
 AST analyzer. Runtime consumers are additive: the adapter never removes a
@@ -101,14 +101,14 @@ expression to the configured Tempo Search API for official parser validation.
 Only then does `pkg/traceql` conservatively extract scoped span/resource
 attributes. Explicit mappings add parallel OpenTelemetry symbols; no name-based
 alias is inferred. Tempo remains an optional remote adapter, and its AGPL parser
-is not linked into TMR's Apache-licensed binary. See [the Tempo integration
+is not linked into Telemetry Change Guard's Apache-licensed binary. See [the Tempo integration
 guide](TEMPO.md).
 
 `pkg/promql` uses Prometheus's official parser and walks the typed AST. It does
 not use substring matching to establish metric or label dependencies.
 
 `internal/ownership` runs after consumer discovery and before graph
-construction. It applies strict TMR ownership metadata, GitHub CODEOWNERS, and
+construction. It applies strict Telemetry Change Guard ownership metadata, GitHub CODEOWNERS, and
 Grafana tag evidence with fixed precedence. It enriches `domain.Consumer` only;
 its diagnostics are advisory and it has no dependency on `internal/readiness`.
 See [the ownership discovery guide](OWNERSHIP.md).
@@ -133,7 +133,7 @@ evaluator with modified evidence.
 
 `internal/remediation` is a separate candidate-only boundary. It exposes only
 confirmed direct local Prometheus-rule YAML and Grafana JSON expressions as
-targets. Provider proposals cannot select a source path or locator. TMR finds
+targets. Provider proposals cannot select a source path or locator. Telemetry Change Guard finds
 one exact scalar, changes an in-memory artifact, reparses it through the owning
 adapter, replaces that source's discovery in memory, rebuilds the graph, and
 reruns the same readiness policy. The source file and authoritative result are

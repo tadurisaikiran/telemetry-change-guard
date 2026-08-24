@@ -18,7 +18,7 @@ preserves the current deterministic `0/2/3` readiness exit code.
 
 ## Eligible targets
 
-TMR sends only consumers that satisfy every condition:
+Telemetry Change Guard sends only consumers that satisfy every condition:
 
 - classification is `LEGACY_ONLY`;
 - a confirmed direct reference matches a rename source;
@@ -69,7 +69,7 @@ candidate per target is accepted.
 
 ## Deterministic validation
 
-For every candidate, TMR performs all of these checks:
+For every candidate, Telemetry Change Guard performs all of these checks:
 
 1. Parse replacement PromQL with the official Prometheus AST parser.
 2. Reject unresolved syntax or secret-like content.
@@ -97,7 +97,7 @@ system is changed. Human review and an explicit separate edit are required.
 
 Validation proves syntax and telemetry dependency movement; it does not prove
 that range windows, aggregation, thresholds, or other query semantics are
-equivalent. Run Prometheus rule tests and the full TMR analysis after applying
+equivalent. Run Prometheus rule tests and the full Telemetry Change Guard analysis after applying
 any candidate manually. A simulated result is not the current authoritative
 state.
 

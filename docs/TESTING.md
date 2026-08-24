@@ -42,7 +42,7 @@ The current deterministic engine has:
 - invalid YAML fixtures with exact golden diagnostics;
 - PromQL AST unit and fuzz tests;
 - CODEOWNERS and strict ownership-metadata unit and fuzz tests;
-- Prometheus query-log and TMR query-history unit and fuzz tests;
+- Prometheus query-log and Telemetry Change Guard query-history unit and fuzz tests;
 - TraceQL attribute-scanner unit and fuzz tests plus Tempo API component tests;
 - component fixtures for Prometheus rules, PrometheusRule CRDs, Grafana, Sloth,
   and Pyrra;
@@ -79,10 +79,10 @@ old only -> dual write -> partial consumer migration
 
 It must prove both prediction directions:
 
-1. TMR reports `BLOCKED` before an intentionally premature cutover, and the
-   isolated stack exhibits the predicted missing critical data.
-2. TMR reports `READY` only after every required consumer is migrated, and the
-   same critical queries, rules, dashboards, and SLOs continue working after
+1. Telemetry Change Guard reports `BLOCKED` before an intentionally premature
+   cutover, and the isolated stack exhibits the predicted missing critical data.
+2. Telemetry Change Guard reports `READY` only after every required consumer is
+   migrated, and the same critical queries, rules, dashboards, and SLOs continue working after
    legacy telemetry is removed.
 
 The release gate proves:

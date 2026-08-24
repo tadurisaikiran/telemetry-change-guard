@@ -28,7 +28,7 @@ take proportionate action, including warnings, temporary restrictions, or a
 permanent ban. Reports made in bad faith may also be acted upon.
 
 This policy applies to repositories, reviews, issues, discussions, community
-events, and other spaces where someone represents TMR.
+events, and other spaces where someone represents Telemetry Change Guard.
 
 ## Attribution
 

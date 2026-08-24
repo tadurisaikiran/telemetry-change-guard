@@ -1,5 +1,5 @@
 // Package tempo imports bounded TraceQL consumer manifests and validates each
-// query through Tempo's official parser without linking Tempo into TMR.
+// query through Tempo's official parser without linking Tempo into the core.
 package tempo
 
 import (

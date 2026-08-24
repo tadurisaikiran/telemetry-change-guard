@@ -27,8 +27,8 @@ updates.
 
 ## Security boundaries
 
-TMR treats repository and telemetry artifacts as untrusted input. The local
-core does not execute expressions it analyzes, does not require credentials,
+Telemetry Change Guard treats repository and telemetry artifacts as untrusted
+input. The local core does not execute expressions it analyzes, does not require credentials,
 and does not contact external services unless a remote adapter is explicitly
 configured. Optional AI output cannot alter deterministic readiness.
 

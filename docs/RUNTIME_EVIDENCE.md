@@ -1,6 +1,6 @@
 # Runtime query evidence
 
-TMR can import recently executed PromQL expressions as additive dependency
+Telemetry Change Guard can import recently executed PromQL expressions as additive dependency
 evidence. This distinguishes a consumer discovered in configuration from a
 query that was also observed at runtime, while preserving the fail-closed rule
 that no observation is not proof of no use.
@@ -32,7 +32,7 @@ output:
 
 The decoder consumes the documented `params.query`, `ts`, `httpRequest`, and
 `ruleGroup` fields. Unknown fields are allowed for forward compatibility with
-Prometheus. TMR retains API/rule origin and bounded method, path, file, and
+Prometheus. Telemetry Change Guard retains API/rule origin and bounded method, path, file, and
 group details, but deliberately discards client IP data. Prometheus query-log
 configuration is documented at
 <https://prometheus.io/docs/guides/query-log/>.
@@ -40,7 +40,7 @@ configuration is documented at
 ## Provider-neutral history
 
 Systems that export a selected query history can write strict JSONL using the
-versioned TMR schema:
+versioned Telemetry Change Guard schema:
 
 ```json
 {"schemaVersion":"tmr-runtime-query/v1alpha1","timestamp":"2026-08-24T15:00:00Z","query":"sum(rate(http_requests_total[5m]))","origin":"grafana_query_history","source":"dashboard/checkout"}
@@ -60,7 +60,7 @@ rejected so producers cannot silently change the contract.
 
 ## Deterministic aggregation
 
-TMR groups byte-identical query expressions inside each source. It reports the
+Telemetry Change Guard groups byte-identical query expressions inside each source. It reports the
 execution count, first and last observation, origin set, and origin details.
 When `window` is nonzero, the window is anchored to the newest valid timestamp
 in that source; it never uses the current clock. An event exactly on the cutoff
@@ -91,6 +91,6 @@ required globs also fail closed.
 
 Each source is limited to 64 MiB, 500,000 non-empty records, and 1 MiB per
 record. Individual query and origin fields have smaller bounds. Source patterns
-are expanded locally; TMR does not call Prometheus or Grafana APIs and does not
+are expanded locally; Telemetry Change Guard does not call Prometheus or Grafana APIs and does not
 phone home. Protect runtime exports as production observability data and delete
 them according to your normal retention policy.

@@ -14,7 +14,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: TMR version or commit
+      label: Telemetry Change Guard version or commit
       placeholder: v0.1.0 or commit SHA
     validations:
       required: true
@@ -43,7 +43,7 @@ body:
   - type: dropdown
     id: expected
     attributes:
-      label: Expected readiness before running TMR
+      label: Expected readiness before running Telemetry Change Guard
       options:
         - READY
         - BLOCKED

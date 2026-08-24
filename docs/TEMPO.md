@@ -1,8 +1,8 @@
 # Tempo and TraceQL evidence
 
-TMR can discover dependencies on Tempo-indexed span and resource attributes in
+Telemetry Change Guard can discover dependencies on Tempo-indexed span and resource attributes in
 a strict local inventory of TraceQL consumers. Tempo's own Search API validates
-the complete expression before TMR extracts any confirmed reference.
+the complete expression before Telemetry Change Guard extracts any confirmed reference.
 
 ## Migration manifest
 
@@ -55,7 +55,7 @@ evidence. With optional Tempo sources only, the same diagnostic is advisory.
 
 ## Query inventory
 
-TMR does not assume that Tempo is a query-history database. Saved searches,
+Telemetry Change Guard does not assume that Tempo is a query-history database. Saved searches,
 dashboard TraceQL, runbook queries, or other important consumers should be
 exported into a versioned local manifest:
 
@@ -94,14 +94,14 @@ known warm-up behavior can set any positive timeout up to two minutes.
 
 ## Official validation boundary
 
-For every expression, TMR performs a read-only `GET /api/search` request with
+For every expression, Telemetry Change Guard performs a read-only `GET /api/search` request with
 the documented `q`, `limit`, `start`, and `end` parameters. The query uses a
 one-result empty historical interval. Results are discarded; only a successful
 HTTP response proves that Tempo's official parser accepted the complete
 expression. The API is documented at
 <https://grafana.com/docs/tempo/latest/api_docs/>.
 
-After validation, TMR extracts exact `span.` and `resource.` attributes,
+After validation, Telemetry Change Guard extracts exact `span.` and `resource.` attributes,
 including quoted attribute segments. Unscoped attributes and `parent.`,
 `event.`, `link.`, or `instrumentation.` custom scopes remain unresolved
 because Milestone 16 does not model them. Templated attributes also remain
@@ -109,7 +109,7 @@ unresolved. Intrinsics such as `span:duration` are not custom-attribute
 dependencies. TraceQL scope rules are documented at
 <https://grafana.com/docs/tempo/latest/traceql/construct-traceql-queries/>.
 
-TMR does not import or copy Tempo's AGPL parser into the Apache-licensed core.
+Telemetry Change Guard does not import or copy Tempo's AGPL parser into the Apache-licensed core.
 The HTTP boundary keeps Tempo optional while still relying on its current
 official grammar rather than a competing local grammar.
 
@@ -123,5 +123,5 @@ official grammar rather than a competing local grammar.
 - Response size and total source duration are bounded.
 - TraceQL text is sent only to the explicitly configured Tempo deployment.
 
-TMR does not mutate Tempo, write dashboards, or retain search results. Treat
+Telemetry Change Guard does not mutate Tempo, write dashboards, or retain search results. Treat
 TraceQL inventories as sensitive operational configuration.
