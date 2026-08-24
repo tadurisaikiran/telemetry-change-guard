@@ -1,5 +1,5 @@
 name: Design-user feedback
-description: Share a sanitized result from a real or representative migration evaluation
+description: Share a sanitized result from a real or representative TCG evaluation
 title: "feedback: "
 labels:
   - enhancement
@@ -15,7 +15,28 @@ body:
     id: version
     attributes:
       label: Telemetry Change Guard version or commit
-      placeholder: v0.1.0 or commit SHA
+      placeholder: Exact commit SHA or pre-release tag
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Evaluation workflow
+      options:
+        - Planned migration
+        - Proposed breaking change
+        - Control-plane impact
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Change source
+      options:
+        - Explicit ChangeSet
+        - Baseline/candidate snapshots
+        - Mapped OpenTelemetry Weaver diff
+        - Migration plan
     validations:
       required: true
   - type: dropdown
@@ -27,6 +48,7 @@ body:
         - Metric removal
         - Label rename
         - Label removal
+        - OpenTelemetry attribute change
         - Multiple changes
     validations:
       required: true
@@ -37,29 +59,35 @@ body:
       options:
         - label: Prometheus or PrometheusRule recording/alerting rules
         - label: Grafana dashboards
-        - label: Sloth SLOs
-        - label: Pyrra SLOs
+        - label: Sloth or Pyrra SLOs
+        - label: KEDA ScaledObjects
+        - label: Argo Rollouts analysis templates
+        - label: Explicitly mapped Kubernetes HPA metrics
+        - label: Tempo/TraceQL queries
         - label: Transitive recording-rule consumers
   - type: dropdown
     id: expected
     attributes:
-      label: Expected readiness before running Telemetry Change Guard
+      label: Expected status before running Telemetry Change Guard
       options:
-        - READY
-        - BLOCKED
+        - PASS or READY
+        - WARN
+        - BLOCK or BLOCKED
         - INCOMPLETE
+        - ERROR
         - Unsure
     validations:
       required: true
   - type: dropdown
     id: actual
     attributes:
-      label: Actual readiness
+      label: Actual status
       options:
-        - READY (exit 0)
-        - BLOCKED (exit 2)
+        - PASS or READY (exit 0)
+        - WARN (exit 0)
+        - BLOCK or BLOCKED (exit 2)
         - INCOMPLETE (exit 3)
-        - Tool or configuration error (exit 1)
+        - ERROR (exit 1)
     validations:
       required: true
   - type: textarea
@@ -69,11 +97,28 @@ body:
       description: Include permanent diagnostic codes and sanitized source evidence.
     validations:
       required: true
+  - type: dropdown
+    id: required_check
+    attributes:
+      label: Would you make TCG a required pull-request check today?
+      options:
+        - Yes
+        - No
+        - Not yet
+    validations:
+      required: true
+  - type: textarea
+    id: required_check_reason
+    attributes:
+      label: Why or why not?
+      description: Describe the deciding value, risk, or missing capability.
+    validations:
+      required: true
   - type: textarea
     id: reproduction
     attributes:
       label: Minimal sanitized reproduction
-      description: Provide or link a synthetic migration, config, and smallest consumer fixture.
+      description: Provide or link the smallest synthetic change, config, and consumer fixture.
   - type: input
     id: duration
     attributes:
