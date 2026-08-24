@@ -3,8 +3,8 @@ package impact
 import (
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
 )
 
 func TestBuildGraphPropagatesRecordingRuleImpact(t *testing.T) {

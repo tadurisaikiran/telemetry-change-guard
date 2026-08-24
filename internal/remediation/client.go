@@ -9,8 +9,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/agentprocess"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/explanation"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/agentprocess"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/explanation"
 )
 
 const (

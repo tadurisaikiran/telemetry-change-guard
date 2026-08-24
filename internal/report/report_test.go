@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/graph"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
 
 func TestRenderersPreserveStatusEvidenceAndPaths(t *testing.T) {

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/grafana"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/prometheusrules"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/impact"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/grafana"
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/prometheusrules"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
 
 func TestValidatePrometheusYAMLCandidateReparsesAndReanalyzes(t *testing.T) {

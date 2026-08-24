@@ -3,8 +3,8 @@ package readiness
 import (
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/impact"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 )
 
 func TestEvaluateBlocksTransitiveLegacyConsumer(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 )
 
 func TestRunValidateSuccess(t *testing.T) {

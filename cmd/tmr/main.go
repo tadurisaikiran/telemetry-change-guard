@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/config"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
 )
 
 const usageText = `Telemetry Migration Readiness

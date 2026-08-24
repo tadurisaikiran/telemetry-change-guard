@@ -1,4 +1,4 @@
-module github.com/tadurisaikiran/telemetry-migration-readiness
+module github.com/tadurisaikiran/telemetry-change-guard
 
 go 1.27.0
 

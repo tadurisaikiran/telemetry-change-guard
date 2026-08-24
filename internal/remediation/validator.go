@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/explanation"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/impact"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
-	tmrpromql "github.com/tadurisaikiran/telemetry-migration-readiness/pkg/promql"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/explanation"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	tmrpromql "github.com/tadurisaikiran/telemetry-change-guard/pkg/promql"
 )
 
 type Validation struct {

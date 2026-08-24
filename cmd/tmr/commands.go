@@ -11,15 +11,15 @@ import (
 	"strings"
 	"time"
 
-	weaveradapter "github.com/tadurisaikiran/telemetry-migration-readiness/adapters/weaver"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/analysis"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/config"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/explanation"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/graph"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/readiness"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/remediation"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/report"
+	weaveradapter "github.com/tadurisaikiran/telemetry-change-guard/adapters/weaver"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/analysis"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/explanation"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/remediation"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/report"
 )
 
 type stringListFlag []string

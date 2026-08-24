@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
-	tmrtraceql "github.com/tadurisaikiran/telemetry-migration-readiness/pkg/traceql"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	tmrtraceql "github.com/tadurisaikiran/telemetry-change-guard/pkg/traceql"
 )
 
 type validatorFunc func(context.Context, string) error

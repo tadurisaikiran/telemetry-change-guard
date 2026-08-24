@@ -14,9 +14,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/grafana"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/adapters/prometheusrules"
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/grafana"
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/prometheusrules"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 const maxArtifactBytes = 32 << 20

@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"gopkg.in/yaml.v3"
 )
 

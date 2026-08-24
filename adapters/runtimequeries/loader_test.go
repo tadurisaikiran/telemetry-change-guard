@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tadurisaikiran/telemetry-migration-readiness/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 )
 
 func TestPrometheusQueryLogAggregatesBoundedRuntimeEvidence(t *testing.T) {
