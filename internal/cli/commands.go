@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/explanation"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/remediation"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/report"
@@ -34,10 +36,20 @@ func (values *stringListFlag) Set(value string) error {
 }
 
 func runAnalyze(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("analyze", flag.ContinueOnError)
+	return runMigrationCheck(ctx, "analyze", "--migration", args, stdout, stderr)
+}
+
+func runMigrationCheck(
+	ctx context.Context,
+	commandName string,
+	migrationFlag string,
+	args []string,
+	stdout, stderr io.Writer,
+) int {
+	flags := flag.NewFlagSet(commandName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
-	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
+	migrationPath := flags.String(strings.TrimPrefix(migrationFlag, "--"), "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	format := flags.String("format", "", "report format: console, json, or markdown")
@@ -46,15 +58,15 @@ func runAnalyze(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return flagExitCode(err)
 	}
 	if flags.NArg() != 0 || *configPath == "" {
-		fmt.Fprintln(stderr, "analyze requires --config and one change source and accepts no positional arguments")
+		fmt.Fprintf(stderr, "%s requires --config and one change source and accepts no positional arguments\n", commandName)
 		return 1
 	}
 	if *migrationPath != "" && (*weaverDiffPath != "" || *weaverMappingPath != "") {
-		fmt.Fprintln(stderr, "--migration and --weaver-diff/--weaver-mapping are mutually exclusive")
+		fmt.Fprintf(stderr, "%s and --weaver-diff/--weaver-mapping are mutually exclusive\n", migrationFlag)
 		return 1
 	}
 	if *migrationPath == "" && (*weaverDiffPath == "" || *weaverMappingPath == "") {
-		fmt.Fprintln(stderr, "analyze requires --migration or both --weaver-diff and --weaver-mapping")
+		fmt.Fprintf(stderr, "%s requires %s or both --weaver-diff and --weaver-mapping\n", commandName, migrationFlag)
 		return 1
 	}
 
@@ -90,14 +102,24 @@ func runAnalyze(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	return readinessExitCode(result.Summary.Status)
+	return ReadinessExitCode(result.Summary.Status)
 }
 
 func runAdvise(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("advise", flag.ContinueOnError)
+	return runMigrationAdvise(ctx, "advise", "--migration", args, stdout, stderr)
+}
+
+func runMigrationAdvise(
+	ctx context.Context,
+	commandName string,
+	migrationFlag string,
+	args []string,
+	stdout, stderr io.Writer,
+) int {
+	flags := flag.NewFlagSet(commandName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
-	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
+	migrationPath := flags.String(strings.TrimPrefix(migrationFlag, "--"), "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	question := flags.String("question", "", "read-only migration question for the AI provider")
@@ -109,7 +131,7 @@ func runAdvise(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return flagExitCode(err)
 	}
 	if flags.NArg() != 0 || *configPath == "" || *question == "" || *providerCommand == "" {
-		fmt.Fprintln(stderr, "advise requires --config, one change source, --question, and --ai-command and accepts no positional arguments")
+		fmt.Fprintf(stderr, "%s requires --config, one change source, --question, and --ai-command and accepts no positional arguments\n", commandName)
 		return 1
 	}
 	if *providerTimeout <= 0 || *providerTimeout > 2*time.Minute {
@@ -117,11 +139,11 @@ func runAdvise(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return 1
 	}
 	if *migrationPath != "" && (*weaverDiffPath != "" || *weaverMappingPath != "") {
-		fmt.Fprintln(stderr, "--migration and --weaver-diff/--weaver-mapping are mutually exclusive")
+		fmt.Fprintf(stderr, "%s and --weaver-diff/--weaver-mapping are mutually exclusive\n", migrationFlag)
 		return 1
 	}
 	if *migrationPath == "" && (*weaverDiffPath == "" || *weaverMappingPath == "") {
-		fmt.Fprintln(stderr, "advise requires --migration or both --weaver-diff and --weaver-mapping")
+		fmt.Fprintf(stderr, "%s requires %s or both --weaver-diff and --weaver-mapping\n", commandName, migrationFlag)
 		return 1
 	}
 
@@ -161,14 +183,24 @@ func runAdvise(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	return readinessExitCode(result.Summary.Status)
+	return ReadinessExitCode(result.Summary.Status)
 }
 
 func runRemediate(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("remediate", flag.ContinueOnError)
+	return runMigrationRemediate(ctx, "remediate", "--migration", args, stdout, stderr)
+}
+
+func runMigrationRemediate(
+	ctx context.Context,
+	commandName string,
+	migrationFlag string,
+	args []string,
+	stdout, stderr io.Writer,
+) int {
+	flags := flag.NewFlagSet(commandName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
-	migrationPath := flags.String("migration", "", "path to a migration YAML manifest")
+	migrationPath := flags.String(strings.TrimPrefix(migrationFlag, "--"), "", "path to a migration YAML manifest")
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	providerCommand := flags.String("ai-command", "", "local AI provider executable")
@@ -179,7 +211,7 @@ func runRemediate(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return flagExitCode(err)
 	}
 	if flags.NArg() != 0 || *configPath == "" || *providerCommand == "" {
-		fmt.Fprintln(stderr, "remediate requires --config, one change source, and --ai-command and accepts no positional arguments")
+		fmt.Fprintf(stderr, "%s requires --config, one change source, and --ai-command and accepts no positional arguments\n", commandName)
 		return 1
 	}
 	if *providerTimeout <= 0 || *providerTimeout > 2*time.Minute {
@@ -187,11 +219,11 @@ func runRemediate(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return 1
 	}
 	if *migrationPath != "" && (*weaverDiffPath != "" || *weaverMappingPath != "") {
-		fmt.Fprintln(stderr, "--migration and --weaver-diff/--weaver-mapping are mutually exclusive")
+		fmt.Fprintf(stderr, "%s and --weaver-diff/--weaver-mapping are mutually exclusive\n", migrationFlag)
 		return 1
 	}
 	if *migrationPath == "" && (*weaverDiffPath == "" || *weaverMappingPath == "") {
-		fmt.Fprintln(stderr, "remediate requires --migration or both --weaver-diff and --weaver-mapping")
+		fmt.Fprintf(stderr, "%s requires %s or both --weaver-diff and --weaver-mapping\n", commandName, migrationFlag)
 		return 1
 	}
 
@@ -221,7 +253,7 @@ func runRemediate(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if len(request.Targets) == 0 {
 		fmt.Fprintln(stdout, "No confirmed direct local Prometheus-rule or Grafana expression is patchable for this migration.")
 		fmt.Fprintf(stdout, "Current authoritative status remains: %s\n", result.Summary.Status)
-		return readinessExitCode(result.Summary.Status)
+		return ReadinessExitCode(result.Summary.Status)
 	}
 	response, err := (remediation.CommandClient{
 		Path:    *providerCommand,
@@ -248,7 +280,7 @@ func runRemediate(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	return readinessExitCode(result.Summary.Status)
+	return ReadinessExitCode(result.Summary.Status)
 }
 
 func loadSelectedMigration(ctx context.Context, migrationPath, weaverDiffPath, weaverMappingPath string) (domain.Migration, error) {
@@ -273,6 +305,10 @@ func isWeaverIncomplete(err error) bool {
 }
 
 func runGraph(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	return runGraphCommand(ctx, false, args, stdout, stderr)
+}
+
+func runGraphCommand(ctx context.Context, requireComplete bool, args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("graph", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
@@ -294,7 +330,7 @@ func runGraph(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	_, target, err := analysis.Discover(ctx, configuration)
+	discovery, target, err := analysis.Discover(ctx, configuration)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
@@ -308,11 +344,24 @@ func runGraph(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	if requireComplete && writeDiscoveryDiagnostics(stderr, discovery.Diagnostics) {
+		return 3
+	}
 	return 0
 }
 
 func runExplain(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("explain", flag.ContinueOnError)
+	return runSymbolImpact(ctx, "explain", false, args, stdout, stderr)
+}
+
+func runSymbolImpact(
+	ctx context.Context,
+	commandName string,
+	includeMetricFamily bool,
+	args []string,
+	stdout, stderr io.Writer,
+) int {
+	flags := flag.NewFlagSet(commandName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	symbolName := flags.String("symbol", "", "Prometheus metric name")
@@ -320,7 +369,7 @@ func runExplain(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		return flagExitCode(err)
 	}
 	if flags.NArg() != 0 || *configPath == "" || *symbolName == "" {
-		fmt.Fprintln(stderr, "explain requires --config and --symbol and accepts no positional arguments")
+		fmt.Fprintf(stderr, "%s requires --config and --symbol and accepts no positional arguments\n", commandName)
 		return 1
 	}
 	configuration, err := config.LoadConfig(ctx, *configPath)
@@ -328,18 +377,28 @@ func runExplain(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	_, target, err := analysis.Discover(ctx, configuration)
+	discovery, target, err := analysis.Discover(ctx, configuration)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
-	start := graph.SymbolNodeID(domain.Symbol{
+	symbol := domain.Symbol{
 		Domain: domain.DomainPrometheus,
 		Kind:   domain.SymbolKindMetric,
 		Name:   *symbolName,
-	})
-	paths := target.ImpactPaths(start)
+	}
 	fmt.Fprintln(stdout, *symbolName)
+	if includeMetricFamily {
+		if err := renderMetricFamilyImpact(stdout, target, symbol); err != nil {
+			fmt.Fprintf(stderr, "Error: %v\n", err)
+			return 1
+		}
+		if writeDiscoveryDiagnostics(stderr, discovery.Diagnostics) {
+			return 3
+		}
+		return 0
+	}
+	paths := target.ImpactPaths(graph.SymbolNodeID(symbol))
 	if len(paths) == 0 {
 		fmt.Fprintln(stdout, "\nNo confirmed dependents found.")
 		return 0
@@ -353,6 +412,81 @@ func runExplain(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		fmt.Fprintf(stdout, "  %s\n", readablePath(target, path))
 	}
 	return 0
+}
+
+func renderMetricFamilyImpact(stdout io.Writer, target *graph.Graph, symbol domain.Symbol) error {
+	byConsumer := impact.ImpactedConsumers(target, symbol, true)
+	if len(byConsumer) == 0 {
+		fmt.Fprintln(stdout, "\nNo confirmed dependents found.")
+		return nil
+	}
+
+	consumerIDs := make([]string, 0, len(byConsumer))
+	for consumerID := range byConsumer {
+		consumerIDs = append(consumerIDs, consumerID)
+	}
+	sort.Strings(consumerIDs)
+	direct, transitive := 0, 0
+	var paths []string
+	for _, consumerID := range consumerIDs {
+		consumerDirect := false
+		for _, path := range byConsumer[consumerID] {
+			consumerDirect = consumerDirect || len(path.Edges) == 1
+			paths = append(paths, readablePath(target, path))
+		}
+		if consumerDirect {
+			direct++
+		} else {
+			transitive++
+		}
+	}
+	sort.Strings(paths)
+	fmt.Fprintf(stdout, "\nDirect consumers:     %d\n", direct)
+	fmt.Fprintf(stdout, "Transitive consumers: %d\n", transitive)
+	fmt.Fprintln(stdout, "\nAffected consumers:")
+	for _, consumerID := range consumerIDs {
+		node, exists := target.Node(graph.ConsumerNodeID(consumerID))
+		if !exists || node.Consumer == nil {
+			return fmt.Errorf("impacted consumer %q is missing from the dependency graph", consumerID)
+		}
+		impactType, err := impact.TypeForConsumer(node.Consumer.Kind)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(
+			stdout,
+			"  [%s] %s — %s (%s)\n",
+			strings.ToUpper(string(node.Consumer.Criticality)),
+			impactType,
+			node.Consumer.Name,
+			node.Consumer.Kind,
+		)
+	}
+	fmt.Fprintln(stdout, "\nDependency paths:")
+	for _, path := range paths {
+		fmt.Fprintf(stdout, "  %s\n", path)
+	}
+	return nil
+}
+
+func writeDiscoveryDiagnostics(stderr io.Writer, diagnostics []domain.Diagnostic) bool {
+	required := false
+	for _, diagnostic := range diagnostics {
+		requirement := "optional"
+		if diagnostic.Required {
+			requirement = "required"
+			required = true
+		}
+		location := diagnostic.Source.File
+		if location == "" {
+			location = diagnostic.Source.URL
+		}
+		if location == "" {
+			location = "unknown source"
+		}
+		fmt.Fprintf(stderr, "Diagnostic [%s/%s] %s: %s\n", diagnostic.Adapter, requirement, location, diagnostic.Message)
+	}
+	return required
 }
 
 func renderResult(format string, result readiness.Result) ([]byte, error) {
@@ -406,7 +540,8 @@ func flagExitCode(err error) int {
 	return 1
 }
 
-func readinessExitCode(status readiness.Status) int {
+// ReadinessExitCode preserves the permanent tmr process contract.
+func ReadinessExitCode(status readiness.Status) int {
 	switch status {
 	case readiness.StatusReady:
 		return 0

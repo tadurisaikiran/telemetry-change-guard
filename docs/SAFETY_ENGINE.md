@@ -14,9 +14,9 @@ ChangeSet
     -> tcg-result/v1alpha1
 ```
 
-The current implementation is an internal engine API. The canonical `tcg` CLI
-and GitHub Action wiring are deliberately separate milestones so the existing
-`tmr` compatibility command and Action contract do not change implicitly.
+The canonical `telemetry-change-guard check` command exposes the engine for
+local and CI use. GitHub Action wiring remains a separate milestone so the
+existing migration-only Action contract does not change implicitly.
 
 ## Findings
 

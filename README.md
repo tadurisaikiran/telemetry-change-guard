@@ -5,8 +5,9 @@
 Telemetry changes are API changes. Renaming or removing a metric or label can
 silently empty dashboards, disable alerts, and invalidate SLOs. Telemetry
 Change Guard is an open-source, local-first tool for analyzing those changes
-before backward compatibility is removed. The existing `tmr` CLI remains the
-supported migration workflow during the compatibility transition.
+before merge or deployment. The canonical executable is
+`telemetry-change-guard`; the existing `tmr` executable remains a supported
+migration compatibility entry point during the transition.
 
 ## Current status
 
@@ -26,6 +27,9 @@ Implemented:
   `PASS`, `WARN`, `BLOCK`, `INCOMPLETE`, and `ERROR` status precedence.
 - Explicit `audit`, `warn`, and `enforce` policy rollout modes that change
   enforcement without suppressing underlying findings.
+- A canonical `telemetry-change-guard` CLI for generic checks, validation,
+  impact exploration, graph export, and nested migration workflows, backed by
+  the same command implementation as the temporary `tmr` compatibility binary.
 - Prometheus-domain metric renames and removals.
 - Prometheus-domain label renames and removals.
 - Strict YAML decoding with unknown-field rejection.
@@ -61,25 +65,29 @@ Implemented:
 ## Build and run
 
 ```bash
+go build -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 go build -o ./bin/tmr ./cmd/tmr
-./bin/tmr validate --migration ./examples/checkout-migration/migration.yaml
-./bin/tmr analyze \
+
+./bin/telemetry-change-guard validate \
+  --changes ./examples/checkout-migration/changes.yaml
+./bin/telemetry-change-guard check \
   --config ./examples/checkout-migration/tmr.yaml \
-  --migration ./examples/checkout-migration/migration.yaml
+  --changes ./examples/checkout-migration/changes.yaml
 ```
 
-Successful validation prints:
+Successful ChangeSet validation prints:
 
 ```text
-Migration manifest is valid.
+ChangeSet manifest is valid.
 Changes: 2
 ```
 
 Invalid input is written to standard error and returns a nonzero exit code.
 
-The analysis exit-code contract is permanent: `0` means policy passed, `1`
-means a tool/configuration/runtime error, `2` means the migration is blocked,
-and `3` means required evidence is incomplete.
+The generic check exit-code contract is `0` for `PASS` or `WARN`, `1` for a
+tool/configuration/runtime `ERROR`, `2` for `BLOCK`, and `3` for
+`INCOMPLETE`. The migration compatibility commands retain the existing
+`READY`/`BLOCKED` contract with the same numeric meanings.
 
 ## GitHub Action
 
@@ -143,9 +151,8 @@ into that model internally.
 
 The generic impact taxonomy, default policy, status precedence, machine schema,
 and exit-code contract are documented in
-[the safety engine guide](docs/SAFETY_ENGINE.md). The canonical `tcg` command
-will expose this engine in a dedicated CLI milestone; the existing `tmr`
-command remains unchanged in this milestone.
+[the safety engine guide](docs/SAFETY_ENGINE.md). Command usage, rollout modes,
+and migration compatibility are documented in [the CLI guide](docs/CLI.md).
 
 ## Weaver registry diffs
 

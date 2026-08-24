@@ -136,12 +136,13 @@ unresolved relevant evidence yield `INCOMPLETE` even when a blocking finding
 is already proven; both facts remain in the machine result. See
 [the safety engine guide](SAFETY_ENGINE.md).
 
-`cmd/tmr` is the unchanged compatibility CLI boundary over migration
-readiness. Versioned JSON is the stable machine API for Actions and future
-optional integrations. Exit codes are part of the public contract. Progress
-percentages remain informational and never establish safety. A later CLI
-milestone will add the canonical `tcg` boundary over the generic engine without
-duplicating the command implementation.
+`internal/cli` is the shared command boundary. `cmd/telemetry-change-guard` is
+the canonical executable over generic safety, impact exploration, graph export,
+and nested migration workflows. `cmd/tmr` is a thin compatibility entry point
+over the same implementation; it does not fork behavior. Versioned JSON is the
+stable machine API for Actions and future optional integrations. Exit codes are
+part of the public contract. Progress percentages remain informational and
+never establish safety.
 
 `internal/explanation` builds a minimal packet containing only blockers,
 uncertainties, diagnostics, migration changes, and aggregate counts. It invokes
