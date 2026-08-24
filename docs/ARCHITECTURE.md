@@ -194,10 +194,10 @@ never mutated; simulated status is validation evidence, not current state.
 
 ## Next architectural layers
 
-- KEDA and Argo Rollouts control-plane consumers.
 - Log and Collector configuration analysis.
 - APIs, MCP, and server/UI modes.
-- Additional live end-to-end tiers described in `TESTING.md`.
+- Additional consumer adapters and live end-to-end tiers described in
+  `TESTING.md` and `ROADMAP.md`.
 
 These remain adapters or optional consumers of the deterministic engine. None
 may weaken or override its readiness result.

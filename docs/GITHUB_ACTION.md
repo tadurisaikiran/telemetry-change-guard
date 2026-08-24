@@ -13,7 +13,7 @@ The canonical repository does not currently publish a stable release or a
 implementation commit:
 
 ```text
-tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
+tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
 ```
 
 Do not use `tadurisaikiran/telemetry-change-guard@v1`: that tag does not exist.
@@ -33,7 +33,7 @@ permissions:
 steps:
   - uses: actions/checkout@v7
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
+    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -48,7 +48,7 @@ generated snapshots:
 
 ```yaml
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
+    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
     with:
       config: tcg.yaml
       baseline: telemetry/main-contract.json
@@ -74,7 +74,7 @@ permissions:
 steps:
   - uses: actions/checkout@v7
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@1266686794aec260e0116eb6f5985291532aa066
+    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
     with:
       config: tcg.yaml
       migration: migration.yaml
