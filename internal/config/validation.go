@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
@@ -17,6 +18,12 @@ type FieldError struct {
 // migration manifest. Issues retain discovery order so CLI output and tests
 // remain stable.
 type ValidationError struct {
+	Issues []FieldError
+}
+
+// ChangeSetValidationError contains every deterministic validation issue found
+// in a native ChangeSet manifest.
+type ChangeSetValidationError struct {
 	Issues []FieldError
 }
 
@@ -52,6 +59,35 @@ func (e *ValidationError) errOrNil() error {
 	return e
 }
 
+// Error returns a human-readable, multi-line ChangeSet validation report.
+func (e *ChangeSetValidationError) Error() string {
+	if e == nil || len(e.Issues) == 0 {
+		return "change set manifest is invalid"
+	}
+
+	var builder strings.Builder
+	builder.WriteString("change set manifest is invalid:")
+	for _, issue := range e.Issues {
+		fmt.Fprintf(&builder, "\n  - %s: %s", issue.Path, issue.Message)
+	}
+	return builder.String()
+}
+
+func (e *ChangeSetValidationError) add(path, message string) {
+	e.Issues = append(e.Issues, FieldError{Path: path, Message: message})
+}
+
+func (e *ChangeSetValidationError) errOrNil() error {
+	if len(e.Issues) == 0 {
+		return nil
+	}
+	return e
+}
+
+type validationIssues interface {
+	add(path, message string)
+}
+
 // ValidateMigration validates a canonical migration. It is kept separate from
 // YAML decoding so later change sources can reuse the same invariants.
 func ValidateMigration(migration domain.Migration) error {
@@ -69,9 +105,35 @@ func ValidateMigration(migration domain.Migration) error {
 	if len(migration.Changes) == 0 {
 		issues.add("spec.changes", "must contain at least one change")
 	}
+	validateChanges(issues, migration.Changes)
 
-	seenIDs := make(map[string]int, len(migration.Changes))
-	for index, change := range migration.Changes {
+	return issues.errOrNil()
+}
+
+// ValidateChangeSet validates a canonical generic ChangeSet independently of
+// its serialized representation.
+func ValidateChangeSet(changeSet domain.ChangeSet) error {
+	issues := &ChangeSetValidationError{}
+	if changeSet.APIVersion != domain.ChangeSetAPIVersion {
+		issues.add("apiVersion", fmt.Sprintf("must be %q", domain.ChangeSetAPIVersion))
+	}
+	if changeSet.Kind != domain.ChangeSetKind {
+		issues.add("kind", fmt.Sprintf("must be %q", domain.ChangeSetKind))
+	}
+	if isBlank(changeSet.Metadata.Name) {
+		issues.add("metadata.name", "is required")
+	}
+	if len(changeSet.Changes) == 0 {
+		issues.add("spec.changes", "must contain at least one change")
+	}
+	validateChanges(issues, changeSet.Changes)
+	validateChangeSetMetadata(issues, changeSet.Changes)
+	return issues.errOrNil()
+}
+
+func validateChanges(issues validationIssues, changes []domain.Change) {
+	seenIDs := make(map[string]int, len(changes))
+	for index, change := range changes {
 		path := fmt.Sprintf("spec.changes[%d]", index)
 
 		if isBlank(change.ID) {
@@ -117,12 +179,35 @@ func ValidateMigration(migration domain.Migration) error {
 			issues.add(path+".to", "must be omitted for a removal")
 		}
 	}
+}
 
-	return issues.errOrNil()
+func validateChangeSetMetadata(issues *ChangeSetValidationError, changes []domain.Change) {
+	for index, change := range changes {
+		path := fmt.Sprintf("spec.changes[%d].metadata", index)
+		if len(change.Metadata) > maxChangeMetadataEntries {
+			issues.add(path, fmt.Sprintf("must contain no more than %d entries", maxChangeMetadataEntries))
+		}
+		keys := make([]string, 0, len(change.Metadata))
+		for key := range change.Metadata {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			value := change.Metadata[key]
+			if isBlank(key) {
+				issues.add(path, "keys must not be blank")
+			} else if len(key) > maxChangeMetadataKeyBytes {
+				issues.add(path+"."+key, fmt.Sprintf("key exceeds %d bytes", maxChangeMetadataKeyBytes))
+			}
+			if len(value) > maxChangeMetadataValBytes {
+				issues.add(path+"."+key, fmt.Sprintf("value exceeds %d bytes", maxChangeMetadataValBytes))
+			}
+		}
+	}
 }
 
 func validateSymbol(
-	issues *ValidationError,
+	issues validationIssues,
 	path string,
 	symbol domain.Symbol,
 	expectedDomain domain.Domain,

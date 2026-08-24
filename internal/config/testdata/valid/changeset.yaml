@@ -1,0 +1,29 @@
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: checkout-contract
+spec:
+  description: Change the checkout request metric contract.
+  changes:
+    - id: request-duration
+      kind: metric_rename
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: checkout_request_duration_seconds
+      to:
+        domain: prometheus
+        kind: metric
+        name: checkout_server_request_duration_seconds
+      metadata:
+        source.adapter: explicit
+        ticket: OBS-142
+    - id: legacy-node
+      kind: label_remove
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: label
+        name: legacy_node
+        parent: checkout_server_request_duration_seconds

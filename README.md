@@ -17,6 +17,8 @@ and optional.
 
 Implemented:
 
+- A strict `tcg/v1alpha1` `ChangeSet` root model with deterministic, deep-copy
+  normalization from every supported legacy migration change kind.
 - Prometheus-domain metric renames and removals.
 - Prometheus-domain label renames and removals.
 - Strict YAML decoding with unknown-field rejection.
@@ -126,6 +128,11 @@ spec:
 
 See [the migration model](docs/MIGRATION_MODEL.md) for the complete implemented
 schema and validation rules.
+
+The generic `ChangeSet` contract is documented in
+[the ChangeSet model guide](docs/CHANGESET.md). The current `tmr` workflow
+continues to accept legacy migration manifests unchanged while normalizing them
+into that model internally.
 
 ## Weaver registry diffs
 

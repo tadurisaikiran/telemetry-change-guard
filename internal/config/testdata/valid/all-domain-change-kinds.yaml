@@ -1,0 +1,57 @@
+apiVersion: telemetry-migration/v1alpha1
+kind: Migration
+metadata:
+  name: all-domain-change-kinds
+spec:
+  description: Exercise every legacy change kind.
+  changes:
+    - id: metric-rename
+      kind: metric_rename
+      domain: prometheus
+      from:
+        metric: old_metric
+      to:
+        metric: new_metric
+    - id: metric-remove
+      kind: metric_remove
+      domain: prometheus
+      from:
+        metric: removed_metric
+    - id: label-rename
+      kind: label_rename
+      domain: prometheus
+      metric: request_duration_seconds
+      from:
+        label: old_label
+      to:
+        label: new_label
+    - id: label-remove
+      kind: label_remove
+      domain: prometheus
+      metric: request_duration_seconds
+      from:
+        label: removed_label
+    - id: span-attribute-rename
+      kind: span_attribute_rename
+      domain: opentelemetry
+      from:
+        attribute: http.method
+      to:
+        attribute: http.request.method
+    - id: span-attribute-remove
+      kind: span_attribute_remove
+      domain: tempo
+      from:
+        attribute: legacy.span.attribute
+    - id: resource-attribute-rename
+      kind: resource_attribute_rename
+      domain: opentelemetry
+      from:
+        attribute: cloud.zone
+      to:
+        attribute: cloud.availability_zone
+    - id: resource-attribute-remove
+      kind: resource_attribute_remove
+      domain: tempo
+      from:
+        attribute: legacy.resource.attribute
