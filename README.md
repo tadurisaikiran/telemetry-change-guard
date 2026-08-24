@@ -19,6 +19,13 @@ Implemented:
 
 - A strict `tcg/v1alpha1` `ChangeSet` root model with deterministic, deep-copy
   normalization from every supported legacy migration change kind.
+- A policy-independent impact layer with immutable, provenance-bearing
+  findings for visibility, alerting, SLO, scaling, deployment-gate,
+  automation, and semantic risk.
+- A versioned `tcg-result/v1alpha1` safety result with deterministic
+  `PASS`, `WARN`, `BLOCK`, `INCOMPLETE`, and `ERROR` status precedence.
+- Explicit `audit`, `warn`, and `enforce` policy rollout modes that change
+  enforcement without suppressing underlying findings.
 - Prometheus-domain metric renames and removals.
 - Prometheus-domain label renames and removals.
 - Strict YAML decoding with unknown-field rejection.
@@ -133,6 +140,12 @@ The generic `ChangeSet` contract is documented in
 [the ChangeSet model guide](docs/CHANGESET.md). The current `tmr` workflow
 continues to accept legacy migration manifests unchanged while normalizing them
 into that model internally.
+
+The generic impact taxonomy, default policy, status precedence, machine schema,
+and exit-code contract are documented in
+[the safety engine guide](docs/SAFETY_ENGINE.md). The canonical `tcg` command
+will expose this engine in a dedicated CLI milestone; the existing `tmr`
+command remains unchanged in this milestone.
 
 ## Weaver registry diffs
 

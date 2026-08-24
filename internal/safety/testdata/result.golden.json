@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "tcg-result/v1alpha1",
+  "changeSet": {
+    "apiVersion": "tcg/v1alpha1",
+    "kind": "ChangeSet",
+    "metadata": {
+      "name": "safety"
+    },
+    "changes": [
+      {
+        "id": "metric-change",
+        "kind": "metric_rename",
+        "domain": "prometheus",
+        "from": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "old_metric"
+        },
+        "to": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "new_metric"
+        }
+      }
+    ]
+  },
+  "status": "BLOCK",
+  "findings": [
+    {
+      "change": {
+        "id": "metric-change",
+        "kind": "metric_rename",
+        "domain": "prometheus",
+        "from": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "old_metric"
+        },
+        "to": {
+          "domain": "prometheus",
+          "kind": "metric",
+          "name": "new_metric"
+        }
+      },
+      "consumer": {
+        "id": "checkout-alert",
+        "kind": "alert_rule",
+        "name": "Checkout failures",
+        "criticality": "critical",
+        "source": {
+          "file": "monitoring/alerts.yaml",
+          "line": 17
+        }
+      },
+      "impact": "ALERTING_RISK",
+      "criticality": "critical",
+      "references": [
+        {
+          "consumerId": "checkout-alert",
+          "symbol": {
+            "domain": "prometheus",
+            "kind": "metric",
+            "name": "old_metric"
+          },
+          "evidence": {
+            "method": "promql_ast",
+            "confidence": "confirmed",
+            "source": {
+              "file": "monitoring/alerts.yaml",
+              "line": 17
+            },
+            "expression": "old_metric \u003e 0"
+          },
+          "usage": "selector"
+        }
+      ],
+      "paths": [
+        {
+          "nodes": [
+            "symbol:prometheus:metric::old_metric",
+            "consumer:checkout-alert"
+          ],
+          "edges": [
+            "references"
+          ]
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "changeId": "metric-change",
+      "consumerId": "checkout-alert",
+      "impact": "ALERTING_RISK",
+      "configuredAction": "block",
+      "effectiveAction": "block",
+      "reason": "block policy for ALERTING_RISK"
+    }
+  ]
+}

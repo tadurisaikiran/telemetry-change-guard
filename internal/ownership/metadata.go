@@ -146,7 +146,10 @@ func validConsumerKind(kind domain.ConsumerKind) bool {
 		domain.ConsumerKindCollector,
 		domain.ConsumerKindQuery,
 		domain.ConsumerKindSourceCode,
-		domain.ConsumerKindRunbook:
+		domain.ConsumerKindRunbook,
+		domain.ConsumerKindAutoscaler,
+		domain.ConsumerKindDeploymentGate,
+		domain.ConsumerKindAutomation:
 		return true
 	default:
 		return false

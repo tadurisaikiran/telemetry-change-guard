@@ -10,6 +10,7 @@ import (
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 )
 
 const ResultSchemaVersion = "tmr-result/v1alpha1"
@@ -112,10 +113,10 @@ func Evaluate(
 	global := make(map[string]Classification, len(consumers))
 	changeResults := make([]ChangeResult, 0, len(migration.Changes))
 	for _, change := range migration.Changes {
-		oldImpact := impactedConsumers(dependencyGraph, change.From, policy.IncludeTransitive)
+		oldImpact := impact.ImpactedConsumers(dependencyGraph, change.From, policy.IncludeTransitive)
 		newImpact := map[string][]graph.Path{}
 		if change.To != nil {
-			newImpact = impactedConsumers(dependencyGraph, *change.To, policy.IncludeTransitive)
+			newImpact = impact.ImpactedConsumers(dependencyGraph, *change.To, policy.IncludeTransitive)
 		}
 
 		consumerResults := make([]ConsumerResult, 0, len(consumers))
@@ -151,51 +152,6 @@ func Evaluate(
 	}, nil
 }
 
-func impactedConsumers(target *graph.Graph, symbol domain.Symbol, transitive bool) map[string][]graph.Path {
-	result := make(map[string][]graph.Path)
-	for _, node := range target.Nodes() {
-		if node.Kind != graph.NodeKindSymbol || node.Symbol == nil || !symbolsMatch(*node.Symbol, symbol) {
-			continue
-		}
-		for _, path := range target.ImpactPaths(node.ID) {
-			if !transitive && len(path.Edges) > 1 {
-				continue
-			}
-			end, exists := target.Node(path.Nodes[len(path.Nodes)-1])
-			if !exists || end.Consumer == nil {
-				continue
-			}
-			result[end.Consumer.ID] = append(result[end.Consumer.ID], path)
-		}
-	}
-	return result
-}
-
-func symbolsMatch(reference, changed domain.Symbol) bool {
-	if reference.Domain != changed.Domain || reference.Kind != changed.Kind {
-		return false
-	}
-	if reference.Domain == domain.DomainPrometheus && reference.Kind == domain.SymbolKindMetric {
-		return metricFamilyMatch(reference.Name, changed.Name)
-	}
-	if reference.Domain == domain.DomainPrometheus && reference.Kind == domain.SymbolKindLabel {
-		return reference.Name == changed.Name && metricFamilyMatch(reference.Parent, changed.Parent)
-	}
-	return reference.Name == changed.Name && reference.Parent == changed.Parent
-}
-
-func metricFamilyMatch(reference, base string) bool {
-	if reference == base {
-		return true
-	}
-	for _, suffix := range []string{"_bucket", "_sum", "_count", "_created"} {
-		if reference == base+suffix {
-			return true
-		}
-	}
-	return false
-}
-
 func classify(change domain.Change, hasOld, hasNew, uncertain bool) Classification {
 	if change.To == nil {
 		if hasOld {
@@ -223,7 +179,7 @@ func classify(change domain.Change, hasOld, hasNew, uncertain bool) Classificati
 
 func consumerHasUnresolvedReference(references []domain.Reference, consumerID string, change domain.Change) bool {
 	for _, reference := range references {
-		if reference.ConsumerID == consumerID && unresolvedReferenceApplies(reference, change) {
+		if reference.ConsumerID == consumerID && impact.UnresolvedReferenceApplies(reference, change) {
 			return true
 		}
 	}
@@ -240,29 +196,13 @@ func referencesForConsumerAndChange(
 		if reference.ConsumerID != consumerID {
 			continue
 		}
-		if symbolsMatch(reference.Symbol, change.From) ||
-			(change.To != nil && symbolsMatch(reference.Symbol, *change.To)) ||
-			unresolvedReferenceApplies(reference, change) {
+		if impact.SymbolMatches(reference.Symbol, change.From) ||
+			(change.To != nil && impact.SymbolMatches(reference.Symbol, *change.To)) ||
+			impact.UnresolvedReferenceApplies(reference, change) {
 			result = append(result, reference)
 		}
 	}
 	return result
-}
-
-func unresolvedReferenceApplies(reference domain.Reference, change domain.Change) bool {
-	if !reference.RequiresResolution {
-		return false
-	}
-	if reference.ResolutionScope != domain.ResolutionScopeLabels {
-		return true
-	}
-	if change.From.Kind != domain.SymbolKindLabel || reference.Symbol.Kind != domain.SymbolKindMetric {
-		return false
-	}
-	if metricFamilyMatch(reference.Symbol.Name, change.From.Parent) {
-		return true
-	}
-	return change.To != nil && metricFamilyMatch(reference.Symbol.Name, change.To.Parent)
 }
 
 func statusForConsumers(results []ConsumerResult, diagnostics []domain.Diagnostic, policy Policy) Status {

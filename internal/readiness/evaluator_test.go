@@ -168,7 +168,7 @@ func TestTraceAttributeMatchingIsExactAndDomainScoped(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if got := symbolsMatch(test.reference, changed); got != test.want {
+			if got := impact.SymbolMatches(test.reference, changed); got != test.want {
 				t.Fatalf("symbolsMatch() = %t, want %t", got, test.want)
 			}
 		})

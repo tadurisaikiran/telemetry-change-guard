@@ -337,6 +337,20 @@ spec:
 	}
 }
 
+func TestOwnershipMetadataSupportsGenericControlPlaneConsumers(t *testing.T) {
+	t.Parallel()
+
+	for _, kind := range []domain.ConsumerKind{
+		domain.ConsumerKindAutoscaler,
+		domain.ConsumerKindDeploymentGate,
+		domain.ConsumerKindAutomation,
+	} {
+		if !validConsumerKind(kind) {
+			t.Errorf("consumer kind %q is not supported by ownership metadata", kind)
+		}
+	}
+}
+
 func TestPathMatcherDocumentedSubset(t *testing.T) {
 	t.Parallel()
 

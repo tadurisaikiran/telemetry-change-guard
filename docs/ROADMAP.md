@@ -6,6 +6,11 @@ deployment is supported.
 
 ## Implemented
 
+- Telemetry Change Guard repository transition, product identity, accepted
+  architectural decisions, and strict generic `ChangeSet` root model.
+- Policy-independent generic impact findings and a deterministic, versioned
+  `PASS`/`WARN`/`BLOCK`/`INCOMPLETE`/`ERROR` safety engine while preserving the
+  legacy migration readiness contract.
 - Repository and canonical migration model (Milestones 0–1).
 - PromQL AST extraction and Prometheus rule discovery (Milestones 2–3).
 - In-memory transitive graph (Milestone 4).
@@ -29,10 +34,15 @@ deployment is supported.
 
 ## Current release path
 
-1. Community health files and issue/branch/PR workflow.
-2. Contributor-sized issues and design-user feedback loop.
-3. Compatibility, failure-injection, fuzz, vulnerability, and benchmark gates.
-4. `v0.1.0` binaries, checksums, provenance, and a reproducible demo.
+1. Add the canonical `tcg` CLI over shared command code while retaining `tmr`.
+2. Normalize `tcg/v1alpha1` and legacy configuration, with conflict-safe
+   `TCG_*` and `TMR_*` environment handling.
+3. Publish the new generic/migration dual-mode GitHub Action without breaking
+   the legacy repository Action.
+4. Add explicit and snapshot/diff change-source adapters, then prioritized
+   control-plane adapters such as KEDA and Argo Rollouts.
+5. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
+   release-provenance, and reproducible-demo gates for the first TCG release.
 
 ## Optional integrations after the core release gate
 

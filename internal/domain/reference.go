@@ -44,7 +44,7 @@ type Production struct {
 }
 
 // Diagnostic records an adapter or analysis problem. Required diagnostics
-// prevent a future READY decision.
+// prevent a future READY or complete generic safety decision.
 type Diagnostic struct {
 	Adapter  string         `json:"adapter"`
 	Source   SourceLocation `json:"source"`
