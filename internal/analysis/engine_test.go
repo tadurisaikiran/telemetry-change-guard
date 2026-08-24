@@ -664,6 +664,169 @@ spec:
 	}
 }
 
+func TestHPAExplicitMappingProducesBlockingScalingRisk(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	manifestPath := filepath.Join(root, "hpa.yaml")
+	mappingPath := filepath.Join(root, "hpa-mapping.yaml")
+	manifest := `apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: orders-worker-scaler
+  namespace: commerce
+  labels:
+    environment: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: orders-worker
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: orders_queue_depth
+        target: {type: AverageValue, averageValue: "5"}
+`
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeMapping := func(kubernetesMetric string) {
+		t.Helper()
+		mapping := `apiVersion: tcg.hpa/v1alpha1
+kind: HPAMetricMappings
+spec:
+  mappings:
+    - kubernetes:
+        type: External
+        metric: ` + kubernetesMetric + `
+      prometheus:
+        metric: old_metric
+`
+		if err := os.WriteFile(mappingPath, []byte(mapping), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	configuration := testConfiguration(config.Sources{HorizontalPodAutoscalers: []config.HorizontalPodAutoscalerSource{{
+		Pattern: manifestPath, MappingPath: mappingPath, Required: true,
+	}}})
+	changeSet, err := config.NormalizeMigration(mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writeMapping("orders_queue_depth")
+	result, _, discovery, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != safety.StatusBlock || len(result.Findings) != 1 {
+		t.Fatalf("result = %#v, want one BLOCK finding", result)
+	}
+	finding := result.Findings[0]
+	if finding.Impact != impact.TypeScalingRisk || finding.Consumer.Kind != domain.ConsumerKindAutoscaler ||
+		finding.Consumer.Name != "orders-worker" || finding.Criticality != domain.CriticalityCritical || finding.Uncertain {
+		t.Fatalf("finding = %#v", finding)
+	}
+	if len(discovery.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", discovery.Diagnostics)
+	}
+
+	writeMapping("old_metric")
+	incomplete, _, unresolved, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if incomplete.Status != safety.StatusIncomplete || len(incomplete.Findings) != 1 ||
+		!incomplete.Findings[0].Uncertain || len(unresolved.Diagnostics) != 1 ||
+		unresolved.Diagnostics[0].Adapter != "hpa" || !unresolved.Diagnostics[0].Required {
+		t.Fatalf("incomplete = %#v, discovery = %#v", incomplete, unresolved)
+	}
+}
+
+func TestHPASourceRejectsConflictingMappingsForOneManifest(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	manifestPath := filepath.Join(root, "hpa.yaml")
+	if err := os.WriteFile(manifestPath, []byte(`apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: worker}
+spec:
+  scaleTargetRef: {name: worker}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeMapping := func(name string) string {
+		t.Helper()
+		path := filepath.Join(root, name)
+		if err := os.WriteFile(path, []byte(`apiVersion: tcg.hpa/v1alpha1
+kind: HPAMetricMappings
+spec:
+  mappings:
+    - kubernetes: {type: External, metric: queue}
+      ignore: non-Prometheus
+`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	configuration := testConfiguration(config.Sources{HorizontalPodAutoscalers: []config.HorizontalPodAutoscalerSource{
+		{Pattern: manifestPath, MappingPath: writeMapping("one.yaml"), Required: false},
+		{Pattern: manifestPath, MappingPath: writeMapping("two.yaml"), Required: true},
+	}})
+	discovery, _, err := Discover(context.Background(), configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Diagnostics) != 1 || discovery.Diagnostics[0].Adapter != "hpa" ||
+		!discovery.Diagnostics[0].Required || !strings.Contains(discovery.Diagnostics[0].Message, "multiple backend mappings") {
+		t.Fatalf("diagnostics = %#v", discovery.Diagnostics)
+	}
+}
+
+func TestHPADuplicateSourceUsesStrictestRequiredPolicy(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	manifestPath := filepath.Join(root, "hpa.yaml")
+	mappingPath := filepath.Join(root, "mapping.yaml")
+	if err := os.WriteFile(manifestPath, []byte(`apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: worker}
+spec:
+  scaleTargetRef: {name: worker}
+  metrics:
+    - type: External
+      external:
+        metric: {name: unmapped_queue}
+        target: {type: Value, value: "1"}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mappingPath, []byte(`apiVersion: tcg.hpa/v1alpha1
+kind: HPAMetricMappings
+spec:
+  mappings:
+    - kubernetes: {type: External, metric: other_queue}
+      ignore: non-Prometheus
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	configuration := testConfiguration(config.Sources{HorizontalPodAutoscalers: []config.HorizontalPodAutoscalerSource{
+		{Pattern: manifestPath, MappingPath: mappingPath, Required: false},
+		{Pattern: manifestPath, MappingPath: mappingPath, Required: true},
+	}})
+	discovery, _, err := Discover(context.Background(), configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Consumers) != 1 || len(discovery.Diagnostics) != 1 || !discovery.Diagnostics[0].Required {
+		t.Fatalf("discovery = %#v", discovery)
+	}
+}
+
 func TestArgoProductionAnalysisProducesBlockingDeploymentGateRisk(t *testing.T) {
 	t.Parallel()
 
@@ -778,5 +941,10 @@ func absolutizePatterns(configuration *config.Config, root string) {
 		for index := range group {
 			group[index].Pattern = filepath.Join(root, strings.TrimPrefix(group[index].Pattern, "./"))
 		}
+	}
+	for index := range configuration.Sources.HorizontalPodAutoscalers {
+		source := &configuration.Sources.HorizontalPodAutoscalers[index]
+		source.Pattern = filepath.Join(root, strings.TrimPrefix(source.Pattern, "./"))
+		source.MappingPath = filepath.Join(root, strings.TrimPrefix(source.MappingPath, "./"))
 	}
 }

@@ -103,6 +103,13 @@ responses, and redirects are bounded. Search uses a one-result empty historical
 interval and discards results; only parser acceptance is retained. A failed
 required validation or missing required mapping prevents `READY`.
 
+Kubernetes HPA metric identifiers cross a separate API-domain boundary. They
+are never equated with Prometheus symbols by spelling. A bounded, strict local
+mapping must establish the metric identity and each selector-label identity,
+or document a non-Prometheus/adapter-routing decision. Missing and conflicting
+required mappings fail closed. HPA selector values and mapping ignore reasons
+are not copied into normalized evidence or reports.
+
 Deterministic graph traversal is cycle-safe. Parser fuzz tests and live failure
 scenarios protect against malformed inputs and fail-open regressions.
 

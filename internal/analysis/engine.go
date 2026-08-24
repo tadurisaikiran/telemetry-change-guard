@@ -5,10 +5,12 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/argorollouts"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/grafana"
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/hpa"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/keda"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/persesusage"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/prometheusrules"
@@ -155,6 +157,7 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
 			return (argorollouts.Loader{Required: required}).LoadFile(ctx, path)
 		})
+	loadHorizontalPodAutoscalers(ctx, configuration.Sources.HorizontalPodAutoscalers, &discovery)
 	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, &discovery)
 	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)
 	loadTempoQueries(ctx, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, environment, &discovery)
@@ -453,6 +456,106 @@ func persesDiagnostic(source config.PersesUsageSource, message string) domain.Di
 }
 
 type fileLoader func(context.Context, string, bool) (domain.Discovery, error)
+
+func loadHorizontalPodAutoscalers(
+	ctx context.Context,
+	sources []config.HorizontalPodAutoscalerSource,
+	discovery *domain.Discovery,
+) {
+	type loadTask struct {
+		mapping      hpa.Mapping
+		mappingPaths []string
+		required     bool
+	}
+	tasks := make(map[string]*loadTask)
+	var order []string
+	for _, source := range sources {
+		if ctx.Err() != nil {
+			return
+		}
+		mapping, err := hpa.LoadMapping(ctx, source.MappingPath)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter:  "hpa_mapping",
+				Source:   domain.SourceLocation{File: source.MappingPath},
+				Message:  err.Error(),
+				Required: source.Required,
+			})
+			continue
+		}
+		files, err := filesource.Expand(source.Pattern)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter:  "hpa",
+				Source:   domain.SourceLocation{File: source.Pattern},
+				Message:  err.Error(),
+				Required: source.Required,
+			})
+			continue
+		}
+		if len(files) == 0 {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter:  "hpa",
+				Source:   domain.SourceLocation{File: source.Pattern},
+				Message:  "source pattern matched no files",
+				Required: source.Required,
+			})
+			continue
+		}
+		mappingPath := filepath.Clean(source.MappingPath)
+		for _, file := range files {
+			task, exists := tasks[file]
+			if !exists {
+				tasks[file] = &loadTask{
+					mapping:      mapping,
+					mappingPaths: []string{mappingPath},
+					required:     source.Required,
+				}
+				order = append(order, file)
+				continue
+			}
+			task.required = task.required || source.Required
+			seenMapping := false
+			for _, configured := range task.mappingPaths {
+				seenMapping = seenMapping || configured == mappingPath
+			}
+			if !seenMapping {
+				task.mappingPaths = append(task.mappingPaths, mappingPath)
+			}
+		}
+	}
+
+	for _, file := range order {
+		if ctx.Err() != nil {
+			return
+		}
+		task := tasks[file]
+		if len(task.mappingPaths) != 1 {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter:  "hpa",
+				Source:   domain.SourceLocation{File: file},
+				Message:  fmt.Sprintf("HPA manifest is configured with multiple backend mappings %q", task.mappingPaths),
+				Required: task.required,
+			})
+			continue
+		}
+		additional, err := (hpa.Loader{
+			Required:      task.required,
+			Mapping:       task.mapping,
+			MappingSource: task.mappingPaths[0],
+		}).LoadFile(ctx, file)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter:  "hpa",
+				Source:   domain.SourceLocation{File: file},
+				Message:  err.Error(),
+				Required: task.required,
+			})
+			continue
+		}
+		discovery.Append(additional)
+	}
+}
 
 func loadPatterns(
 	ctx context.Context,

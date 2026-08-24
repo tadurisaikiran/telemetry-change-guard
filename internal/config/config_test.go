@@ -171,6 +171,55 @@ sources:
 	}
 }
 
+func TestParseConfigSupportsHorizontalPodAutoscalerSources(t *testing.T) {
+	t.Parallel()
+
+	configuration, err := ParseConfig(strings.NewReader(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  horizontalPodAutoscalers:
+    - path: ./deploy/hpa/*.yaml
+      mapping: ./config/hpa-mapping.yaml
+    - path: ./clusters/staging/hpa.yaml
+      mapping: ./config/staging-hpa-mapping.yaml
+      required: false
+`))
+	if err != nil {
+		t.Fatalf("ParseConfig() error = %v", err)
+	}
+	if got, want := len(configuration.Sources.HorizontalPodAutoscalers), 2; got != want {
+		t.Fatalf("HPA sources = %d, want %d", got, want)
+	}
+	first := configuration.Sources.HorizontalPodAutoscalers[0]
+	second := configuration.Sources.HorizontalPodAutoscalers[1]
+	if first.Pattern != "./deploy/hpa/*.yaml" || first.MappingPath != "./config/hpa-mapping.yaml" || !first.Required || second.Required {
+		t.Fatalf("HPA sources = %#v", configuration.Sources.HorizontalPodAutoscalers)
+	}
+}
+
+func TestParseConfigRequiresHorizontalPodAutoscalerPathAndMapping(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseConfig(strings.NewReader(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  horizontalPodAutoscalers:
+    - path: ""
+      mapping: ""
+`))
+	if err == nil {
+		t.Fatal("ParseConfig() error = nil")
+	}
+	for _, want := range []string{
+		"sources.horizontalPodAutoscalers[0].path: is required",
+		"sources.horizontalPodAutoscalers[0].mapping: is required",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error = %q, want %q", err, want)
+		}
+	}
+}
+
 func TestParseConfigRejectsUnknownSourceField(t *testing.T) {
 	t.Parallel()
 

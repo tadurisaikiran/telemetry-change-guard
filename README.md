@@ -42,7 +42,8 @@ Implemented:
 - Official Prometheus PromQL AST analysis, including selectors, matchers,
   aggregations, vector matching, and label functions.
 - Prometheus rule, PrometheusRule CRD, Grafana, Sloth, Pyrra, KEDA
-  ScaledObject, and Argo Rollouts analysis-template adapters.
+  ScaledObject, Argo Rollouts analysis-template, and explicitly mapped
+  Kubernetes HPA adapters.
 - Cycle-safe transitive dependency graphs through recording rules.
 - Fail-closed `READY`, `BLOCKED`, and `INCOMPLETE` decisions.
 - Console, versioned JSON, Markdown, and graph JSON output.
@@ -119,6 +120,11 @@ dependencies. See the [KEDA guide](docs/KEDA.md) and runnable
 Argo Rollouts Prometheus analysis measurements are modeled independently as
 deployment gates. See the [Argo Rollouts guide](docs/ARGO_ROLLOUTS.md) and
 runnable [`examples/argo-rollouts`](examples/argo-rollouts) fixture.
+
+Kubernetes HPA external/custom metric dependencies require explicit backend
+and selector-label mappings; matching names are never inferred. See the
+[Kubernetes HPA guide](docs/HPA.md) and runnable
+[`examples/hpa`](examples/hpa) fixture.
 
 ## GitHub Action
 
