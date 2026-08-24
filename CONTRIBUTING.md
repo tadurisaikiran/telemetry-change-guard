@@ -42,7 +42,8 @@ Docker is required only for the live E2E suite.
 
 ## Engineering rules
 
-- The deterministic readiness evaluator owns every safety status.
+- The deterministic generic safety and migration-readiness evaluators own every
+  authoritative status in their respective versioned contracts.
 - Never use an LLM where a formal parser or deterministic algorithm exists.
 - Never interpret parse, source, or adapter failure as evidence of absence.
 - Preserve source, expression, extraction method, and confidence for findings.

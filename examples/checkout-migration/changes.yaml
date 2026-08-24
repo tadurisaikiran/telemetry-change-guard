@@ -1,0 +1,32 @@
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: checkout-http-migration
+spec:
+  description: Migrate checkout HTTP duration telemetry to the new contract.
+  changes:
+    - id: checkout-duration
+      kind: metric_rename
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: checkout_request_duration_seconds
+      to:
+        domain: prometheus
+        kind: metric
+        name: checkout_server_request_duration_seconds
+
+    - id: checkout-method
+      kind: label_rename
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: label
+        name: http_method
+        parent: checkout_server_request_duration_seconds
+      to:
+        domain: prometheus
+        kind: label
+        name: http_request_method
+        parent: checkout_server_request_duration_seconds

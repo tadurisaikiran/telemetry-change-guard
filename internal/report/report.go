@@ -1,5 +1,5 @@
-// Package report renders deterministic readiness results for humans and
-// machines.
+// Package report renders deterministic generic safety and migration readiness
+// results for humans and machines.
 package report
 
 import (

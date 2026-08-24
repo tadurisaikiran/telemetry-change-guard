@@ -47,6 +47,9 @@ The current deterministic engine has:
 - compatibility integration tests proving one evidence set can produce the
   intentionally different generic and migration statuses without changing the
   legacy schema or golden result;
+- canonical CLI tests for generic machine results, rollout and exit contracts,
+  strict ChangeSet validation, collision-free executable naming, and bytewise
+  equality between nested migration checks and the `tmr` compatibility path;
 - unit tests for every required migration validation rule;
 - valid YAML fixtures and validation tests covering all implemented metric,
   label, span-attribute, and resource-attribute change kinds;

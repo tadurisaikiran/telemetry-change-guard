@@ -3,12 +3,15 @@ package report
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
 )
 
 func TestRenderersPreserveStatusEvidenceAndPaths(t *testing.T) {
@@ -91,6 +94,95 @@ func TestGraphJSONIsStable(t *testing.T) {
 	}
 	if !bytes.Equal(first, second) {
 		t.Fatalf("GraphJSON output is not deterministic")
+	}
+}
+
+func TestSafetyRenderersPreserveStatusImpactAndEvidence(t *testing.T) {
+	t.Parallel()
+
+	change := domain.Change{
+		ID: "remove-requests", Kind: domain.ChangeKindMetricRemove, Domain: domain.DomainPrometheus,
+		From: domain.Symbol{Domain: domain.DomainPrometheus, Kind: domain.SymbolKindMetric, Name: "requests_total"},
+	}
+	changeSet := domain.ChangeSet{
+		APIVersion: domain.ChangeSetAPIVersion,
+		Kind:       domain.ChangeSetKind,
+		Metadata:   domain.ChangeSetMetadata{Name: "requests-contract"},
+		Changes:    []domain.Change{change},
+	}
+	finding := impact.Finding{
+		Change: change,
+		Consumer: impact.Consumer{
+			ID: "alert:traffic", Kind: domain.ConsumerKindAlertRule, Name: "TrafficStopped",
+			Criticality: domain.CriticalityCritical,
+			Source:      domain.SourceLocation{File: "monitoring/alerts.yaml", Line: 14},
+		},
+		Impact: impact.TypeAlertingRisk, Criticality: domain.CriticalityCritical,
+		Paths: []impact.Path{{
+			Nodes: []string{"symbol:prometheus:metric::requests_total", "consumer:alert:traffic"},
+			Edges: []graph.EdgeKind{graph.EdgeReferences},
+		}},
+	}
+	result, err := safety.Evaluate(changeSet, []impact.Finding{finding}, nil, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	jsonContents, err := SafetyJSON(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded safety.Result
+	if err := json.Unmarshal(jsonContents, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.SchemaVersion != safety.ResultSchemaVersion || decoded.Status != safety.StatusBlock {
+		t.Fatalf("decoded safety result = %#v", decoded)
+	}
+
+	for name, render := range map[string]func(io.Writer, safety.Result) error{
+		"console":  SafetyConsole,
+		"markdown": SafetyMarkdown,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			var output bytes.Buffer
+			if err := render(&output, result); err != nil {
+				t.Fatal(err)
+			}
+			for _, expected := range []string{
+				"Telemetry Change Guard", "BLOCK", "ALERTING_RISK", "TrafficStopped",
+				"monitoring/alerts.yaml:14", "requests_total", "alert:traffic",
+			} {
+				if !strings.Contains(output.String(), expected) {
+					t.Errorf("output missing %q:\n%s", expected, output.String())
+				}
+			}
+		})
+	}
+}
+
+func TestSafetyErrorReportMarksPreservedFindingsUndecided(t *testing.T) {
+	t.Parallel()
+
+	result := safety.Result{
+		SchemaVersion: safety.ResultSchemaVersion,
+		Status:        safety.StatusError,
+		Findings: []impact.Finding{{
+			Change: domain.Change{ID: "known"},
+			Consumer: impact.Consumer{
+				ID: "consumer", Kind: domain.ConsumerKindDashboard, Name: "Known dashboard",
+			},
+			Impact: impact.TypeVisibilityLoss,
+		}},
+		Errors: []string{"analysis failed"},
+	}
+	var output bytes.Buffer
+	if err := SafetyConsole(&output, result); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "[UNDECIDED]") || !strings.Contains(output.String(), "analysis failed") {
+		t.Fatalf("error report = %s", output.String())
 	}
 }
 

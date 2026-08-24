@@ -57,8 +57,9 @@ description, ordered changes, domain-qualified symbols, destinations, and
 adapter provenance are preserved. The normalized value shares no mutable maps,
 slices, or destination pointers with the legacy input.
 
-The current `tmr` CLI and `tmr-result/v1alpha1` readiness result remain the
-compatibility interface. The generic policy layer accepts `ChangeSet` directly
-and produces `tcg-result/v1alpha1`; native command and Action workflows will be
-enabled in later isolated milestones. Generic safety semantics are never
-silently assigned to legacy readiness statuses.
+The canonical `telemetry-change-guard check --changes <path>` workflow accepts
+`ChangeSet` directly and produces `tcg-result/v1alpha1`. The current `tmr` CLI
+and `tmr-result/v1alpha1` readiness result remain the compatibility interface;
+the equivalent canonical workflow is nested under
+`telemetry-change-guard migration`. Generic safety semantics are never silently
+assigned to legacy readiness statuses.
