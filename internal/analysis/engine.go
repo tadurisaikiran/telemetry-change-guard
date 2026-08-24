@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tadurisaikiran/telemetry-change-guard/adapters/argorollouts"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/grafana"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/keda"
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/persesusage"
@@ -149,6 +150,10 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 	loadPatterns(ctx, "keda", configuration.Sources.KEDA, &discovery,
 		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
 			return (keda.Loader{Required: required}).LoadFile(ctx, path)
+		})
+	loadPatterns(ctx, "argo_rollouts", configuration.Sources.ArgoRollouts, &discovery,
+		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
+			return (argorollouts.Loader{Required: required}).LoadFile(ctx, path)
 		})
 	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, &discovery)
 	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)

@@ -58,6 +58,7 @@ jobs:
           go test ./adapters/runtimequeries -run=^$ -fuzz=FuzzDecodePrometheusQueryLog -fuzztime=3s
           go test ./adapters/runtimequeries -run=^$ -fuzz=FuzzDecodeTMRQueryHistory -fuzztime=3s
           go test ./adapters/keda -run=^$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s
+          go test ./adapters/argorollouts -run=^$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s
           go test ./internal/explanation -run=^$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
           go test ./internal/remediation -run=^$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
 

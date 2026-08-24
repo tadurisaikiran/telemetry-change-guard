@@ -97,10 +97,45 @@ func TestCanonicalCheckKEDAControlPlaneContract(t *testing.T) {
 	}
 }
 
+func TestCanonicalCheckArgoRolloutsControlPlaneContract(t *testing.T) {
+	t.Parallel()
+
+	root := filepath.Clean(filepath.Join("..", ".."))
+	output, exitCode := runCLIHelper(t, root, "canonical",
+		"check",
+		"--config", "examples/argo-rollouts/tcg.yaml",
+		"--changes", "examples/argo-rollouts/changes.yaml",
+		"--format", "json",
+	)
+	if exitCode != safety.ExitCode(safety.StatusBlock) {
+		t.Fatalf("exit = %d, want BLOCK exit 2; output = %s", exitCode, output)
+	}
+	var result safety.Result
+	if err := json.Unmarshal(output, &result); err != nil {
+		t.Fatalf("decode result: %v\n%s", err, output)
+	}
+	if result.Status != safety.StatusBlock || len(result.Findings) != 1 ||
+		result.Findings[0].Impact != "DEPLOYMENT_GATE_RISK" ||
+		result.Findings[0].Consumer.Kind != domain.ConsumerKindDeploymentGate ||
+		result.Findings[0].Consumer.Name != "checkout-rollout-gate / success-rate" ||
+		result.Findings[0].Criticality != domain.CriticalityCritical {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
 func TestSourceCountIncludesKEDA(t *testing.T) {
 	t.Parallel()
 
 	configuration := config.Config{Sources: config.Sources{KEDA: []config.SourcePattern{{Pattern: "scaledobject.yaml"}}}}
+	if got, want := sourceCount(configuration), 1; got != want {
+		t.Fatalf("sourceCount() = %d, want %d", got, want)
+	}
+}
+
+func TestSourceCountIncludesArgoRollouts(t *testing.T) {
+	t.Parallel()
+
+	configuration := config.Config{Sources: config.Sources{ArgoRollouts: []config.SourcePattern{{Pattern: "analysis.yaml"}}}}
 	if got, want := sourceCount(configuration), 1; got != want {
 		t.Fatalf("sourceCount() = %d, want %d", got, want)
 	}

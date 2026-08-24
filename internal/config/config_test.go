@@ -149,6 +149,28 @@ sources:
 	}
 }
 
+func TestParseConfigSupportsArgoRolloutsSources(t *testing.T) {
+	t.Parallel()
+
+	configuration, err := ParseConfig(strings.NewReader(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  argoRollouts:
+    - ./deploy/analysis-templates/*.yaml
+    - path: ./clusters/shared-analysis.yaml
+      required: false
+`))
+	if err != nil {
+		t.Fatalf("ParseConfig() error = %v", err)
+	}
+	if got, want := len(configuration.Sources.ArgoRollouts), 2; got != want {
+		t.Fatalf("Argo Rollouts sources = %d, want %d", got, want)
+	}
+	if !configuration.Sources.ArgoRollouts[0].Required || configuration.Sources.ArgoRollouts[1].Required {
+		t.Fatalf("Argo Rollouts sources = %#v", configuration.Sources.ArgoRollouts)
+	}
+}
+
 func TestParseConfigRejectsUnknownSourceField(t *testing.T) {
 	t.Parallel()
 

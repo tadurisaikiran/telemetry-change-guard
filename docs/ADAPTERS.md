@@ -19,6 +19,10 @@ reference, production, and diagnostic model. They never decide readiness.
   Prometheus trigger query as an autoscaler dependency. Production-tagged
   targets default to critical; malformed required queries fail closed. See
   [KEDA ScaledObject analysis](KEDA.md).
+- `argorollouts` reads `argoproj.io/v1alpha1` AnalysisTemplate and
+  ClusterAnalysisTemplate resources. Prometheus measurements become
+  deployment-gate consumers, with safe label-value argument substitution and
+  fail-closed dynamic identity. See [Argo Rollouts analysis](ARGO_ROLLOUTS.md).
 
 Every configured source can be marked `required`. A load, parse, or expansion
 failure on a required source prevents `READY`. All adapters preserve file,
