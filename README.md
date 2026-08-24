@@ -67,6 +67,9 @@ Implemented:
   predictions against runtime behavior.
 - A combined KEDA, Argo Rollouts, and explicitly mapped HPA lifecycle that
   verifies blocking, migrated, and fail-closed control-plane states.
+- Strict, bounded ingestion of standalone synthesized CloudFormation JSON and
+  multi-stack Cloud Assemblies without executing applications, transforms, or
+  asset commands.
 
 ## Requirements
 
@@ -127,6 +130,11 @@ Kubernetes HPA external/custom metric dependencies require explicit backend
 and selector-label mappings; matching names are never inferred. See the
 [Kubernetes HPA guide](docs/HPA.md) and runnable
 [`examples/hpa`](examples/hpa) fixture.
+
+Synthesized CloudFormation JSON and Cloud Assemblies can be loaded through the
+foundational AWS adapter. This ingestion boundary is intentionally not exposed
+as an analysis configuration source until intrinsic resolution and CloudWatch
+alarm discovery can fail closed. See the [AWS input guide](docs/AWS.md).
 
 ## GitHub Action
 

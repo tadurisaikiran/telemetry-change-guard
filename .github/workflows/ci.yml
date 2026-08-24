@@ -61,6 +61,8 @@ jobs:
           go test ./adapters/argorollouts -run=^$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s
           go test ./adapters/hpa -run=^$ -fuzz=FuzzParseMappingDoesNotPanic -fuzztime=3s
           go test ./adapters/hpa -run=^$ -fuzz=FuzzParseManifestDoesNotPanic -fuzztime=3s
+          go test ./adapters/cloudformation -run=^$ -fuzz=FuzzParseTemplateDoesNotPanic -fuzztime=3s
+          go test ./adapters/cloudformation -run=^$ -fuzz=FuzzParseManifestDoesNotPanic -fuzztime=3s
           go test ./internal/explanation -run=^$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
           go test ./internal/remediation -run=^$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
 
