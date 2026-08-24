@@ -3,6 +3,7 @@
 The canonical executable is `telemetry-change-guard`:
 
 ```bash
+mkdir -p ./bin
 go build -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ```
 
@@ -132,8 +133,9 @@ advise`, and `migration remediate`.
 The temporary `tmr` executable remains buildable:
 
 ```bash
+mkdir -p ./bin
 go build -o ./bin/tmr ./cmd/tmr
-tmr analyze --config ./tmr.yaml --migration ./migration.yaml
+./bin/tmr analyze --config ./tmr.yaml --migration ./migration.yaml
 ```
 
 Both entry points call the same `internal/cli` implementation. Given equivalent

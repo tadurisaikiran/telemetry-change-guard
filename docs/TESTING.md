@@ -113,8 +113,8 @@ gate. It runs pinned versions for reproducibility; a weekly workflow exercises
 previous-supported and upstream-latest combinations.
 
 The harness runs a pinned Docker Compose stack containing a controlled
-exporter, Prometheus, Grafana, and Sloth, with Pyrra added as a second tier. It
-will exercise this telemetry lifecycle:
+exporter, Prometheus, Grafana, and Sloth. Pyrra is covered by deterministic
+component fixtures. The live stack covers this telemetry lifecycle:
 
 ```text
 old only -> dual write -> partial consumer migration
@@ -154,5 +154,5 @@ go test -race ./...
 See [the E2E harness guide](../e2e/README.md) for pinned versions, scenario
 expectations, and runtime assertions.
 
-Pinned E2E tests will run on pull requests. Compatibility matrices and latest
-upstream versions will run on scheduled workflows after the harness exists.
+Pinned E2E tests run on pull requests. Compatibility matrices and latest
+upstream versions run in the scheduled compatibility workflow.
