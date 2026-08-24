@@ -19,3 +19,4 @@ status change. A material change requires a new ADR.
 | [0002](0002-changeset-root-domain-primitive.md) | ChangeSet as the root domain primitive | Accepted |
 | [0003](0003-cross-domain-symbol-and-change-semantics.md) | Cross-domain symbol and change semantics | Accepted |
 | [0004](0004-generic-safety-policy-and-migration-readiness.md) | Generic safety policy and migration readiness | Accepted |
+| [0005](0005-aws-cloudwatch-identity-and-migration-semantics.md) | AWS CloudWatch identity and migration semantics | Accepted |

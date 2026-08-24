@@ -49,14 +49,30 @@ deployment is supported.
   by explicit Kubernetes-to-Prometheus metric and selector-label mappings.
 - Combined KEDA, Argo Rollouts, and HPA control-plane lifecycle covering exact
   blocking findings, completed migration, and required uncertainty.
+- Accepted AWS CloudWatch identity and migration semantics for Classic and OTel
+  metrics, including origin account/Region, units, and explicit mappings.
 - Pinned live Prometheus/Grafana/Sloth migration lifecycle.
 
 ## Current release path
 
-1. Define AWS CloudWatch Classic and OTel identities, cross-domain mappings,
-   dimensions, units, and intrinsic-resolution boundaries in an ADR before
-   implementing the synthesized CloudFormation adapter.
-2. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
+1. Implement the bounded, deterministic synthesized CloudFormation JSON and
+   Cloud Assembly loader defined by the accepted AWS architecture.
+2. Add fail-closed `EXACT`/`PARTIAL`/`UNKNOWN` resolution for the supported
+   CloudFormation intrinsic subset.
+3. Discover standard CloudWatch alarms and their exact Classic metric
+   dependencies.
+4. Add metric-math dependency extraction and transitive analysis.
+5. Add composite-alarm dependency extraction and cycle-safe traversal.
+6. Discover CloudWatch dashboard metric consumers.
+7. Analyze CloudWatch OTel PromQL alarms without collapsing their domain into
+   Prometheus.
+8. Discover Application Auto Scaling metric and metric-math dependencies.
+9. Discover CloudWatch alarm actions and their automation impact.
+10. Add the read-only, paginated, throttling-aware live CloudWatch adapter.
+11. Reconcile actual deployed AWS dependencies with candidate synthesized
+    CloudFormation state.
+12. Validate the complete AWS lifecycle in a short-lived-role sandbox E2E.
+13. Complete compatibility, failure-injection, fuzz, vulnerability, benchmark,
    release-provenance, and reproducible-demo gates for the first TCG release.
 
 ## Optional integrations after the core release gate
