@@ -664,6 +664,70 @@ spec:
 	}
 }
 
+func TestArgoProductionAnalysisProducesBlockingDeploymentGateRisk(t *testing.T) {
+	t.Parallel()
+
+	manifestPath := filepath.Join(t.TempDir(), "analysis-template.yaml")
+	writeManifest := func(query string) {
+		t.Helper()
+		contents := `apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: orders-rollout-gate
+  namespace: commerce
+  labels:
+    environment: production
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: error-rate
+      successCondition: result[0] < 0.01
+      provider:
+        prometheus:
+          address: https://prometheus.example.test
+          query: |-
+            ` + strings.ReplaceAll(query, "\n", "\n            ") + "\n"
+		if err := os.WriteFile(manifestPath, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	configuration := testConfiguration(config.Sources{ArgoRollouts: []config.SourcePattern{{
+		Pattern: manifestPath, Required: true,
+	}}})
+	changeSet, err := config.NormalizeMigration(mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writeManifest(`sum(rate(old_metric{service="{{args.service-name}}"}[2m]))`)
+	result, _, discovery, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != safety.StatusBlock || len(result.Findings) != 1 {
+		t.Fatalf("result = %#v, want one BLOCK finding", result)
+	}
+	finding := result.Findings[0]
+	if finding.Impact != impact.TypeDeploymentGateRisk || finding.Consumer.Kind != domain.ConsumerKindDeploymentGate ||
+		finding.Consumer.Name != "orders-rollout-gate / error-rate" || finding.Criticality != domain.CriticalityCritical || finding.Uncertain {
+		t.Fatalf("finding = %#v", finding)
+	}
+	if len(discovery.Diagnostics) != 0 {
+		t.Fatalf("diagnostics = %#v, want none", discovery.Diagnostics)
+	}
+
+	writeManifest(`{{args.metric-name}}`)
+	incomplete, _, unresolved, err := RunSafety(context.Background(), configuration, changeSet, safety.DefaultPolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if incomplete.Status != safety.StatusIncomplete || len(incomplete.Findings) != 1 ||
+		!incomplete.Findings[0].Uncertain || len(unresolved.Diagnostics) != 1 || !unresolved.Diagnostics[0].Required {
+		t.Fatalf("incomplete = %#v, discovery = %#v", incomplete, unresolved)
+	}
+}
+
 func testConfiguration(sources config.Sources) config.Config {
 	return config.Config{
 		APIVersion: config.ConfigAPIVersion,
@@ -708,6 +772,7 @@ func absolutizePatterns(configuration *config.Config, root string) {
 		configuration.Sources.Sloth,
 		configuration.Sources.Pyrra,
 		configuration.Sources.KEDA,
+		configuration.Sources.ArgoRollouts,
 	}
 	for _, group := range groups {
 		for index := range group {

@@ -69,6 +69,7 @@ type Sources struct {
 	Sloth           []SourcePattern      `json:"sloth,omitempty"`
 	Pyrra           []SourcePattern      `json:"pyrra,omitempty"`
 	KEDA            []SourcePattern      `json:"keda,omitempty"`
+	ArgoRollouts    []SourcePattern      `json:"argoRollouts,omitempty"`
 	PersesUsage     []PersesUsageSource  `json:"persesUsage,omitempty"`
 	RuntimeQueries  []RuntimeQuerySource `json:"runtimeQueries,omitempty"`
 	TempoQueries    []TempoQuerySource   `json:"tempoQueries,omitempty"`
@@ -198,6 +199,7 @@ type sourcesDocument struct {
 	Sloth           []sourcePatternDocument      `yaml:"sloth"`
 	Pyrra           []sourcePatternDocument      `yaml:"pyrra"`
 	KEDA            []sourcePatternDocument      `yaml:"keda"`
+	ArgoRollouts    []sourcePatternDocument      `yaml:"argoRollouts"`
 	PersesUsage     []persesUsageSourceDocument  `yaml:"persesUsage"`
 	RuntimeQueries  []runtimeQuerySourceDocument `yaml:"runtimeQueries"`
 	TempoQueries    []tempoQuerySourceDocument   `yaml:"tempoQueries"`
@@ -364,6 +366,7 @@ func ValidateConfig(config Config) error {
 	validateSourcePatterns("sources.sloth", config.Sources.Sloth)
 	validateSourcePatterns("sources.pyrra", config.Sources.Pyrra)
 	validateSourcePatterns("sources.keda", config.Sources.KEDA)
+	validateSourcePatterns("sources.argoRollouts", config.Sources.ArgoRollouts)
 	totalSources += len(config.Sources.PersesUsage)
 	for index, source := range config.Sources.PersesUsage {
 		path := fmt.Sprintf("sources.persesUsage[%d]", index)
@@ -534,6 +537,7 @@ func normalizeConfig(document configDocument) Config {
 			Sloth:           normalizePatterns(document.Sources.Sloth),
 			Pyrra:           normalizePatterns(document.Sources.Pyrra),
 			KEDA:            normalizePatterns(document.Sources.KEDA),
+			ArgoRollouts:    normalizePatterns(document.Sources.ArgoRollouts),
 			PersesUsage:     normalizePersesUsageSources(document.Sources.PersesUsage),
 			RuntimeQueries:  normalizeRuntimeQuerySources(document.Sources.RuntimeQueries),
 			TempoQueries:    normalizeTempoQuerySources(document.Sources.TempoQueries),

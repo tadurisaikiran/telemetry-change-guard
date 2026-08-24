@@ -103,6 +103,12 @@ Prometheus trigger query through the shared PromQL AST analyzer. Each trigger
 becomes an `autoscaler` consumer, which the impact layer independently maps to
 `SCALING_RISK`. Connection and authentication metadata is never retained.
 
+`adapters/argorollouts` reads local `argoproj.io/v1alpha1` analysis templates
+and routes Prometheus measurements through that same analyzer. Argo arguments
+are accepted only in AST-proven label matcher values; dynamic telemetry
+identity remains unresolved. Each measurement is a `deployment_gate` consumer
+that the impact layer maps separately to `DEPLOYMENT_GATE_RISK`.
+
 `adapters/persesusage` is an optional remote evidence boundary around the
 Perses metrics-usage HTTP API. It imports usage associations, then independently
 parses returned rule expressions and models recording-rule productions. It

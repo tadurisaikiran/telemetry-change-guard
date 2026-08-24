@@ -41,8 +41,8 @@ Implemented:
 - Strict YAML decoding with unknown-field rejection.
 - Official Prometheus PromQL AST analysis, including selectors, matchers,
   aggregations, vector matching, and label functions.
-- Prometheus rule, PrometheusRule CRD, Grafana, Sloth, Pyrra, and KEDA
-  ScaledObject adapters.
+- Prometheus rule, PrometheusRule CRD, Grafana, Sloth, Pyrra, KEDA
+  ScaledObject, and Argo Rollouts analysis-template adapters.
 - Cycle-safe transitive dependency graphs through recording rules.
 - Fail-closed `READY`, `BLOCKED`, and `INCOMPLETE` decisions.
 - Console, versioned JSON, Markdown, and graph JSON output.
@@ -115,6 +115,10 @@ strict artifact schema, diff command, limits, and evidence boundaries.
 KEDA Prometheus scaler queries can be analyzed as production control-plane
 dependencies. See the [KEDA guide](docs/KEDA.md) and runnable
 [`examples/keda`](examples/keda) fixture.
+
+Argo Rollouts Prometheus analysis measurements are modeled independently as
+deployment gates. See the [Argo Rollouts guide](docs/ARGO_ROLLOUTS.md) and
+runnable [`examples/argo-rollouts`](examples/argo-rollouts) fixture.
 
 ## GitHub Action
 
