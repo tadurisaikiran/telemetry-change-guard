@@ -121,7 +121,7 @@ sboms:
     artifacts: archive
     documents:
       - "{{ .ArtifactName }}.spdx.json"
-    cmd: "{{ .Env.TCG_SYFT }}"
+    cmd: syft
     args:
       - "${artifact}"
       - --output
@@ -136,7 +136,7 @@ sboms:
     artifacts: archive
     documents:
       - "{{ .ArtifactName }}.cdx.json"
-    cmd: "{{ .Env.TCG_SYFT }}"
+    cmd: syft
     args:
       - "${artifact}"
       - --output
@@ -151,7 +151,7 @@ sboms:
     artifacts: source
     documents:
       - "{{ .ArtifactName }}.spdx.json"
-    cmd: "{{ .Env.TCG_SYFT }}"
+    cmd: syft
     args:
       - "${artifact}"
       - --output
@@ -166,7 +166,7 @@ sboms:
     artifacts: source
     documents:
       - "{{ .ArtifactName }}.cdx.json"
-    cmd: "{{ .Env.TCG_SYFT }}"
+    cmd: syft
     args:
       - "${artifact}"
       - --output
