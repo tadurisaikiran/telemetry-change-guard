@@ -193,6 +193,7 @@ in that security-focused reordering.
 | Public-alpha documentation and regression corpus | `#52` | Merged at `b42396bdfcc476b4892b9e9fe4b464420b4b36f7`; front door, doc checks, 11-case synthetic benchmark, and evaluation kit |
 | Evidence-constrained public launch kit | `#53` | Merged at `2f74b952acf438eeb0728aed7d0314bf8c56dd58`; draft-only materials, no external publication |
 | Go and CodeQL compatibility closeout | `#56` | Merged at `90c0b41629b76f67f6bfda42ad88eb93bd275328`; Go 1.26.7 artifacts and complete, annotation-free CodeQL extraction verified |
+| Warning-free external Action setup | `#58` | Merged at `626f5443021f14a8a4a3ddb67e8b7af6e92afed8`; setup-go cache warning removed without changing result enforcement |
 
 The launch kit is developed on `docs/public-launch-kit`, a human-named branch
 from the fully verified `#52` merge, and reviewed separately in `#53`. These
