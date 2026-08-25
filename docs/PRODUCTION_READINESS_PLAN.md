@@ -188,12 +188,13 @@ in that security-focused reordering.
 | Version and build identity | `#49` | Merged; canonical and compatibility identity contracts |
 | Reproducible artifacts and provenance | `#50` | Merged at `4bb5ea7345f56291bebc65c63e8375e46d002f12`; CodeQL-clean, byte-reproducible candidate payload |
 | Install and consumer validation | `#51` | Merged at `8528ab9d7017eda3190377d2e726ec3ac750ce91`; external Action, exact-ref `go install`, multi-arch container, formula, SBOM, and provenance paths verified |
-| Public-alpha documentation and regression corpus | current branch | In progress on `docs/public-alpha-readiness`; front door, doc checks, 11-case synthetic benchmark, and evaluation kit |
+| Public-alpha documentation and regression corpus | `#52` | Merged at `b42396bdfcc476b4892b9e9fe4b464420b4b36f7`; front door, doc checks, 11-case synthetic benchmark, and evaluation kit |
+| Evidence-constrained public launch kit | current branch | In progress on `docs/public-launch-kit`; no external publication |
 
-The current documentation phase uses `docs/public-alpha-readiness`, a
-human-named branch from the fully verified `#51` merge. The preceding phases
-prepare but do not publish a GitHub release, tag, package, image, tap, external
-repository, or announcement.
+The current communication phase uses `docs/public-launch-kit`, a human-named
+branch from the fully verified `#52` merge. The preceding phases prepare but do
+not publish a GitHub release, tag, package, image, tap, external repository, or
+announcement.
 
 ## Acceptance criteria by phase
 

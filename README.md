@@ -704,6 +704,7 @@ claim without authorization.
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
 | Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [Agentic roadmap](docs/AGENTIC_ROADMAP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
 | Evaluate maturity | [Evaluation kit](evaluation/README.md) · [Release-gate benchmark](benchmarks/README.md) · [Design-user program](docs/DESIGN_USER_PROGRAM.md) · [Roadmap](docs/ROADMAP.md) · [Related work](RELATED_WORK.md) · [AWS boundary](docs/AWS.md) |
+| Prepare owner-approved communication | [Draft public launch kit](docs/launch/README.md) · [Adoption evidence rules](evaluation/ADOPTION_EVIDENCE.md) |
 
 ## Development
 
