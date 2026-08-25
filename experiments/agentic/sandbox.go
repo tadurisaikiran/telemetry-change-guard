@@ -204,7 +204,10 @@ func (sandbox *ContainerSandbox) Run(ctx context.Context, workspace string, requ
 		"--user", currentUser.Uid + ":" + currentUser.Gid,
 		"--hostname", "tcg-agent",
 		"--workdir", "/workspace",
-		"--mount", "type=bind,src=" + workspace + ",dst=/workspace,rw",
+		// Docker bind mounts are writable by default. Keeping the long syntax to
+		// key=value fields preserves compatibility with runtimes that reject the
+		// legacy bare `rw` token.
+		"--mount", "type=bind,src=" + workspace + ",dst=/workspace",
 		"--tmpfs", "/tmp:rw,noexec,nosuid,nodev,size=67108864",
 	}
 	for _, name := range sandbox.options.Environment {

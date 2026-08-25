@@ -71,7 +71,7 @@ func TestContainerSandboxUsesHardenedImmutableInvocation(t *testing.T) {
 		}
 	}
 	mountIndex := slices.Index(arguments, "--mount")
-	if mountIndex < 0 || mountIndex+1 >= len(arguments) || !strings.Contains(arguments[mountIndex+1], "dst=/workspace,rw") {
+	if mountIndex < 0 || mountIndex+1 >= len(arguments) || !strings.Contains(arguments[mountIndex+1], "dst=/workspace") {
 		t.Errorf("single workspace mount missing: %v", arguments)
 	}
 	if strings.Count(strings.Join(arguments, " "), "type=bind") != 1 {
