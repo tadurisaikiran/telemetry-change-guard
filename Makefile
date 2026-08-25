@@ -83,7 +83,7 @@ benchmark:
 	GO="$(GO)" ./benchmarks/scripts/run.sh
 
 verify-shell:
-	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh benchmarks/scripts/run.sh scripts/build-container-snapshot.sh scripts/check-release-coordinates.sh scripts/check-workflow-policy.sh scripts/generate-homebrew-formula.sh scripts/install-release-tools.sh scripts/build-release.sh scripts/verify-consumer-fixtures.sh scripts/verify-container.sh scripts/verify-docs.sh scripts/verify-go-install.sh scripts/verify-release.sh scripts/verify-reproducible-release.sh scripts/validate-release-tag.sh
+	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh benchmarks/scripts/run.sh e2e/scripts/*.sh scripts/build-container-snapshot.sh scripts/check-release-coordinates.sh scripts/check-workflow-policy.sh scripts/generate-homebrew-formula.sh scripts/install-release-tools.sh scripts/build-release.sh scripts/verify-consumer-fixtures.sh scripts/verify-container.sh scripts/verify-docs.sh scripts/verify-go-install.sh scripts/verify-release.sh scripts/verify-reproducible-release.sh scripts/validate-release-tag.sh
 
 e2e:
 	./e2e/scripts/run-control-plane-e2e.sh
