@@ -89,7 +89,9 @@ runs:
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: ${{ steps.action-paths.outputs.go-mod }}
-        cache-dependency-path: ${{ steps.action-paths.outputs.go-sum }}
+        # Action-owned modules live outside a consumer's workspace, where
+        # setup-go cannot resolve dependency paths for its repository cache.
+        cache: false
 
     - name: Build Telemetry Change Guard
       shell: bash

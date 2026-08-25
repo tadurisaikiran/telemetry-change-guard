@@ -237,7 +237,10 @@ external repository, or announcement.
 - CodeQL analysis rejects extraction diagnostics and unsuccessful tool
   invocations instead of accepting a partial database as a clean result.
 - Workflow/job permissions are least privilege.
-- Local and external Action cache paths work without annotations.
+- Local and external Action setup is warning-free. The composite Action does
+  not enable `setup-go` dependency caching because its module files live
+  outside the consumer workspace; repository-owned workflows may cache their
+  own modules normally.
 - The Action preserves one analysis, JSON evidence, Markdown summary, bounded
   optional comment, and exact status/exit enforcement.
 - GitHub Release, `go install`, Action, container, and prepared Homebrew paths
