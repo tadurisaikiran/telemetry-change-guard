@@ -75,6 +75,29 @@ deployment is supported.
 5. Use evaluation evidence to prioritize correctness, onboarding, and
    ecosystem work; publish limitations alongside results.
 
+## Optional agentic workstream
+
+The existing deterministic product remains the safety authority and primary
+external adoption path. An optional agentic layer may proceed in parallel as
+an experiment that calls the public CLI; it does not replace or delay the core
+release, Action, or design-user program.
+
+1. Build an isolated, provider-neutral and bounded feedback-loop MVP with no
+   branch, change-request, merge, or production mutation
+   ([issue #39](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39)).
+2. Evaluate no-guard, LLM self-review, conventional-check, and TCG-feedback
+   conditions against independent ground truth
+   ([issue #40](https://github.com/tadurisaikiran/telemetry-change-guard/issues/40)).
+3. Package an opt-in design-user review workflow only after the isolation and
+   evaluation gates pass
+   ([issue #41](https://github.com/tadurisaikiran/telemetry-change-guard/issues/41)).
+4. Evaluate AI-assisted source/diff extraction separately; never make an
+   unsupported completeness claim or require it for the MVP
+   ([issue #42](https://github.com/tadurisaikiran/telemetry-change-guard/issues/42)).
+
+See the [agentic roadmap](AGENTIC_ROADMAP.md) for shipped/planned boundaries,
+architecture, compatibility, promotion gates, and the external sharing plan.
+
 ## AWS workstream
 
 AWS continues in parallel without delaying evaluation of the implemented
