@@ -16,6 +16,7 @@ import (
 const compatibilityUsage = `Telemetry Change Guard migration compatibility CLI
 
 Usage:
+  tmr version [--format text|json]
   tmr analyze --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) [--format console|json|markdown] [--json-output <path>] [--status-output <path>]
   tmr advise --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) --question <text> --ai-command <executable>
   tmr remediate --config <path> (--migration <path> | --weaver-diff <path> --weaver-mapping <path>) --ai-command <executable>
@@ -26,6 +27,7 @@ Usage:
   tmr graph --config <path> [--output <path>]
 
 Commands:
+  version   Print the shared Telemetry Change Guard build identity
   analyze   Analyze migration readiness
   advise    Request an optional, read-only AI explanation of deterministic evidence
   remediate Request deterministically validated candidate patches without applying them
@@ -43,6 +45,14 @@ func RunCompatibility(ctx context.Context, args []string, stdout, stderr io.Writ
 	}
 
 	switch args[0] {
+	case "version":
+		return runVersion("tmr", args[1:], stdout, stderr)
+	case "--version":
+		if len(args) != 1 {
+			fmt.Fprintln(stderr, "--version does not accept arguments")
+			return 1
+		}
+		return runVersion("tmr", nil, stdout, stderr)
 	case "analyze":
 		return runAnalyze(ctx, args[1:], stdout, stderr)
 	case "advise":

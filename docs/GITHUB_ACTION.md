@@ -15,7 +15,7 @@ implementation commit. The authoritative candidate coordinate is maintained in
 README and documentation reference in CI:
 
 ```text
-tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
+tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
 ```
 
 Do not use `tadurisaikiran/telemetry-change-guard@v1`: that tag does not exist.
@@ -35,7 +35,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
+    uses: tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -50,7 +50,7 @@ generated snapshots:
 
 ```yaml
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
+    uses: tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
     with:
       config: tcg.yaml
       baseline: telemetry/main-contract.json
@@ -76,7 +76,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
+    uses: tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
     with:
       config: tcg.yaml
       migration: migration.yaml
@@ -132,8 +132,12 @@ and execution of an untrusted pull-request checkout.
 | `json-report` | Absolute path to the versioned JSON result. |
 | `mode` | `generic`, `migration`, or `invalid` for input errors. |
 
-The JSON report is uploaded with `actions/upload-artifact`. The Markdown report
-is always appended to the job summary. A missing artifact, an unrecognized
+The JSON report is uploaded with `actions/upload-artifact`. The job summary
+records the CLI build identity before appending the Markdown analysis report.
+An externally consumed Action records its commit only when `github.action_ref`
+is an immutable full SHA; a local `uses: ./` invocation records the workflow
+commit. A movable external tag remains `unknown` rather than being mislabeled
+with the consumer repository's commit. A missing artifact, an unrecognized
 status, or disagreement between status and exit code fails closed.
 
 ## Pull-request comments

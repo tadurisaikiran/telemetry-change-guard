@@ -52,7 +52,9 @@ func TestActionMetadataAndScript(t *testing.T) {
 		}
 	}
 	for _, expected := range []string{
-		"./cmd/telemetry-change-guard",
+		"action/build-action.sh",
+		"Telemetry Change Guard build identity",
+		"telemetry-change-guard\" version",
 		"actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0",
 		"actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
 		"actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0",
@@ -85,6 +87,90 @@ func TestActionMetadataAndScript(t *testing.T) {
 		if !strings.Contains(string(script), expected) {
 			t.Errorf("run-action.sh does not contain %q", expected)
 		}
+	}
+}
+
+func TestBuildActionSelectsOnlyAuthoritativeCommitIdentity(t *testing.T) {
+	t.Parallel()
+
+	const actionCommit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	const workflowCommit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	tests := []struct {
+		name               string
+		actionRef          string
+		actionRepository   string
+		workflowRepository string
+		workflowSHA        string
+		wantCommit         string
+	}{
+		{
+			name:               "immutable external Action ref",
+			actionRef:          actionCommit,
+			actionRepository:   "owner/telemetry-change-guard",
+			workflowRepository: "consumer/service",
+			workflowSHA:        workflowCommit,
+			wantCommit:         actionCommit,
+		},
+		{
+			name:               "local Action uses workflow commit",
+			actionRepository:   "owner/telemetry-change-guard",
+			workflowRepository: "owner/telemetry-change-guard",
+			workflowSHA:        workflowCommit,
+			wantCommit:         workflowCommit,
+		},
+		{
+			name:               "local Action without repository context uses workflow commit",
+			workflowRepository: "owner/telemetry-change-guard",
+			workflowSHA:        workflowCommit,
+			wantCommit:         workflowCommit,
+		},
+		{
+			name:               "movable external ref remains unknown",
+			actionRef:          "v0.1.0-alpha.1",
+			actionRepository:   "owner/telemetry-change-guard",
+			workflowRepository: "consumer/service",
+			workflowSHA:        workflowCommit,
+			wantCommit:         "unknown",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runner := t.TempDir()
+			argumentsPath := filepath.Join(runner, "go-arguments")
+			fakeGoPath := filepath.Join(runner, "go")
+			fakeGo := fmt.Sprintf("#!/bin/bash\nprintf '%%s\\n' \"$@\" > %q\n", argumentsPath)
+			if err := os.WriteFile(fakeGoPath, []byte(fakeGo), 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			command := exec.Command("bash", "build-action.sh")
+			command.Env = []string{
+				"GO=" + fakeGoPath,
+				"PATH=" + os.Getenv("PATH"),
+				"RUNNER_TEMP=" + runner,
+				"TCG_ACTION_REF=" + test.actionRef,
+				"TCG_ACTION_REPOSITORY=" + test.actionRepository,
+				"TCG_WORKFLOW_REPOSITORY=" + test.workflowRepository,
+				"TCG_WORKFLOW_SHA=" + test.workflowSHA,
+			}
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("build-action.sh error = %v\n%s", err, output)
+			}
+			arguments := readFile(t, argumentsPath)
+			for _, expected := range []string{
+				"-buildvcs=false",
+				"-trimpath",
+				".Version=dev",
+				".Commit=" + test.wantCommit,
+				".Date=unknown",
+				".Dirty=unknown",
+			} {
+				if !strings.Contains(arguments, expected) {
+					t.Errorf("build arguments missing %q:\n%s", expected, arguments)
+				}
+			}
+		})
 	}
 }
 
@@ -223,7 +309,10 @@ func TestDocumentedActionCoordinatesMatchCandidateMetadata(t *testing.T) {
 		t.Fatalf("invalid release/metadata.env Action coordinate: %#v", metadata)
 	}
 
-	coordinatePattern := regexp.MustCompile(regexp.QuoteMeta(repository) + `@([0-9a-f]{40})`)
+	coordinatePatterns := []*regexp.Regexp{
+		regexp.MustCompile(regexp.QuoteMeta(repository) + `@([0-9a-f]{40})`),
+		regexp.MustCompile(`(?m)^git checkout ([0-9a-f]{40})$`),
+	}
 	files := []string{filepath.Join(root, "README.md")}
 	err := filepath.WalkDir(filepath.Join(root, "docs"), func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -244,10 +333,12 @@ func TestDocumentedActionCoordinatesMatchCandidateMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, match := range coordinatePattern.FindAllStringSubmatch(string(contents), -1) {
-			found++
-			if match[1] != reference {
-				t.Errorf("%s documents stale Action ref %s; want %s", file, match[1], reference)
+		for _, pattern := range coordinatePatterns {
+			for _, match := range pattern.FindAllStringSubmatch(string(contents), -1) {
+				found++
+				if match[1] != reference {
+					t.Errorf("%s documents stale installation ref %s; want %s", file, match[1], reference)
+				}
 			}
 		}
 	}

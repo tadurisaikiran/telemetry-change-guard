@@ -133,7 +133,8 @@ installation path requires Git and Go 1.27 or newer:
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
 mkdir -p ./bin
-go build -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
+go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
+./bin/telemetry-change-guard version
 ```
 
 The resulting executable is `./bin/telemetry-change-guard`. Release binaries,
@@ -552,16 +553,17 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
+    uses: tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
     with:
       config: tcg.yaml
       changes: changes.yaml
       remote-evidence: disabled
 ```
 
-The Action performs one authoritative evaluation, appends a Markdown job
-summary, uploads the versioned JSON evidence artifact, creates or updates one
-bounded pull-request comment, and finally enforces the exact CLI exit code.
+The Action records its CLI build identity, performs one authoritative
+evaluation, appends the Markdown analysis to the job summary, uploads the
+versioned JSON evidence artifact, creates or updates one bounded pull-request
+comment, and finally enforces the exact CLI exit code.
 Missing artifacts, invalid source combinations, and status/exit disagreement
 fail closed.
 
@@ -659,6 +661,7 @@ claim without authorization.
 | Understand the system | [Architecture](docs/ARCHITECTURE.md) · [Safety engine](docs/SAFETY_ENGINE.md) · [Threat model](docs/THREAT_MODEL.md) |
 | Define inputs | [ChangeSet](docs/CHANGESET.md) · [Change sources and snapshots](docs/CHANGE_SOURCES.md) · [Migration model](docs/MIGRATION_MODEL.md) · [Configuration](docs/CONFIGURATION.md) |
 | Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Secure CI usage](docs/SECURE_CI_USAGE.md) · [Testing](docs/TESTING.md) |
+| Understand versions and upgrades | [Changelog](CHANGELOG.md) · [Versioning](docs/VERSIONING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Upgrading](docs/UPGRADING.md) |
 | Configure local consumers | [Prometheus/Grafana/SLO adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
 | Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [Agentic roadmap](docs/AGENTIC_ROADMAP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |

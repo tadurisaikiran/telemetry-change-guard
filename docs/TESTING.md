@@ -138,6 +138,13 @@ Dependabot separately proposes reviewed updates for both Go modules and
 GitHub Actions; an update must preserve full-SHA pins and pass the same policy
 checks.
 
+Build-identity tests cover development defaults, malformed linker values,
+tri-state dirty metadata, exact human and `tcg-version/v1alpha1` JSON goldens,
+shared canonical/compatibility output, Action commit selection, and a real
+release-shaped `-trimpath` binary. The integration test injects candidate
+version, commit, date, and clean state, executes both version forms, and scans
+the binary for the local build path.
+
 ## Mandatory live E2E release gate
 
 The live harness is implemented under `e2e/` and is a pull-request release
