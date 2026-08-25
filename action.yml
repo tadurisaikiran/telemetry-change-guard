@@ -137,7 +137,7 @@ runs:
 
     - name: Post pull-request summary
       if: always() && github.event_name == 'pull_request' && inputs.comment == 'true'
-      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       continue-on-error: true
       env:
         TCG_REPORT_PATH: ${{ steps.analyze.outputs.report }}
