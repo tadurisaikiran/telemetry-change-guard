@@ -116,7 +116,7 @@ jobs:
           jq -e \
             --arg schema "${EXPECTED_SCHEMA}" \
             --arg status "${EXPECTED_STATUS}" \
-            '.schemaVersion == $schema and .status == $status' \
+            '.schemaVersion == $schema and (.status // .summary.status) == $status' \
             "${ACTUAL_JSON}"
           grep -Fq "**Status:** **${EXPECTED_STATUS}**" "${ACTUAL_REPORT}"
 
@@ -138,6 +138,6 @@ jobs:
           [[ "${#reports[@]}" -eq 5 ]]
           jq -s -e '
             length == 5 and
-            ([.[].status] | sort) == (["BLOCK", "BLOCK", "INCOMPLETE", "PASS", "READY"] | sort) and
+            ([.[] | (.status // .summary.status)] | sort) == (["BLOCK", "BLOCK", "INCOMPLETE", "PASS", "READY"] | sort) and
             all(.[]; .schemaVersion == "tcg-result/v1alpha1" or .schemaVersion == "tmr-result/v1alpha1")
           ' "${reports[@]}"

@@ -28,8 +28,8 @@ jobs:
       matrix:
         include:
           - case: pass
-            config: release-fixtures/external-consumer-repository/fixtures/pass/tcg.yaml
-            changes: release-fixtures/external-consumer-repository/fixtures/pass/changes.yaml
+            config: fixtures/pass/tcg.yaml
+            changes: fixtures/pass/changes.yaml
             baseline: ""
             candidate: ""
             migration: ""
@@ -39,8 +39,8 @@ jobs:
             schema: tcg-result/v1alpha1
             outcome: success
           - case: block
-            config: release-fixtures/external-consumer-repository/fixtures/block/tcg.yaml
-            changes: release-fixtures/external-consumer-repository/fixtures/block/changes.yaml
+            config: fixtures/block/tcg.yaml
+            changes: fixtures/block/changes.yaml
             baseline: ""
             candidate: ""
             migration: ""
@@ -50,8 +50,8 @@ jobs:
             schema: tcg-result/v1alpha1
             outcome: failure
           - case: incomplete
-            config: release-fixtures/external-consumer-repository/fixtures/incomplete/tcg.yaml
-            changes: release-fixtures/external-consumer-repository/fixtures/incomplete/changes.yaml
+            config: fixtures/incomplete/tcg.yaml
+            changes: fixtures/incomplete/changes.yaml
             baseline: ""
             candidate: ""
             migration: ""
@@ -61,10 +61,10 @@ jobs:
             schema: tcg-result/v1alpha1
             outcome: failure
           - case: snapshot
-            config: release-fixtures/external-consumer-repository/fixtures/snapshot/tcg.yaml
+            config: fixtures/snapshot/tcg.yaml
             changes: ""
-            baseline: release-fixtures/external-consumer-repository/fixtures/snapshot/baseline.json
-            candidate: release-fixtures/external-consumer-repository/fixtures/snapshot/candidate.json
+            baseline: fixtures/snapshot/baseline.json
+            candidate: fixtures/snapshot/candidate.json
             migration: ""
             status: BLOCK
             exit_code: "2"
@@ -72,11 +72,11 @@ jobs:
             schema: tcg-result/v1alpha1
             outcome: failure
           - case: migration
-            config: release-fixtures/external-consumer-repository/fixtures/migration/tcg.yaml
+            config: fixtures/migration/tcg.yaml
             changes: ""
             baseline: ""
             candidate: ""
-            migration: release-fixtures/external-consumer-repository/fixtures/migration/migration.yaml
+            migration: fixtures/migration/migration.yaml
             status: READY
             exit_code: "0"
             mode: migration
@@ -88,6 +88,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Stage standalone consumer layout
+        shell: bash
+        run: |
+          [[ ! -e fixtures ]]
+          cp -R release-fixtures/external-consumer-repository/fixtures .
 
       - name: Run immutable remote Action coordinate
         id: guard
@@ -125,7 +131,7 @@ jobs:
           jq -e \
             --arg schema "${EXPECTED_SCHEMA}" \
             --arg status "${EXPECTED_STATUS}" \
-            '.schemaVersion == $schema and .status == $status' \
+            '.schemaVersion == $schema and (.status // .summary.status) == $status' \
             "${ACTUAL_JSON}"
           grep -Fq "**Status:** **${EXPECTED_STATUS}**" "${ACTUAL_REPORT}"
 
@@ -147,6 +153,6 @@ jobs:
           [[ "${#reports[@]}" -eq 5 ]]
           jq -s -e '
             length == 5 and
-            ([.[].status] | sort) == (["BLOCK", "BLOCK", "INCOMPLETE", "PASS", "READY"] | sort) and
+            ([.[] | (.status // .summary.status)] | sort) == (["BLOCK", "BLOCK", "INCOMPLETE", "PASS", "READY"] | sort) and
             all(.[]; .schemaVersion == "tcg-result/v1alpha1" or .schemaVersion == "tmr-result/v1alpha1")
           ' "${reports[@]}"
