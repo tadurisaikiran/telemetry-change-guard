@@ -1,0 +1,48 @@
+name: Container Snapshot
+
+on:
+  pull_request:
+    paths:
+      - .dockerignore
+      - Dockerfile
+      - .github/workflows/container-snapshot.yml
+      - go.mod
+      - go.sum
+      - cmd/**
+      - internal/**
+      - adapters/**
+      - pkg/**
+      - examples/getting-started/**
+      - release/metadata.env
+      - scripts/check-release-coordinates.sh
+      - scripts/verify-container.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-snapshot-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build and verify unpublished multi-architecture image
+        run: make container-snapshot

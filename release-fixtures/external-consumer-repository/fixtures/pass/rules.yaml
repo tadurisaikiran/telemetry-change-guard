@@ -1,0 +1,7 @@
+groups:
+  - name: infrastructure
+    rules:
+      - alert: ProcessCPUHigh
+        expr: rate(process_cpu_seconds_total[5m]) > 0.9
+        labels:
+          severity: warning

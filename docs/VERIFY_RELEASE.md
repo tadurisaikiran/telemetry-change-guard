@@ -121,3 +121,23 @@ make release-reproducible
 That target creates two clean snapshot payloads and requires byte-identical
 checksum sets. Since `SHA256SUMS` covers every public asset and the manifest,
 equality proves the complete payload content was reproduced.
+
+## Verify build-only distribution candidates
+
+These commands do not publish anything:
+
+```sh
+make container-snapshot
+make homebrew-formula
+```
+
+The container verifier checks both Linux architectures, OCI labels, non-root
+configuration, the canonical entrypoint, bounded archive paths and digests,
+and subject-bound SPDX and SLSA attestation statements. The host smoke test
+runs with a read-only root and no network, expects the getting-started
+`BLOCK`/exit `2`, and confirms that `/bin/sh` is absent.
+
+The Homebrew generator reads the already verified `SHA256SUMS` and refuses
+missing or duplicate platform hashes. Syntax validation is not a substitute
+for a real tap install; that test remains blocked until the release and tap are
+published with owner approval.

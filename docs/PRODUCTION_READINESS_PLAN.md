@@ -179,6 +179,21 @@ immutable dependencies and warning-free hosted Action checks are prerequisites
 for trusting the later release workflows. No publication behavior is included
 in that security-focused reordering.
 
+### Execution record
+
+| Phase | Pull request | Result |
+| --- | --- | --- |
+| P0 correctness and secret boundary | `#46` | Merged; fail-closed overlap and remote-origin controls verified |
+| Action and workflow hardening | `#47` | Merged; immutable dependencies, permissions, and warning-free smoke tests |
+| Version and build identity | `#49` | Merged; canonical and compatibility identity contracts |
+| Reproducible artifacts and provenance | `#50` | Merged at `4bb5ea7345f56291bebc65c63e8375e46d002f12`; CodeQL-clean, byte-reproducible candidate payload |
+| Install and consumer validation | current branch | In progress; build-only container, generated formula, `go install`, and remote Action fixtures |
+
+The current install phase uses `release/install-and-consumer-validation`, a
+human-named branch from the fully verified `#50` merge. It prepares but does
+not publish a GitHub release, tag, package, image, tap, external repository, or
+announcement.
+
 ## Acceptance criteria by phase
 
 ### Correctness and security

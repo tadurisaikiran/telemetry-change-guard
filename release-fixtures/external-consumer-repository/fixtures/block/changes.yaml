@@ -1,0 +1,13 @@
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: unsafe-metric-removal
+spec:
+  changes:
+    - id: remove-old-metric
+      kind: metric_remove
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: old_metric

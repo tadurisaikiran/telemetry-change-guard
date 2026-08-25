@@ -1,0 +1,143 @@
+name: TCG External Consumer
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  consumer:
+    name: consumer-${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: pass
+            config: fixtures/pass/tcg.yaml
+            changes: fixtures/pass/changes.yaml
+            baseline: ""
+            candidate: ""
+            migration: ""
+            status: PASS
+            exit_code: "0"
+            mode: generic
+            schema: tcg-result/v1alpha1
+            outcome: success
+          - case: block
+            config: fixtures/block/tcg.yaml
+            changes: fixtures/block/changes.yaml
+            baseline: ""
+            candidate: ""
+            migration: ""
+            status: BLOCK
+            exit_code: "2"
+            mode: generic
+            schema: tcg-result/v1alpha1
+            outcome: failure
+          - case: incomplete
+            config: fixtures/incomplete/tcg.yaml
+            changes: fixtures/incomplete/changes.yaml
+            baseline: ""
+            candidate: ""
+            migration: ""
+            status: INCOMPLETE
+            exit_code: "3"
+            mode: generic
+            schema: tcg-result/v1alpha1
+            outcome: failure
+          - case: snapshot
+            config: fixtures/snapshot/tcg.yaml
+            changes: ""
+            baseline: fixtures/snapshot/baseline.json
+            candidate: fixtures/snapshot/candidate.json
+            migration: ""
+            status: BLOCK
+            exit_code: "2"
+            mode: generic
+            schema: tcg-result/v1alpha1
+            outcome: failure
+          - case: migration
+            config: fixtures/migration/tcg.yaml
+            changes: ""
+            baseline: ""
+            candidate: ""
+            migration: fixtures/migration/migration.yaml
+            status: READY
+            exit_code: "0"
+            mode: migration
+            schema: tmr-result/v1alpha1
+            outcome: success
+
+    steps:
+      - name: Check out consumer repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run immutable Telemetry Change Guard Action
+        id: guard
+        continue-on-error: true
+        uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12 # v0.1.0-alpha.1
+        with:
+          config: ${{ matrix.config }}
+          changes: ${{ matrix.changes }}
+          baseline: ${{ matrix.baseline }}
+          candidate: ${{ matrix.candidate }}
+          migration: ${{ matrix.migration }}
+          comment: "false"
+          artifact-name: tcg-consumer-${{ matrix.case }}
+
+      - name: Verify consumer-visible contract
+        if: always()
+        shell: bash
+        env:
+          ACTUAL_EXIT: ${{ steps.guard.outputs.exit-code }}
+          ACTUAL_JSON: ${{ steps.guard.outputs.json-report }}
+          ACTUAL_MODE: ${{ steps.guard.outputs.mode }}
+          ACTUAL_OUTCOME: ${{ steps.guard.outcome }}
+          ACTUAL_REPORT: ${{ steps.guard.outputs.report }}
+          ACTUAL_STATUS: ${{ steps.guard.outputs.status }}
+          EXPECTED_EXIT: ${{ matrix.exit_code }}
+          EXPECTED_MODE: ${{ matrix.mode }}
+          EXPECTED_OUTCOME: ${{ matrix.outcome }}
+          EXPECTED_SCHEMA: ${{ matrix.schema }}
+          EXPECTED_STATUS: ${{ matrix.status }}
+        run: |
+          [[ "${ACTUAL_STATUS}" == "${EXPECTED_STATUS}" ]]
+          [[ "${ACTUAL_EXIT}" == "${EXPECTED_EXIT}" ]]
+          [[ "${ACTUAL_MODE}" == "${EXPECTED_MODE}" ]]
+          [[ "${ACTUAL_OUTCOME}" == "${EXPECTED_OUTCOME}" ]]
+          jq -e \
+            --arg schema "${EXPECTED_SCHEMA}" \
+            --arg status "${EXPECTED_STATUS}" \
+            '.schemaVersion == $schema and (.status // .summary.status) == $status' \
+            "${ACTUAL_JSON}"
+          grep -Fq "**Status:** **${EXPECTED_STATUS}**" "${ACTUAL_REPORT}"
+
+  verify-artifacts:
+    needs: consumer
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download every consumer artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: tcg-consumer-*
+          path: artifacts
+
+      - name: Verify complete artifact set
+        shell: bash
+        run: |
+          mapfile -t reports < <(find artifacts -type f -name '*.json' -print | sort)
+          [[ "${#reports[@]}" -eq 5 ]]
+          jq -s -e '
+            length == 5 and
+            ([.[] | (.status // .summary.status)] | sort) == (["BLOCK", "BLOCK", "INCOMPLETE", "PASS", "READY"] | sort) and
+            all(.[]; .schemaVersion == "tcg-result/v1alpha1" or .schemaVersion == "tmr-result/v1alpha1")
+          ' "${reports[@]}"

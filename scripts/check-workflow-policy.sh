@@ -58,4 +58,13 @@ for workflow in "${root}"/.github/workflows/*.yml "${root}"/.github/workflows/*.
   check_default_permissions "${workflow}"
 done
 
+while IFS= read -r -d '' workflow; do
+  check_uses "${workflow}"
+  check_default_permissions "${workflow}"
+done < <(
+  find "${root}/release-fixtures" -type f \
+    \( -path '*/.github/workflows/*.yml' -o -path '*/.github/workflows/*.yaml' \) \
+    -print0 2>/dev/null
+)
+
 exit "${failures}"

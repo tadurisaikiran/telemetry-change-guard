@@ -28,6 +28,13 @@ owner approval.
   and per-archive SPDX and CycloneDX SBOMs;
 - read-only pull-request snapshot builds plus an inert, environment-gated tag
   workflow prepared for GitHub provenance and prerelease publication;
+- a build-only, digest-pinned distroless OCI image for Linux amd64/arm64 with
+  non-root/read-only smoke tests, SPDX SBOM attestations, and SLSA provenance;
+- a checksum-bound generated Homebrew formula and clean-environment
+  `go install` verification, both still blocked on publication of their
+  external coordinates;
+- a complete external-consumer repository fixture plus hosted remote-coordinate
+  checks for `PASS`, `BLOCK`, `INCOMPLETE`, snapshot, and migration contracts;
 - CodeQL, dependency review, workflow policy, actionlint, zizmor, race,
   fuzz-smoke, vulnerability, and pinned lifecycle validation.
 
@@ -49,8 +56,8 @@ owner approval.
 
 ### Known limitations
 
-- no release artifacts, container image, Homebrew formula, or stable tag have
-  been published;
+- no release artifacts, container image, Homebrew tap, or stable tag have been
+  published; generated candidate outputs do not imply availability;
 - supported coverage is limited to explicitly configured evidence and
   documented adapters; TCG does not claim organization-wide completeness;
 - current fixtures are regression evidence, not independent production

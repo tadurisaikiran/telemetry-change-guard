@@ -1,0 +1,15 @@
+apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  prometheusRules:
+    - path: ./fixtures/pass/rules.yaml
+      required: true
+analysis:
+  includeTransitiveDependencies: true
+  unresolvedReferencePolicy: error
+policy:
+  failOnCriticalLegacyConsumer: true
+  failOnCriticalUnknown: true
+  minimumBlockingCriticality: high
+output:
+  formats: [json]

@@ -5,6 +5,7 @@ package version
 import (
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -42,7 +43,29 @@ type Info struct {
 
 // Current returns the identity embedded in the running executable.
 func Current() Info {
-	return newInfo(Version, Commit, Date, Dirty, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	return newInfo(effectiveVersion(Version, moduleVersion()), Commit, Date, Dirty, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
+
+// effectiveVersion retains authoritative linker metadata for release builds.
+// A binary installed with `go install module/cmd@version` has no release
+// linker flags, so its immutable module version is the next-best identity.
+func effectiveVersion(linked, module string) string {
+	if strings.TrimSpace(linked) != "dev" {
+		return linked
+	}
+	module = strings.TrimPrefix(strings.TrimSpace(module), "v")
+	if semanticVersionPattern.MatchString(module) {
+		return module
+	}
+	return linked
+}
+
+func moduleVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return info.Main.Version
 }
 
 // DirtyText renders the tri-state dirty value for human-readable output.
