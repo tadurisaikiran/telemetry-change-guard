@@ -105,6 +105,7 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	output := flags.String("output", "", "optional report output path")
 	jsonOutput := flags.String("json-output", "", "optional companion JSON report path")
 	statusOutput := flags.String("status-output", "", "optional authoritative status output path")
+	remoteFlags := addRemoteEvidenceFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -136,6 +137,10 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := remoteFlags.apply(&configuration); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
@@ -252,6 +257,7 @@ func runSnapshotCommand(ctx context.Context, args []string, stdout, stderr io.Wr
 	maxMetrics := flags.Int("max-metrics", 50_000, "maximum collected metric families")
 	maxSeries := flags.Int("max-series", 100_000, "maximum inspected Prometheus series")
 	bearerTokenEnv := flags.String("bearer-token-env", "", "environment variable containing an optional Prometheus bearer token")
+	allowInsecureLoopback := flags.Bool("allow-insecure-loopback", false, "allow bearer authentication over HTTP only to an exact loopback development endpoint")
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -278,11 +284,12 @@ func runSnapshotCommand(ctx context.Context, args []string, stdout, stderr io.Wr
 		}
 	}
 	contract, err := (prometheussnapshot.Client{
-		BaseURL:     *prometheusURL,
-		Timeout:     timeout,
-		MaxMetrics:  *maxMetrics,
-		MaxSeries:   *maxSeries,
-		BearerToken: token,
+		BaseURL:               *prometheusURL,
+		Timeout:               timeout,
+		MaxMetrics:            *maxMetrics,
+		MaxSeries:             *maxSeries,
+		BearerToken:           token,
+		AllowInsecureLoopback: *allowInsecureLoopback,
 	}).Collect(ctx, *name)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)

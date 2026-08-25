@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	remoteurl "github.com/tadurisaikiran/telemetry-change-guard/internal/remote"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/snapshot"
 )
 
@@ -31,12 +32,13 @@ const (
 // Client collects a deterministic Prometheus snapshot through read-only API
 // requests. Limits are mandatory and cannot exceed defensive hard bounds.
 type Client struct {
-	BaseURL     string
-	Timeout     time.Duration
-	MaxMetrics  int
-	MaxSeries   int
-	BearerToken string
-	HTTPClient  *http.Client
+	BaseURL               string
+	Timeout               time.Duration
+	MaxMetrics            int
+	MaxSeries             int
+	BearerToken           string
+	AllowInsecureLoopback bool
+	HTTPClient            *http.Client
 }
 
 type metadataEntry struct {
@@ -62,6 +64,14 @@ type metricBuilder struct {
 func (client Client) Collect(ctx context.Context, name string) (snapshot.Snapshot, error) {
 	baseURL, err := parseURL(client.BaseURL)
 	if err != nil {
+		return snapshot.Snapshot{}, err
+	}
+	if err := remoteurl.ValidateCredentialTransport(
+		baseURL,
+		client.BearerToken != "",
+		client.AllowInsecureLoopback,
+		"Prometheus",
+	); err != nil {
 		return snapshot.Snapshot{}, err
 	}
 	if strings.TrimSpace(name) == "" {
@@ -271,16 +281,7 @@ func (client Client) get(
 }
 
 func parseURL(raw string) (*url.URL, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Host == "" ||
-		(!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) {
-		return nil, fmt.Errorf("Prometheus URL must be an absolute http or https URL")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, fmt.Errorf("Prometheus URL must not contain user information, a query, or a fragment")
-	}
-	parsed.Path = strings.TrimRight(parsed.Path, "/")
-	return parsed, nil
+	return remoteurl.ParseBaseURL(raw, "Prometheus")
 }
 
 func endpointURL(baseURL *url.URL, suffix string) url.URL {
@@ -299,8 +300,7 @@ func (client Client) httpClient(baseURL *url.URL, timeout time.Duration) *http.C
 		if len(via) >= 10 {
 			return fmt.Errorf("stop after 10 Prometheus redirects")
 		}
-		if !strings.EqualFold(request.URL.Scheme, baseURL.Scheme) ||
-			!strings.EqualFold(request.URL.Host, baseURL.Host) {
+		if !remoteurl.SameOrigin(request.URL, baseURL) {
 			return fmt.Errorf("refuse redirect outside configured Prometheus origin")
 		}
 		return nil

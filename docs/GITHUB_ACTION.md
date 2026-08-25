@@ -103,9 +103,22 @@ and fails with exit code `1` instead of choosing a mode silently.
 | `migration` | empty | Legacy migration manifest; mutually exclusive with every generic source. |
 | `comment` | `"true"` | Create or update one pull-request comment. |
 | `artifact-name` | `telemetry-change-guard-report` | Name of the uploaded JSON evidence artifact. |
+| `remote-evidence` | `disabled` | Explicit remote evidence policy. Enable only in a trusted workflow. |
+| `allowed-remote-origins` | empty | Newline-separated exact approved origins. Required when remote evidence is enabled. |
+| `allow-insecure-loopback` | `"false"` | Permit credentialed HTTP only for an exact allowlisted loopback development endpoint. |
+| `remote-bearer-token` | empty | Dedicated read-only token exposed to analysis only as `TCG_REMOTE_BEARER_TOKEN`. |
 
 If the Action is invoked more than once in one job, give each invocation a
 different `artifact-name`.
+
+Remote evidence is deliberately disabled by default because `tcg.yaml` comes
+from the analyzed checkout. A trusted workflow must authorize exact origins
+independently of that file. The Action clears the analysis environment and
+exposes only the fixed remote token when one is supplied, so repository
+configuration cannot select another job secret. See [Secure CI usage](SECURE_CI_USAGE.md)
+for fork-safe, protected internal, local, comment-permission, and secret
+handling examples. Never combine `pull_request_target`, a privileged token,
+and execution of an untrusted pull-request checkout.
 
 ## Outputs and artifacts
 

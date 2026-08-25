@@ -22,6 +22,24 @@ exit_code=1
 generic_source_count=0
 generic_source=""
 configuration_error=""
+case "${TCG_REMOTE_EVIDENCE:-disabled}" in
+  disabled)
+    if [[ -n "${TCG_ALLOWED_REMOTE_ORIGINS:-}" || "${TCG_ALLOW_INSECURE_LOOPBACK:-false}" != "false" || -n "${TCG_REMOTE_BEARER_TOKEN:-}" ]]; then
+      configuration_error="Configuration error: allowed-remote-origins, allow-insecure-loopback, and remote-bearer-token require remote-evidence enabled."
+    fi
+    ;;
+  enabled)
+    if [[ -z "${TCG_ALLOWED_REMOTE_ORIGINS:-}" ]]; then
+      configuration_error="Configuration error: remote-evidence enabled requires at least one trusted allowed-remote-origin."
+    fi
+    ;;
+  *)
+    configuration_error="Configuration error: remote-evidence must be disabled or enabled."
+    ;;
+esac
+if [[ "${TCG_ALLOW_INSECURE_LOOPBACK:-false}" != "false" && "${TCG_ALLOW_INSECURE_LOOPBACK:-false}" != "true" ]]; then
+  configuration_error="Configuration error: allow-insecure-loopback must be true or false."
+fi
 if [[ -n "${TCG_CHANGES:-}" ]]; then
   generic_source_count=$((generic_source_count + 1))
   generic_source="changes"
@@ -53,7 +71,7 @@ else
   command=("${RUNNER_TEMP}/telemetry-change-guard")
   if [[ "${generic_source_count}" -eq 1 ]]; then
     mode="generic"
-    command+=(check --config "${TCG_CONFIG}")
+    command+=(check --config "${TCG_CONFIG}" --remote-evidence "${TCG_REMOTE_EVIDENCE:-disabled}")
     case "${generic_source}" in
       changes) command+=(--changes "${TCG_CHANGES}") ;;
       snapshot) command+=(--baseline "${TCG_BASELINE}" --candidate "${TCG_CANDIDATE}") ;;
@@ -65,12 +83,26 @@ else
     esac
   else
     mode="migration"
-    command+=(migration check --config "${TCG_CONFIG}" --plan "${TCG_MIGRATION}")
+    command+=(migration check --config "${TCG_CONFIG}" --plan "${TCG_MIGRATION}" --remote-evidence "${TCG_REMOTE_EVIDENCE:-disabled}")
+  fi
+
+  if [[ "${TCG_REMOTE_EVIDENCE:-disabled}" == "enabled" ]]; then
+    while IFS= read -r origin; do
+      [[ -z "${origin}" ]] && continue
+      command+=(--allowed-remote-origin "${origin}")
+    done <<< "${TCG_ALLOWED_REMOTE_ORIGINS}"
+    if [[ "${TCG_ALLOW_INSECURE_LOOPBACK:-false}" == "true" ]]; then
+      command+=(--allow-insecure-loopback)
+    fi
   fi
 
   if [[ "${#command[@]}" -ne 0 ]]; then
     set +e
-    "${command[@]}" \
+    analysis_environment=(env -i)
+    if [[ "${TCG_REMOTE_EVIDENCE:-disabled}" == "enabled" && -n "${TCG_REMOTE_BEARER_TOKEN:-}" ]]; then
+      analysis_environment+=(TCG_REMOTE_BEARER_TOKEN="${TCG_REMOTE_BEARER_TOKEN}")
+    fi
+    "${analysis_environment[@]}" "${command[@]}" \
       --format markdown \
       --output "${report_path}" \
       --json-output "${json_report_path}" \

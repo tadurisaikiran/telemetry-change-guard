@@ -556,6 +556,7 @@ steps:
     with:
       config: tcg.yaml
       changes: changes.yaml
+      remote-evidence: disabled
 ```
 
 The Action performs one authoritative evaluation, appends a Markdown job
@@ -574,7 +575,8 @@ pre-release binaries, checksums, SBOM/provenance, and the immutable release
 Action coordinate are tracked in
 [issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
 See the [Action guide](docs/GITHUB_ACTION.md) for all inputs, outputs,
-artifacts, and permission choices.
+artifacts, and permission choices. Read [Secure CI usage](docs/SECURE_CI_USAGE.md)
+before enabling a remote adapter or exposing a credential.
 
 ## Trust and safety model
 
@@ -656,7 +658,7 @@ claim without authorization.
 | --- | --- |
 | Understand the system | [Architecture](docs/ARCHITECTURE.md) · [Safety engine](docs/SAFETY_ENGINE.md) · [Threat model](docs/THREAT_MODEL.md) |
 | Define inputs | [ChangeSet](docs/CHANGESET.md) · [Change sources and snapshots](docs/CHANGE_SOURCES.md) · [Migration model](docs/MIGRATION_MODEL.md) · [Configuration](docs/CONFIGURATION.md) |
-| Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Testing](docs/TESTING.md) |
+| Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Secure CI usage](docs/SECURE_CI_USAGE.md) · [Testing](docs/TESTING.md) |
 | Configure local consumers | [Prometheus/Grafana/SLO adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
 | Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [Agentic roadmap](docs/AGENTIC_ROADMAP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
@@ -665,10 +667,7 @@ claim without authorization.
 ## Development
 
 ```bash
-go mod download
-test -z "$(gofmt -l .)"
-go vet ./...
-go test -race ./...
+make verify
 ```
 
 Docker is required only for the live E2E suites. Contributions that affect

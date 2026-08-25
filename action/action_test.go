@@ -2,6 +2,7 @@ package action
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,7 +37,8 @@ func TestActionMetadataAndScript(t *testing.T) {
 	}
 	for _, input := range []string{
 		"config", "changes", "baseline", "candidate", "weaver-diff", "weaver-mapping",
-		"migration", "comment", "artifact-name",
+		"migration", "comment", "artifact-name", "remote-evidence", "allowed-remote-origins",
+		"allow-insecure-loopback", "remote-bearer-token",
 	} {
 		if _, exists := document.Inputs[input]; !exists {
 			t.Errorf("missing %q input", input)
@@ -77,6 +79,76 @@ func TestActionMetadataAndScript(t *testing.T) {
 	} {
 		if !strings.Contains(string(script), expected) {
 			t.Errorf("run-action.sh does not contain %q", expected)
+		}
+	}
+}
+
+func TestRunActionRemoteEvidenceIsDisabledByDefaultAndExplicitlyAllowlisted(t *testing.T) {
+	t.Parallel()
+
+	defaultResult := runActionScript(t, map[string]string{
+		"TCG_CONFIG":      "tcg.yaml",
+		"TCG_CHANGES":     "changes.yaml",
+		"TCG_TEST_SCHEMA": "tcg-result/v1alpha1",
+		"TCG_TEST_STATUS": "PASS",
+		"TCG_TEST_EXIT":   "0",
+	}, true)
+	defaultArguments := strings.Split(strings.TrimSpace(defaultResult.arguments), "\n")
+	for _, expected := range []string{"--remote-evidence", "disabled"} {
+		if !contains(defaultArguments, expected) {
+			t.Fatalf("default arguments missing %q: %#v", expected, defaultArguments)
+		}
+	}
+
+	denied := runActionScript(t, map[string]string{
+		"TCG_CONFIG":          "tcg.yaml",
+		"TCG_CHANGES":         "changes.yaml",
+		"TCG_REMOTE_EVIDENCE": "enabled",
+	}, false)
+	if denied.outputs["status"] != "ERROR" || !strings.Contains(denied.markdown, "trusted allowed-remote-origin") {
+		t.Fatalf("denied result = %#v", denied)
+	}
+
+	allowed := runActionScript(t, map[string]string{
+		"TCG_CONFIG":                 "tcg.yaml",
+		"TCG_CHANGES":                "changes.yaml",
+		"TCG_REMOTE_EVIDENCE":        "enabled",
+		"TCG_ALLOWED_REMOTE_ORIGINS": "https://tempo.example.test\nhttps://perses.example.test",
+		"TCG_TEST_SCHEMA":            "tcg-result/v1alpha1",
+		"TCG_TEST_STATUS":            "PASS",
+		"TCG_TEST_EXIT":              "0",
+	}, true)
+	allowedArguments := strings.Split(strings.TrimSpace(allowed.arguments), "\n")
+	for _, expected := range []string{
+		"enabled", "--allowed-remote-origin", "https://tempo.example.test", "https://perses.example.test",
+	} {
+		if !contains(allowedArguments, expected) {
+			t.Fatalf("allowed arguments missing %q: %#v", expected, allowedArguments)
+		}
+	}
+}
+
+func TestRunActionClearsJobEnvironmentBeforeAnalysis(t *testing.T) {
+	t.Parallel()
+
+	result := runActionScript(t, map[string]string{
+		"TCG_CONFIG":                 "tcg.yaml",
+		"TCG_CHANGES":                "changes.yaml",
+		"TCG_REMOTE_EVIDENCE":        "enabled",
+		"TCG_ALLOWED_REMOTE_ORIGINS": "https://tempo.example.test",
+		"TCG_REMOTE_BEARER_TOKEN":    "dedicated-token",
+		"UNTRUSTED_JOB_SECRET":       "must-not-reach-analysis",
+		"TCG_TEST_SCHEMA":            "tcg-result/v1alpha1",
+		"TCG_TEST_STATUS":            "PASS",
+		"TCG_TEST_EXIT":              "0",
+	}, true)
+	if !strings.Contains(result.arguments, "environment:unset") || !strings.Contains(result.arguments, "remote-token:set") {
+		t.Fatalf("sanitized environment evidence missing: %q", result.arguments)
+	}
+	combined := result.arguments + result.markdown + result.json + result.summary
+	for _, secret := range []string{"must-not-reach-analysis", "dedicated-token"} {
+		if strings.Contains(combined, secret) {
+			t.Fatalf("Action output leaked %q: %s", secret, combined)
 		}
 	}
 }
@@ -245,9 +317,15 @@ func runActionScript(t *testing.T, values map[string]string, installFake bool) a
 	summaryPath := filepath.Join(runner, "github-summary")
 	argumentsPath := filepath.Join(runner, "arguments")
 	if installFake {
-		fake := `#!/usr/bin/env bash
+		fake := fmt.Sprintf(`#!/bin/bash
 set -euo pipefail
-printf '%s\n' "$@" > "${TCG_TEST_ARGUMENTS}"
+test_arguments=%q
+test_schema=%q
+test_status=%q
+test_exit=%q
+printf '%%s\n' "$@" > "${test_arguments}"
+printf 'environment:%%s\n' "${UNTRUSTED_JOB_SECRET-unset}" >> "${test_arguments}"
+printf 'remote-token:%%s\n' "${TCG_REMOTE_BEARER_TOKEN+set}" >> "${test_arguments}"
 report=""
 json_report=""
 status_output=""
@@ -259,11 +337,11 @@ while (($#)); do
     *) shift ;;
   esac
 done
-printf '# Telemetry Change Guard\n\n**Status:** **%s**\n' "${TCG_TEST_STATUS}" > "${report}"
-printf '{\n  "schemaVersion": "%s",\n  "status": "%s"\n}\n' "${TCG_TEST_SCHEMA}" "${TCG_TEST_STATUS}" > "${json_report}"
-printf '%s\n' "${TCG_TEST_STATUS}" > "${status_output}"
-exit "${TCG_TEST_EXIT}"
-`
+printf '# Telemetry Change Guard\n\n**Status:** **%%s**\n' "${test_status}" > "${report}"
+printf '{\n  "schemaVersion": "%%s",\n  "status": "%%s"\n}\n' "${test_schema}" "${test_status}" > "${json_report}"
+printf '%%s\n' "${test_status}" > "${status_output}"
+exit "${test_exit}"
+`, argumentsPath, values["TCG_TEST_SCHEMA"], values["TCG_TEST_STATUS"], values["TCG_TEST_EXIT"])
 		binary := filepath.Join(runner, "telemetry-change-guard")
 		if err := os.WriteFile(binary, []byte(fake), 0o755); err != nil {
 			t.Fatal(err)

@@ -57,6 +57,7 @@ func runMigrationCheck(
 	output := flags.String("output", "", "optional report output path")
 	jsonOutput := flags.String("json-output", "", "optional companion JSON report path")
 	statusOutput := flags.String("status-output", "", "optional authoritative status output path")
+	remoteFlags := addRemoteEvidenceFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -79,6 +80,10 @@ func runMigrationCheck(
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := remoteFlags.apply(&configuration); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
@@ -154,6 +159,7 @@ func runMigrationAdvise(
 	providerTimeout := flags.Duration("ai-timeout", 30*time.Second, "AI provider timeout (maximum 2m)")
 	var providerArgs stringListFlag
 	flags.Var(&providerArgs, "ai-arg", "argument passed directly to the AI provider executable (repeatable)")
+	remoteFlags := addRemoteEvidenceFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -176,6 +182,10 @@ func runMigrationAdvise(
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := remoteFlags.apply(&configuration); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
@@ -234,6 +244,7 @@ func runMigrationRemediate(
 	providerTimeout := flags.Duration("ai-timeout", 30*time.Second, "AI provider timeout (maximum 2m)")
 	var providerArgs stringListFlag
 	flags.Var(&providerArgs, "ai-arg", "argument passed directly to the AI provider executable (repeatable)")
+	remoteFlags := addRemoteEvidenceFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -256,6 +267,10 @@ func runMigrationRemediate(
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := remoteFlags.apply(&configuration); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
@@ -341,6 +356,7 @@ func runGraphCommand(ctx context.Context, requireComplete bool, args []string, s
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	format := flags.String("format", "json", "graph format (json)")
 	output := flags.String("output", "", "optional graph output path")
+	remoteFlags := addRemoteEvidenceFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -354,6 +370,10 @@ func runGraphCommand(ctx context.Context, requireComplete bool, args []string, s
 	}
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := remoteFlags.apply(&configuration); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
@@ -392,6 +412,7 @@ func runSymbolImpact(
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	symbolName := flags.String("symbol", "", "Prometheus metric name")
+	remoteFlags := addRemoteEvidenceFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -401,6 +422,10 @@ func runSymbolImpact(
 	}
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	if err := remoteFlags.apply(&configuration); err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}

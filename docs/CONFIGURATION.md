@@ -64,6 +64,12 @@ sources:
       bearerTokenEnv: TCG_PERSES_TOKEN
 ```
 
+Credentialed remote evidence also requires execution policy supplied outside
+this configuration: an exact allowed origin and HTTPS, except for an explicitly
+enabled loopback-only development exception. The GitHub Action accepts only the
+fixed `TCG_REMOTE_BEARER_TOKEN` reference and defaults remote evidence to
+disabled. See [Secure CI usage](SECURE_CI_USAGE.md).
+
 For every configured `TCG_NAME`, Telemetry Change Guard resolves environment
 values as follows:
 

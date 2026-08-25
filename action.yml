@@ -43,6 +43,22 @@ inputs:
     description: Name of the uploaded JSON evidence artifact
     required: false
     default: telemetry-change-guard-report
+  remote-evidence:
+    description: Remote evidence policy; disabled by default and enabled only by a trusted workflow
+    required: false
+    default: disabled
+  allowed-remote-origins:
+    description: Newline-separated exact origins supplied by trusted workflow configuration; required when remote evidence is enabled
+    required: false
+    default: ""
+  allow-insecure-loopback:
+    description: Allow bearer authentication over HTTP only to an allowlisted loopback development endpoint
+    required: false
+    default: "false"
+  remote-bearer-token:
+    description: Optional bearer token exposed to analysis only as TCG_REMOTE_BEARER_TOKEN
+    required: false
+    default: ""
 
 outputs:
   status:
@@ -86,6 +102,10 @@ runs:
         TCG_WEAVER_DIFF: ${{ inputs.weaver-diff }}
         TCG_WEAVER_MAPPING: ${{ inputs.weaver-mapping }}
         TCG_MIGRATION: ${{ inputs.migration }}
+        TCG_REMOTE_EVIDENCE: ${{ inputs.remote-evidence }}
+        TCG_ALLOWED_REMOTE_ORIGINS: ${{ inputs.allowed-remote-origins }}
+        TCG_ALLOW_INSECURE_LOOPBACK: ${{ inputs.allow-insecure-loopback }}
+        TCG_REMOTE_BEARER_TOKEN: ${{ inputs.remote-bearer-token }}
       run: "${GITHUB_ACTION_PATH}/action/run-action.sh"
 
     - name: Upload JSON evidence

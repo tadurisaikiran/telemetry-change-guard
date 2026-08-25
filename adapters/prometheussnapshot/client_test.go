@@ -41,6 +41,7 @@ func TestClientCollectsBoundedNormalizedContract(t *testing.T) {
 
 	result, err := (Client{
 		BaseURL: server.URL + "/prom", MaxMetrics: 10, MaxSeries: 20, BearerToken: "test-secret",
+		AllowInsecureLoopback: true,
 	}).Collect(context.Background(), "checkout-contract")
 	if err != nil {
 		t.Fatal(err)
@@ -146,6 +147,17 @@ func TestClientRejectsUnsafeURLRedirectAndLimits(t *testing.T) {
 	_, err = (Client{BaseURL: redirect.URL}).Collect(context.Background(), "fixture")
 	if err == nil || !strings.Contains(err.Error(), "refuse redirect outside") {
 		t.Fatalf("redirect error = %v", err)
+	}
+}
+
+func TestClientRejectsBearerTokenOverPlaintextHTTP(t *testing.T) {
+	t.Parallel()
+
+	_, err := (Client{
+		BaseURL: "http://prometheus.example.test", BearerToken: "must-not-leak",
+	}).Collect(context.Background(), "fixture")
+	if err == nil || !strings.Contains(err.Error(), "requires HTTPS") || strings.Contains(err.Error(), "must-not-leak") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

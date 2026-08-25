@@ -220,6 +220,37 @@ func TestGenericSafetyRuntimeFailureIsError(t *testing.T) {
 	}
 }
 
+func TestOverlappingLocalPatternsCannotDowngradeMalformedRequiredEvidence(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	critical := filepath.Join(root, "monitoring", "critical")
+	if err := os.MkdirAll(critical, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	malformed := filepath.Join(critical, "rules.yaml")
+	if err := os.WriteFile(malformed, []byte("groups: ["), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	broad := config.SourcePattern{Pattern: filepath.Join(root, "monitoring", "**", "*.yaml"), Required: false}
+	narrow := config.SourcePattern{Pattern: filepath.Join(critical, "*.yaml"), Required: true}
+
+	var previousMessage string
+	for _, patterns := range [][]config.SourcePattern{{broad, narrow}, {narrow, broad}} {
+		discovery, _, err := Discover(context.Background(), testConfiguration(config.Sources{PrometheusRules: patterns}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(discovery.Diagnostics) != 1 || !discovery.Diagnostics[0].Required {
+			t.Fatalf("diagnostics = %#v", discovery.Diagnostics)
+		}
+		if previousMessage != "" && discovery.Diagnostics[0].Message != previousMessage {
+			t.Fatalf("configuration order changed diagnostic: %q != %q", discovery.Diagnostics[0].Message, previousMessage)
+		}
+		previousMessage = discovery.Diagnostics[0].Message
+	}
+}
+
 func TestEnvironmentReferenceLegacyFallbackAndConflict(t *testing.T) {
 	t.Setenv("TMR_ANALYSIS_TEST_TOKEN", "legacy-token")
 	configuration := testConfiguration(config.Sources{PersesUsage: []config.PersesUsageSource{{
@@ -228,6 +259,7 @@ func TestEnvironmentReferenceLegacyFallbackAndConflict(t *testing.T) {
 		Timeout:        "1s",
 		BearerTokenEnv: "TCG_ANALYSIS_TEST_TOKEN",
 	}}})
+	configuration.RemoteEvidence.AllowedOrigins = []string{"https://usage.example.test"}
 
 	resolved, err := resolveEnvironmentReferences(configuration)
 	if err != nil {
@@ -338,6 +370,27 @@ func TestPersesUsageFailureHonorsRequiredPolicy(t *testing.T) {
 	}
 }
 
+func TestRepeatedPersesSourceUsesStrictestRequiredPolicy(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		http.Error(writer, "unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	optional := config.PersesUsageSource{URL: server.URL, Required: false, Timeout: "1s"}
+	required := optional
+	required.Required = true
+	for _, sources := range [][]config.PersesUsageSource{{optional, required}, {required, optional}} {
+		discovery, _, err := Discover(context.Background(), testConfiguration(config.Sources{PersesUsage: sources}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(discovery.Diagnostics) != 1 || !discovery.Diagnostics[0].Required {
+			t.Fatalf("diagnostics = %#v", discovery.Diagnostics)
+		}
+	}
+}
+
 func TestPersesUsageMissingBearerTokenIsIncomplete(t *testing.T) {
 	t.Setenv("TMR_TEST_DEFINITELY_UNSET_TOKEN", "")
 	configuration := testConfiguration(config.Sources{PersesUsage: []config.PersesUsageSource{{
@@ -346,6 +399,7 @@ func TestPersesUsageMissingBearerTokenIsIncomplete(t *testing.T) {
 		Timeout:        "1s",
 		BearerTokenEnv: "TMR_TEST_DEFINITELY_UNSET_TOKEN",
 	}}})
+	configuration.RemoteEvidence.AllowedOrigins = []string{"https://usage.example.test"}
 	result, _, _, err := Run(context.Background(), configuration, mustParseRemovalMigration(t))
 	if err != nil {
 		t.Fatal(err)
@@ -355,6 +409,91 @@ func TestPersesUsageMissingBearerTokenIsIncomplete(t *testing.T) {
 	}
 	if len(result.Diagnostics) != 1 || !strings.Contains(result.Diagnostics[0].Message, "unset or empty") {
 		t.Fatalf("diagnostics = %#v", result.Diagnostics)
+	}
+}
+
+func TestRemoteEvidencePolicyFailsClosedWithoutErasingLocalFindings(t *testing.T) {
+	t.Parallel()
+
+	rulesPath := filepath.Join(t.TempDir(), "rules.yaml")
+	if err := os.WriteFile(rulesPath, []byte(`groups:
+  - name: checkout
+    rules:
+      - alert: LegacyMetricStillUsed
+        expr: old_metric > 0
+        labels: {severity: critical}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name       string
+		required   bool
+		wantStatus readiness.Status
+	}{
+		{name: "required denied with confirmed block", required: true, wantStatus: readiness.StatusBlocked},
+		{name: "optional denied", required: false, wantStatus: readiness.StatusBlocked},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			configuration := testConfiguration(config.Sources{
+				PrometheusRules: []config.SourcePattern{{Pattern: rulesPath, Required: true}},
+				PersesUsage: []config.PersesUsageSource{{
+					URL: "https://usage.example.test", Required: test.required, Timeout: "1s",
+				}},
+			})
+			configuration.RemoteEvidence.Mode = config.RemoteEvidenceDisabled
+			result, _, discovery, err := Run(context.Background(), configuration, mustParseRemovalMigration(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Summary.Status != test.wantStatus || len(result.Changes) != 1 || len(result.Changes[0].Consumers) != 1 {
+				t.Fatalf("result = %#v", result)
+			}
+			if len(discovery.Diagnostics) != 1 || discovery.Diagnostics[0].Required != test.required ||
+				!strings.Contains(discovery.Diagnostics[0].Message, "disabled") {
+				t.Fatalf("diagnostics = %#v", discovery.Diagnostics)
+			}
+		})
+	}
+}
+
+func TestCredentialedRemoteOriginCannotBeRedirectedByRepositoryConfiguration(t *testing.T) {
+	t.Setenv("TCG_REMOTE_POLICY_TEST_TOKEN", "must-not-leak")
+	configuration := testConfiguration(config.Sources{PersesUsage: []config.PersesUsageSource{{
+		URL:            "https://attacker.example.test",
+		Required:       true,
+		Timeout:        "1s",
+		BearerTokenEnv: "TCG_REMOTE_POLICY_TEST_TOKEN",
+	}}})
+	configuration.RemoteEvidence = config.RemoteEvidencePolicy{
+		Mode:           config.RemoteEvidenceEnabled,
+		AllowedOrigins: []string{"https://usage.example.test"},
+	}
+	result, _, discovery, err := Run(context.Background(), configuration, mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary.Status != readiness.StatusIncomplete || len(discovery.Diagnostics) != 1 ||
+		!strings.Contains(discovery.Diagnostics[0].Message, "not in the execution policy allowlist") {
+		t.Fatalf("result = %#v, diagnostics = %#v", result, discovery.Diagnostics)
+	}
+	if strings.Contains(discovery.Diagnostics[0].Message, "must-not-leak") {
+		t.Fatalf("diagnostic leaked bearer token: %s", discovery.Diagnostics[0].Message)
+	}
+}
+
+func TestDisabledRequiredRemoteEvidenceCannotProduceReady(t *testing.T) {
+	t.Parallel()
+
+	configuration := testConfiguration(config.Sources{PersesUsage: []config.PersesUsageSource{{
+		URL: "https://usage.example.test", Required: true, Timeout: "1s",
+	}}})
+	configuration.RemoteEvidence.Mode = config.RemoteEvidenceDisabled
+	result, _, _, err := Run(context.Background(), configuration, mustParseRemovalMigration(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary.Status != readiness.StatusIncomplete {
+		t.Fatalf("status = %s, want INCOMPLETE", result.Summary.Status)
 	}
 }
 
@@ -506,6 +645,65 @@ func TestRuntimeQueryEvidenceIsAdditiveAndFailClosed(t *testing.T) {
 	}
 	if stillBlocked.Summary.Status != readiness.StatusBlocked {
 		t.Fatalf("empty runtime evidence weakened configured dependency: status = %s", stillBlocked.Summary.Status)
+	}
+}
+
+func TestRuntimeQueryOverlapUsesStrictestRequiredPolicy(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	critical := filepath.Join(root, "critical")
+	if err := os.MkdirAll(critical, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	queryLog := filepath.Join(critical, "query.log")
+	if err := os.WriteFile(queryLog, []byte("not-json\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	broad := config.RuntimeQuerySource{
+		Pattern: filepath.Join(root, "**", "*.log"), Required: false,
+		Format: config.RuntimeQueryFormatPrometheusLog, Window: "24h", Criticality: "high",
+	}
+	narrow := broad
+	narrow.Pattern = filepath.Join(critical, "*.log")
+	narrow.Required = true
+
+	for _, sources := range [][]config.RuntimeQuerySource{{broad, narrow}, {narrow, broad}} {
+		discovery, _, err := Discover(context.Background(), testConfiguration(config.Sources{RuntimeQueries: sources}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(discovery.Diagnostics) != 1 || !discovery.Diagnostics[0].Required {
+			t.Fatalf("diagnostics = %#v", discovery.Diagnostics)
+		}
+	}
+}
+
+func TestRepeatedTempoSourceUsesStrictestRequiredPolicy(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Write([]byte(`{"traces":[]}`))
+	}))
+	defer server.Close()
+	manifest := filepath.Join(t.TempDir(), "queries.yaml")
+	if err := os.WriteFile(manifest, []byte("queries: ["), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	optional := config.TempoQuerySource{
+		URL: server.URL, Pattern: manifest, Required: false, Timeout: "1s", Criticality: "high",
+	}
+	required := optional
+	required.Required = true
+
+	for _, sources := range [][]config.TempoQuerySource{{optional, required}, {required, optional}} {
+		discovery, _, err := Discover(context.Background(), testConfiguration(config.Sources{TempoQueries: sources}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(discovery.Diagnostics) != 1 || !discovery.Diagnostics[0].Required {
+			t.Fatalf("diagnostics = %#v", discovery.Diagnostics)
+		}
 	}
 }
 

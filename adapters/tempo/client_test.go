@@ -27,7 +27,9 @@ func TestClientValidatesThroughBoundedAuthenticatedTempoSearch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := (Client{BaseURL: server.URL + "/base", Timeout: time.Second, BearerToken: "secret"}).Validate(
+	err := (Client{
+		BaseURL: server.URL + "/base", Timeout: time.Second, BearerToken: "secret", AllowInsecureLoopback: true,
+	}).Validate(
 		context.Background(),
 		`{ span.http.method = "GET" }`,
 	)
@@ -83,9 +85,23 @@ func TestClientRejectsStatusTimeoutOversizeAndCrossOriginRedirect(t *testing.T) 
 			http.Redirect(writer, request, target.URL+request.URL.Path, http.StatusTemporaryRedirect)
 		}))
 		defer redirect.Close()
-		err := (Client{BaseURL: redirect.URL, Timeout: time.Second, BearerToken: "must-not-leak"}).Validate(context.Background(), "{}")
+		err := (Client{
+			BaseURL: redirect.URL, Timeout: time.Second, BearerToken: "must-not-leak", AllowInsecureLoopback: true,
+		}).Validate(context.Background(), "{}")
 		if err == nil || !strings.Contains(err.Error(), "refuse redirect") || reached.Load() || strings.Contains(err.Error(), "must-not-leak") {
 			t.Fatalf("error = %v reached = %t", err, reached.Load())
 		}
 	})
+}
+
+func TestClientRejectsBearerTokenOverPlaintextHTTP(t *testing.T) {
+	t.Parallel()
+
+	err := (Client{BaseURL: "http://tempo.example.test", BearerToken: "must-not-leak"}).Validate(
+		context.Background(),
+		"{}",
+	)
+	if err == nil || !strings.Contains(err.Error(), "requires HTTPS") || strings.Contains(err.Error(), "must-not-leak") {
+		t.Fatalf("error = %v", err)
+	}
 }

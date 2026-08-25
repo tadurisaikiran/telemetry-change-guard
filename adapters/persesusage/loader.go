@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	remoteurl "github.com/tadurisaikiran/telemetry-change-guard/internal/remote"
 )
 
 const defaultTimeout = 10 * time.Second
@@ -18,11 +19,12 @@ const defaultTimeout = 10 * time.Second
 // The service is optional architecture: only its documented HTTP API crosses
 // the adapter boundary.
 type Loader struct {
-	BaseURL     string
-	Required    bool
-	Timeout     time.Duration
-	BearerToken string
-	Client      *http.Client
+	BaseURL               string
+	Required              bool
+	Timeout               time.Duration
+	BearerToken           string
+	AllowInsecureLoopback bool
+	Client                *http.Client
 }
 
 // Discover fetches all supported metrics-usage endpoints. A metrics endpoint
@@ -32,6 +34,14 @@ type Loader struct {
 func (loader Loader) Discover(ctx context.Context) (domain.Discovery, error) {
 	baseURL, err := parseBaseURL(loader.BaseURL)
 	if err != nil {
+		return domain.Discovery{}, err
+	}
+	if err := remoteurl.ValidateCredentialTransport(
+		baseURL,
+		loader.BearerToken != "",
+		loader.AllowInsecureLoopback,
+		"Perses metrics-usage",
+	); err != nil {
 		return domain.Discovery{}, err
 	}
 	timeout := loader.Timeout
@@ -85,16 +95,7 @@ func (loader Loader) Discover(ctx context.Context) (domain.Discovery, error) {
 }
 
 func parseBaseURL(raw string) (*url.URL, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Host == "" ||
-		(!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) {
-		return nil, fmt.Errorf("Perses metrics-usage URL must be an absolute http or https URL")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, fmt.Errorf("Perses metrics-usage URL must not contain user information, a query, or a fragment")
-	}
-	parsed.Path = strings.TrimRight(parsed.Path, "/")
-	return parsed, nil
+	return remoteurl.ParseBaseURL(raw, "Perses metrics-usage")
 }
 
 func (loader Loader) httpClient(baseURL *url.URL, timeout time.Duration) *http.Client {
@@ -107,8 +108,7 @@ func (loader Loader) httpClient(baseURL *url.URL, timeout time.Duration) *http.C
 		if len(via) >= 10 {
 			return fmt.Errorf("stop after 10 Perses metrics-usage redirects")
 		}
-		if !strings.EqualFold(request.URL.Scheme, baseURL.Scheme) ||
-			!strings.EqualFold(request.URL.Host, baseURL.Host) {
+		if !remoteurl.SameOrigin(request.URL, baseURL) {
 			return fmt.Errorf("refuse redirect outside configured Perses metrics-usage origin")
 		}
 		return nil
