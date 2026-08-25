@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: checkout-success-gate
+  namespace: commerce
+  labels:
+    app.kubernetes.io/environment: production
+spec:
+  metrics:
+    - name: checkout-request-rate
+      successCondition: result[0] > 10
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc:9090
+          query: sum(rate(checkout_requests_total[5m]))

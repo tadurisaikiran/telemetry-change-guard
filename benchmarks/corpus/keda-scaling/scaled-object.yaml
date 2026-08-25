@@ -1,0 +1,17 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: checkout-worker-scaler
+  namespace: commerce
+spec:
+  scaleTargetRef:
+    name: checkout-worker
+  minReplicaCount: 2
+  maxReplicaCount: 40
+  triggers:
+    - type: prometheus
+      name: checkout-request-rate
+      metadata:
+        serverAddress: http://prometheus.monitoring.svc:9090
+        threshold: "100"
+        query: sum(rate(checkout_requests_total[2m]))

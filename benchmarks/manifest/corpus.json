@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "tcg-benchmark/v1alpha1",
+  "corpusVersion": "2026-08-25.1",
+  "cases": [
+    {
+      "id": "argo-rollout-gate",
+      "description": "A rollout analysis gate consumes a removed metric.",
+      "feature": "Argo Rollouts deployment gate",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The rollout gate directly queries checkout_requests_total and must block removal.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/argo-rollout-gate/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "BLOCK", "exitCode": 2, "findingCount": 1, "impacts": ["DEPLOYMENT_GATE_RISK"], "diagnosticCount": 0}
+    },
+    {
+      "id": "direct-alert",
+      "description": "A paging alert directly consumes a removed metric.",
+      "feature": "Prometheus alert",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The alert directly queries checkout_requests_total and must block removal.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/direct-alert/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "BLOCK", "exitCode": 2, "findingCount": 1, "impacts": ["ALERTING_RISK"], "diagnosticCount": 0}
+    },
+    {
+      "id": "grafana-dashboard",
+      "description": "A Grafana panel directly consumes a removed metric.",
+      "feature": "Grafana dashboard",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The panel loses visibility, but its medium criticality remains a warning under this policy.",
+      "critical": false,
+      "command": ["check", "--config", "benchmarks/corpus/grafana-dashboard/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "WARN", "exitCode": 0, "findingCount": 1, "impacts": ["VISIBILITY_LOSS"], "diagnosticCount": 0}
+    },
+    {
+      "id": "keda-scaling",
+      "description": "A KEDA Prometheus trigger directly consumes a removed metric.",
+      "feature": "KEDA autoscaling",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The scaler directly queries checkout_requests_total and must block removal.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/keda-scaling/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "BLOCK", "exitCode": 2, "findingCount": 1, "impacts": ["SCALING_RISK"], "diagnosticCount": 0}
+    },
+    {
+      "id": "malformed-required",
+      "description": "A required Prometheus rule source is malformed.",
+      "feature": "Fail-closed required evidence",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "Required evidence cannot be loaded, so the result must be incomplete instead of safe.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/malformed-required/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "INCOMPLETE", "exitCode": 3, "findingCount": 0, "impacts": [], "diagnosticCount": 1}
+    },
+    {
+      "id": "mapped-hpa",
+      "description": "An HPA external metric maps to a removed Prometheus source metric.",
+      "feature": "HPA mapping",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The checked-in mapping binds the HPA metric to rabbitmq_queue_messages_ready and must block removal.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/mapped-hpa/config.yaml", "--changes", "benchmarks/corpus/remove-hpa-source-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "BLOCK", "exitCode": 2, "findingCount": 1, "impacts": ["SCALING_RISK"], "diagnosticCount": 0}
+    },
+    {
+      "id": "migrated-consumer",
+      "description": "A dashboard has moved from the legacy metric to the replacement.",
+      "feature": "Migration readiness",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The only configured consumer uses checkout_server_requests_total and is migrated.",
+      "critical": false,
+      "command": ["migration", "check", "--config", "benchmarks/corpus/migrated-consumer/config.yaml", "--plan", "benchmarks/corpus/rename-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tmr-result/v1alpha1", "status": "READY", "exitCode": 0, "diagnosticCount": 0, "consumerClassifications": ["MIGRATED"]}
+    },
+    {
+      "id": "safe-lookalike",
+      "description": "A similarly named metric must not be treated as the removed metric.",
+      "feature": "Exact symbol matching negative control",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "checkout_requests_total_v2 is a different symbol, so removal of checkout_requests_total is safe for this evidence set.",
+      "critical": false,
+      "command": ["check", "--config", "benchmarks/corpus/safe-lookalike/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "PASS", "exitCode": 0, "findingCount": 0, "impacts": [], "diagnosticCount": 0}
+    },
+    {
+      "id": "sloth-slo",
+      "description": "A Sloth SLO directly consumes a removed metric.",
+      "feature": "Sloth SLO",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The SLI queries depend on checkout_requests_total and must block removal.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/sloth-slo/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "BLOCK", "exitCode": 2, "findingCount": 1, "impacts": ["SLO_RISK"], "diagnosticCount": 0}
+    },
+    {
+      "id": "transitive-recording-rule",
+      "description": "A removed metric feeds a recording rule that feeds an alert.",
+      "feature": "Transitive Prometheus dependency",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "Both the recording rule and downstream alert are affected and the alerting path must block removal.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/transitive-recording-rule/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "BLOCK", "exitCode": 2, "findingCount": 2, "impacts": ["ALERTING_RISK", "SEMANTIC_RISK"], "diagnosticCount": 0}
+    },
+    {
+      "id": "unresolved-dynamic-query",
+      "description": "A required Grafana query contains a dynamic metric name.",
+      "feature": "Unresolved required query",
+      "source": "TCG synthetic fixture",
+      "license": "Apache-2.0",
+      "groundTruth": "The metric identity cannot be resolved statically, so the result must be incomplete instead of safe.",
+      "critical": true,
+      "command": ["check", "--config", "benchmarks/corpus/unresolved-dynamic-query/config.yaml", "--changes", "benchmarks/corpus/remove-checkout-metric.yaml"],
+      "expected": {"schemaVersion": "tcg-result/v1alpha1", "status": "INCOMPLETE", "exitCode": 3, "findingCount": 1, "impacts": ["VISIBILITY_LOSS"], "diagnosticCount": 1}
+    }
+  ]
+}

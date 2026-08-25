@@ -18,33 +18,94 @@
   <a href="#run-your-first-check">First check</a> ·
   <a href="#use-it-on-your-repository">Inputs and outputs</a> ·
   <a href="#what-telemetry-change-guard-protects">Coverage</a> ·
-  <a href="#ai-assisted-telemetry-engineering">AI workflows</a> ·
   <a href="#github-action">GitHub Action</a> ·
   <a href="#documentation">Documentation</a>
 </p>
 
-Metrics, labels, span attributes, and resource attributes are operational APIs.
-Dashboards visualize them. Alerts page on them. SLOs measure them. Autoscalers
-and deployment gates can use them to control production.
+Renaming a metric can be a one-line code change that silently blinds an alert,
+invalidates an SLO, or changes how production scales. The application can
+compile, its tests can pass, and the deployment can succeed because normal CI
+checks the producer—not every operational consumer of the signal.
 
-Changing one may take a single line of code while breaking consumers spread
-across repositories and systems. The application can compile, every test can
-pass, and the deployment can succeed while an alert goes blind, an SLO stops
-measuring the right behavior, or production automation acts on a broken signal.
+**TCG treats telemetry like an API contract and checks which configured
+consumers will break before the contract changes.** It follows direct and
+transitive dependencies across the evidence you configure, classifies the
+operational impact, and applies deterministic policy before merge or
+deployment.
 
-That is the telemetry contract gap—and it grows as human and AI coding agents
-change instrumentation faster than engineers can manually trace its downstream
-blast radius.
+```text
+proposed telemetry change + configured consumer evidence
+                         |
+                         v
+           dependency paths + policy evaluation
+                         |
+              PASS · WARN · BLOCK · INCOMPLETE
+```
 
-**Telemetry Change Guard (TCG) finds that blast radius before merge or
-deployment.** Give it an explicit ChangeSet, baseline and candidate Prometheus
-snapshots, or a mapped OpenTelemetry Weaver diff. TCG discovers configured
-consumers, follows direct and transitive dependencies, classifies operational
-impact, and applies explicit policy.
+The output is reviewable evidence: the affected consumer, source location,
+criticality, dependency path, policy reason, versioned machine report, and one
+authoritative decision.
 
-The result is reviewable evidence, not a guess: the affected consumer, source
-location, criticality, dependency path, policy reason, machine-readable report,
-and one authoritative decision.
+> **Public alpha candidate:** the CLI, GitHub Action, release build, container
+> build, and external-consumer paths are tested. No release tag, packaged
+> binary, container image, or Homebrew formula has been published yet. Pin the
+> exact reviewed commit shown below and read the [alpha limitations](docs/LIMITATIONS.md)
+> before production evaluation.
+
+## Try it in five minutes
+
+You need Git and Go 1.27 or newer. Install the exact reviewed CLI build:
+
+```bash
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+telemetry-change-guard version
+```
+
+Get the matching sample inputs and run the first check:
+
+```bash
+git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
+cd telemetry-change-guard
+git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
+
+telemetry-change-guard validate \
+  --changes ./examples/getting-started/changes.yaml
+
+telemetry-change-guard check \
+  --config ./examples/getting-started/tcg.yaml \
+  --changes ./examples/getting-started/changes.yaml \
+  --mode enforce
+```
+
+The sample proposes removing `checkout_requests_total`; a critical alert still
+queries it. Validation exits `0`. The check returns this intentional safety
+block and exits `2`:
+
+```text
+Status:    BLOCK
+Findings:  1
+
+[BLOCK] ALERTING_RISK — CheckoutTrafficMissing
+  Source:      examples/getting-started/prometheus/rules.yaml:4
+  Path:        checkout_requests_total -> CheckoutTrafficMissing
+
+STATUS: BLOCK
+```
+
+Exit `2` means TCG ran correctly and rejected the change; it is not a crash.
+In your repository, provide the same three concepts:
+
+| Input | What it says |
+| --- | --- |
+| ChangeSet, snapshot pair, or mapped Weaver diff | What telemetry contract will change |
+| `tcg.yaml` | Which evidence sources to inspect and which policy to enforce |
+| Consumer artifacts or explicitly configured remote evidence | What currently depends on the telemetry |
+
+TCG reports only what it can establish from configured evidence. It does not
+automatically discover every repository or runtime consumer in an organization,
+and it does not treat missing or unresolved required evidence as safe. See the
+[quickstart](docs/QUICKSTART.md), [installation guide](docs/INSTALLATION.md),
+and [troubleshooting guide](docs/TROUBLESHOOTING.md) for the next step.
 
 | Decision | What it means |
 | --- | --- |
@@ -53,33 +114,6 @@ and one authoritative decision.
 | `BLOCK` | Complete evidence proves an enforced policy violation |
 | `INCOMPLETE` | Required evidence is missing, malformed, dynamic, or unresolved |
 | `ERROR` | The input, configuration, discovery, or evaluation failed safely |
-
-For example, the included getting-started scenario proposes removing
-`checkout_requests_total`. The application change is trivial, but a critical
-Prometheus alert still queries the old metric. TCG identifies the exact rule
-and source line, proves the dependency path, classifies `ALERTING_RISK`, and
-returns `BLOCK` with exit code `2` before the change reaches production.
-
-```mermaid
-flowchart LR
-    A["Proposed change<br/>ChangeSet · snapshots · Weaver diff"] --> B["Strict discovery<br/>local + optional remote evidence"]
-    B --> C["Dependency graph<br/>direct + transitive paths"]
-    C --> D["Operational impact<br/>visibility · alerts · SLOs"]
-    C --> E["Control-plane impact<br/>scaling · rollout gates · automation"]
-    D --> F["Deterministic policy<br/>audit · warn · enforce"]
-    E --> F
-    F --> G["PASS · WARN · BLOCK<br/>INCOMPLETE · ERROR"]
-```
-
-TCG is local-first, open source, and useful without AI, a database, or a hosted
-service. Optional remote evidence and AI assistance are isolated behind
-explicit, bounded interfaces; neither can override the deterministic result.
-
-> **AI proposes. Humans approve. TCG verifies and decides.** AI can help read a
-> change, explain evidence, draft a repair, or iterate inside the experimental
-> isolated agentic loop. It can never create or override TCG's authoritative
-> status. See [AI-assisted telemetry engineering](#ai-assisted-telemetry-engineering)
-> and the [experimental agentic quickstart](experiments/agentic/README.md).
 
 ## See what it catches
 
@@ -123,23 +157,21 @@ and returns `INCOMPLETE`. It never turns an incomplete graph into a clean pass.
 
 ## Install
 
-### Build the CLI from source
+### Install the reviewed commit with Go
 
 **Download status:** TCG does not yet publish packaged binaries, container
-images, Homebrew packages, or a stable release tag. The current supported
-installation path requires Git and Go 1.27 or newer:
+images, Homebrew packages, or a stable release tag. The current evaluation
+path requires Go 1.27 or newer and pins the fully verified commit:
 
 ```bash
-git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
-cd telemetry-change-guard
-mkdir -p ./bin
-go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
-./bin/telemetry-change-guard version
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+telemetry-change-guard version --format json
 ```
 
-The resulting executable is `./bin/telemetry-change-guard`. Release binaries,
-checksums, dual-format SBOMs, and provenance are now prepared and verified but
-remain unpublished pending explicit owner approval. See the
+Go installs the executable into `GOBIN`, or `$(go env GOPATH)/bin` when `GOBIN`
+is unset. Add that directory to `PATH` if the command is not found. Release
+binaries, checksums, dual-format SBOMs, and provenance are prepared and verified
+but remain unpublished pending explicit owner approval. See the
 [installation guide](docs/INSTALLATION.md), [release procedure](docs/RELEASING.md),
 [verification guide](docs/VERIFY_RELEASE.md),
 and [issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
@@ -175,14 +207,14 @@ Prometheus rules   what currently depends on the telemetry
               status + findings + exit code
 ```
 
-From the repository root, build the CLI as shown above, then validate and
+From the repository root, install the CLI as shown above, then validate and
 check the example:
 
 ```bash
-./bin/telemetry-change-guard validate \
+telemetry-change-guard validate \
   --changes ./examples/getting-started/changes.yaml
 
-./bin/telemetry-change-guard check \
+telemetry-change-guard check \
   --config ./examples/getting-started/tcg.yaml \
   --changes ./examples/getting-started/changes.yaml
 ```
@@ -556,7 +588,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12
+    uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -618,8 +650,9 @@ TCG is pre-release software. The implemented product is useful today for the
 supported inputs and consumers, but several boundaries are intentional and
 important:
 
-- There is no stable release or `v1` Action tag yet; build from source or pin
-  the documented verified commit.
+- There is no stable release or `v1` Action tag yet; use `go install` at the
+  documented verified commit, build that commit from source, or pin the Action
+  to that commit.
 - The public tool does not infer arbitrary source-code diffs. Use an explicit
   ChangeSet, a bounded snapshot pair, or an explicitly mapped Weaver diff.
 - Snapshot evidence describes what the queried Prometheus deployment exposed;
@@ -661,15 +694,16 @@ claim without authorization.
 
 | Goal | Guide |
 | --- | --- |
+| Start and diagnose | [Quickstart](docs/QUICKSTART.md) · [Installation](docs/INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [FAQ](docs/FAQ.md) · [Limitations](docs/LIMITATIONS.md) |
 | Understand the system | [Architecture](docs/ARCHITECTURE.md) · [Safety engine](docs/SAFETY_ENGINE.md) · [Threat model](docs/THREAT_MODEL.md) |
 | Define inputs | [ChangeSet](docs/CHANGESET.md) · [Change sources and snapshots](docs/CHANGE_SOURCES.md) · [Migration model](docs/MIGRATION_MODEL.md) · [Configuration](docs/CONFIGURATION.md) |
 | Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Secure CI usage](docs/SECURE_CI_USAGE.md) · [Testing](docs/TESTING.md) |
 | Understand versions and upgrades | [Changelog](CHANGELOG.md) · [Versioning](docs/VERSIONING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Upgrading](docs/UPGRADING.md) |
-| Rehearse or verify a release | [Release procedure](docs/RELEASING.md) · [Artifact and provenance verification](docs/VERIFY_RELEASE.md) |
+| Rehearse or verify a release | [Release status](docs/RELEASES.md) · [Release procedure](docs/RELEASING.md) · [Artifact and provenance verification](docs/VERIFY_RELEASE.md) · [Repository settings](docs/REPOSITORY_SETTINGS.md) |
 | Configure local consumers | [Prometheus/Grafana/SLO adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
 | Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [Agentic roadmap](docs/AGENTIC_ROADMAP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
-| Evaluate maturity | [Design-user program](docs/DESIGN_USER_PROGRAM.md) · [Roadmap](docs/ROADMAP.md) · [Related work](RELATED_WORK.md) · [AWS boundary](docs/AWS.md) |
+| Evaluate maturity | [Evaluation kit](evaluation/README.md) · [Release-gate benchmark](benchmarks/README.md) · [Design-user program](docs/DESIGN_USER_PROGRAM.md) · [Roadmap](docs/ROADMAP.md) · [Related work](RELATED_WORK.md) · [AWS boundary](docs/AWS.md) |
 
 ## Development
 

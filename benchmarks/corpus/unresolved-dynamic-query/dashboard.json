@@ -1,0 +1,15 @@
+{
+  "uid": "checkout-dynamic",
+  "title": "Checkout dynamic",
+  "tags": ["critical"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Dynamic request rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "expr": "sum(rate(${metric_name}[5m]))"}
+      ]
+    }
+  ]
+}

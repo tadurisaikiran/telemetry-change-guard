@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tadurisaikiran/telemetry-change-guard/evaluation/schemas/evaluation-record.schema.json",
+  "title": "Telemetry Change Guard evaluation record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "evaluationId",
+    "recordedAt",
+    "tcg",
+    "scope",
+    "expected",
+    "actual",
+    "comparison",
+    "privacy"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "tcg-evaluation/v1alpha1"},
+    "evaluationId": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 80},
+    "recordedAt": {"type": "string", "format": "date-time"},
+    "tcg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "commit", "resultSchema"],
+      "properties": {
+        "version": {"type": "string", "minLength": 1, "maxLength": 80},
+        "commit": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|unknown)$"},
+        "resultSchema": {"enum": ["tcg-result/v1alpha1", "tmr-result/v1alpha1"]}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workflow", "changeSource", "configuredEvidence", "knownExcludedEvidence"],
+      "properties": {
+        "workflow": {"enum": ["generic-check", "migration-check"]},
+        "changeSource": {"enum": ["changeset", "snapshots", "weaver-diff", "migration-plan"]},
+        "configuredEvidence": {"type": "array", "items": {"type": "string", "maxLength": 160}, "maxItems": 50},
+        "knownExcludedEvidence": {"type": "array", "items": {"type": "string", "maxLength": 160}, "maxItems": 50}
+      }
+    },
+    "expected": {"$ref": "#/$defs/outcome"},
+    "actual": {"$ref": "#/$defs/outcome"},
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statusMatch", "consumerMatch", "pathMatch", "mismatches"],
+      "properties": {
+        "statusMatch": {"type": "boolean"},
+        "consumerMatch": {"type": "boolean"},
+        "pathMatch": {"type": "boolean"},
+        "mismatches": {"type": "array", "items": {"type": "string", "maxLength": 500}, "maxItems": 100},
+        "timeToFirstUsefulResultMinutes": {"type": "number", "minimum": 0, "maximum": 10080}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "maxLength": 160},
+      "maxProperties": 20
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sanitized", "containsCredentials", "publicSharingAuthorized"],
+      "properties": {
+        "sanitized": {"type": "boolean"},
+        "containsCredentials": {"const": false},
+        "publicSharingAuthorized": {"type": "boolean"},
+        "authorizationReference": {"type": "string", "maxLength": 200}
+      }
+    },
+    "notes": {"type": "string", "maxLength": 5000}
+  },
+  "$defs": {
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "consumers", "dependencyPaths", "diagnostics"],
+      "properties": {
+        "status": {"enum": ["PASS", "WARN", "BLOCK", "READY", "BLOCKED", "INCOMPLETE", "ERROR"]},
+        "consumers": {"type": "array", "items": {"type": "string", "maxLength": 240}, "maxItems": 200},
+        "dependencyPaths": {"type": "array", "items": {"type": "string", "maxLength": 1000}, "maxItems": 200},
+        "diagnostics": {"type": "array", "items": {"type": "string", "maxLength": 240}, "maxItems": 200}
+      }
+    }
+  }
+}

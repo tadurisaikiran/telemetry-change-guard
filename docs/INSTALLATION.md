@@ -5,8 +5,9 @@ container image, or Homebrew tap is published yet. The commands labeled
 **after owner publication** are exact candidate instructions, but they will
 return `404` until the owner authorizes the release.
 
-For evaluation today, use the exact GitHub Action commit or build from source.
-Do not download binaries or images from an unofficial location.
+For evaluation today, use the exact GitHub Action commit, install the exact
+commit with Go, or build that commit from source. Do not download binaries or
+images from an unofficial location.
 
 ## Choose an installation path
 
@@ -97,7 +98,18 @@ existing migration automation.
 
 ## `go install`
 
-This path requires Go `1.27.0` or newer. After the exact tag is published:
+This path requires Go `1.27.0` or newer.
+
+For evaluation before publication, install the fully verified commit:
+
+```sh
+GOBIN="${HOME}/.local/bin" \
+  go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+"${HOME}/.local/bin/telemetry-change-guard" version --format json
+```
+
+After the exact tag is published, the shorter candidate-version coordinate
+becomes available:
 
 ```sh
 GOBIN="${HOME}/.local/bin" \
@@ -131,7 +143,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12 # v0.1.0-alpha.1 candidate
+  - uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91 # v0.1.0-alpha.1 candidate
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -207,7 +219,7 @@ For contributor development—not release installation:
 ```sh
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 4bb5ea7345f56291bebc65c63e8375e46d002f12
+git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
 go build -buildvcs=false -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ./bin/telemetry-change-guard version
 ```

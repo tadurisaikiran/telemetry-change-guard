@@ -1,0 +1,15 @@
+{
+  "uid": "checkout-operations",
+  "title": "Checkout operations",
+  "tags": ["team-commerce"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "expr": "sum(rate(checkout_requests_total[5m]))"}
+      ]
+    }
+  ]
+}

@@ -51,13 +51,17 @@ publishes verified artifacts, build the fully tested commit used by the Action
 examples:
 
 ```bash
-git checkout 4bb5ea7345f56291bebc65c63e8375e46d002f12
+git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
 mkdir -p ./bin
 go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ```
 
 Record the exact commit in the evaluation. Do not ask a participant to use an
 unpublished `v1` tag.
+
+Use the versioned [evaluation record and privacy templates](../evaluation/README.md)
+to pre-register expected behavior, compare the machine result, anonymize a
+reproduction, and separate private participation from public-reference consent.
 
 ## Evaluation workflows
 

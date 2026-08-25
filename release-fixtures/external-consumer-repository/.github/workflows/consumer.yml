@@ -83,7 +83,7 @@ jobs:
       - name: Run immutable Telemetry Change Guard Action
         id: guard
         continue-on-error: true
-        uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12 # v0.1.0-alpha.1
+        uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91 # v0.1.0-alpha.1
         with:
           config: ${{ matrix.config }}
           changes: ${{ matrix.changes }}

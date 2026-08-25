@@ -1,0 +1,14 @@
+apiVersion: telemetry-migration/v1alpha1
+kind: Migration
+metadata:
+  name: rename-checkout-requests
+spec:
+  description: Replace the legacy checkout request counter.
+  changes:
+    - id: rename-checkout-requests
+      kind: metric_rename
+      domain: prometheus
+      from:
+        metric: checkout_requests_total
+      to:
+        metric: checkout_server_requests_total
