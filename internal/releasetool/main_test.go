@@ -1,12 +1,20 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+type testTarEntry struct {
+	name     string
+	typeflag byte
+	body     string
+}
 
 func TestExpectedArtifacts(t *testing.T) {
 	t.Parallel()
@@ -110,7 +118,7 @@ func TestParseChecksumsRejectsUnsafeAndUnsortedInput(t *testing.T) {
 func TestValidateArchivePath(t *testing.T) {
 	t.Parallel()
 
-	for _, valid := range []string{"release/tmr", "release/README.md"} {
+	for _, valid := range []string{"release/", "release/tmr", "release/README.md"} {
 		if err := validateArchivePath(valid); err != nil {
 			t.Errorf("valid path %q rejected: %v", valid, err)
 		}
@@ -119,6 +127,53 @@ func TestValidateArchivePath(t *testing.T) {
 		if err := validateArchivePath(invalid); err == nil {
 			t.Errorf("unsafe path %q accepted", invalid)
 		}
+	}
+}
+
+func TestReadTarGzipRejectsSymlink(t *testing.T) {
+	t.Parallel()
+
+	invalid := filepath.Join(t.TempDir(), "invalid.tar.gz")
+	writeTestTarGzip(t, invalid, []testTarEntry{
+		{name: "release/link", typeflag: tar.TypeSymlink},
+	})
+	if _, err := readTarGzip(invalid); err == nil {
+		t.Fatal("symlink archive entry was accepted")
+	}
+}
+
+func writeTestTarGzip(t *testing.T, file string, entries []testTarEntry) {
+	t.Helper()
+	output, err := os.Create(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gzipWriter := gzip.NewWriter(output)
+	tarWriter := tar.NewWriter(gzipWriter)
+	for _, entry := range entries {
+		header := &tar.Header{
+			Name:     entry.name,
+			Mode:     0o644,
+			Size:     int64(len(entry.body)),
+			Typeflag: entry.typeflag,
+		}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			t.Fatal(err)
+		}
+		if entry.body != "" {
+			if _, err := tarWriter.Write([]byte(entry.body)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
 

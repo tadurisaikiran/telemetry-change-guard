@@ -835,6 +835,12 @@ func readTarGzip(file string) ([]archiveEntry, error) {
 		if err := validateArchivePath(header.Name); err != nil {
 			return nil, err
 		}
+		if header.Typeflag == tar.TypeXHeader || header.Typeflag == tar.TypeXGlobalHeader {
+			// PAX headers carry archive metadata. archive/tar applies their
+			// records to subsequent entries, whose resolved paths and types are
+			// still validated below.
+			continue
+		}
 		if header.Typeflag == tar.TypeDir {
 			continue
 		}
@@ -900,7 +906,8 @@ func readZip(file string) ([]archiveEntry, error) {
 }
 
 func validateArchivePath(name string) error {
-	if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || path.Clean(name) != name || strings.HasPrefix(name, "../") {
+	cleanName := strings.TrimSuffix(name, "/")
+	if cleanName == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") || path.Clean(cleanName) != cleanName || strings.HasPrefix(cleanName, "../") {
 		return fmt.Errorf("archive contains unsafe path %q", name)
 	}
 	return nil
@@ -1092,7 +1099,7 @@ func verifyVersionCommand(binary string, manifest releaseManifest) error {
 
 func verifyGettingStarted(binary string) error {
 	command := exec.Command(binary,
-		"analyze",
+		"check",
 		"--config", "examples/getting-started/tcg.yaml",
 		"--changes", "examples/getting-started/changes.yaml",
 		"--format", "json",

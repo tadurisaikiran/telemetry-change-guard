@@ -15,7 +15,7 @@ Run the deterministic guard from a repository containing a TCG configuration
 and a change set:
 
 ```sh
-./telemetry-change-guard analyze \
+./telemetry-change-guard check \
   --config path/to/tcg.yaml \
   --changes path/to/changes.yaml \
   --format json
