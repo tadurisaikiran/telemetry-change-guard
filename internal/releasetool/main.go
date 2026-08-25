@@ -431,7 +431,29 @@ func normalizeCycloneDX(file, buildDate string) error {
 	}
 	metadata["timestamp"] = buildDate
 	delete(document, "serialNumber")
-	return writeJSON(file, document)
+	return writeJSON(file, canonicalizeJSON(document))
+}
+
+func canonicalizeJSON(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, item := range typed {
+			typed[key] = canonicalizeJSON(item)
+		}
+		return typed
+	case []any:
+		for index, item := range typed {
+			typed[index] = canonicalizeJSON(item)
+		}
+		sort.SliceStable(typed, func(i, j int) bool {
+			left, _ := json.Marshal(typed[i])
+			right, _ := json.Marshal(typed[j])
+			return bytes.Compare(left, right) < 0
+		})
+		return typed
+	default:
+		return value
+	}
 }
 
 func writeJSON(file string, value any) error {

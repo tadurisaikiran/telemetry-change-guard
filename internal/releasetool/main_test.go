@@ -77,6 +77,10 @@ func TestNormalizeCycloneDX(t *testing.T) {
 	writeTestJSON(t, file, map[string]any{
 		"bomFormat":    "CycloneDX",
 		"serialNumber": "urn:uuid:random",
+		"components": []any{
+			map[string]any{"name": "z"},
+			map[string]any{"name": "a"},
+		},
 		"metadata": map[string]any{
 			"timestamp": "2020-01-01T00:00:00Z",
 		},
@@ -94,6 +98,10 @@ func TestNormalizeCycloneDX(t *testing.T) {
 	metadata := document["metadata"].(map[string]any)
 	if metadata["timestamp"] != "2026-08-25T12:00:00Z" {
 		t.Fatalf("timestamp = %v", metadata["timestamp"])
+	}
+	components := document["components"].([]any)
+	if components[0].(map[string]any)["name"] != "a" || components[1].(map[string]any)["name"] != "z" {
+		t.Fatalf("components were not canonicalized: %#v", components)
 	}
 }
 
