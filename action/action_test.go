@@ -58,7 +58,7 @@ func TestActionMetadataAndScript(t *testing.T) {
 		"uses: actions/setup-go@",
 		"uses: actions/upload-artifact@",
 		"uses: actions/github-script@",
-		"steps.action-paths.outputs.go-sum",
+		"cache: false",
 		"const marker = '<!-- telemetry-change-guard -->'",
 		"const legacyMarker = '<!-- telemetry-migration-readiness -->'",
 		"comment.body?.includes(marker) || comment.body?.includes(legacyMarker)",
@@ -222,8 +222,8 @@ func TestResolveActionPathsCanonicalizesLocalAndExternalConsumption(t *testing.T
 			if outputs["go-mod"] != filepath.Join(root, "go.mod") {
 				t.Errorf("go-mod = %q", outputs["go-mod"])
 			}
-			if outputs["go-sum"] != filepath.Join(root, "go.sum") {
-				t.Errorf("go-sum = %q", outputs["go-sum"])
+			if len(outputs) != 1 {
+				t.Errorf("outputs = %v; want only canonical go-mod", outputs)
 			}
 			for name, path := range outputs {
 				if path != filepath.Clean(path) {

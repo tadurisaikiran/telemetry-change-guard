@@ -98,10 +98,9 @@ promoting it as an easy external workflow, TCG still needs:
 4. A licensed correctness and performance corpus
    ([issue #31](https://github.com/tadurisaikiran/telemetry-change-guard/issues/31)).
 
-The non-failing local Action cache annotation in
-[issue #35](https://github.com/tadurisaikiran/telemetry-change-guard/issues/35)
-should be corrected but does not block the isolated MVP. The incomplete AWS
-workstream is independent and is not a prerequisite for Prometheus-based
+The composite Action intentionally avoids `setup-go` dependency caching
+because its module files live outside the consumer workspace. The incomplete
+AWS workstream is independent and is not a prerequisite for Prometheus-based
 agentic evaluation.
 
 ## Evaluation and promotion gates

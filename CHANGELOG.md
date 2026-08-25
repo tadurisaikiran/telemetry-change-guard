@@ -45,6 +45,8 @@ owner approval.
   development, and credentials can reach only trusted exact origins;
 - overlapping evidence patterns merge required semantics with logical OR;
 - every third-party Action dependency is pinned to an immutable commit.
+- external composite-Action setup is warning-free and does not ask `setup-go`
+  to cache Action-owned module files outside the consumer workspace.
 
 ### Compatibility
 

@@ -15,5 +15,4 @@ fi
 
 {
   printf 'go-mod=%s\n' "${go_mod}"
-  printf 'go-sum=%s\n' "${go_sum}"
 } >>"${GITHUB_OUTPUT}"
