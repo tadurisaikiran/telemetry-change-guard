@@ -553,7 +553,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
+    uses: tadurisaikiran/telemetry-change-guard@7a26f5db60becf9a09010f98944787a6ab15bdff
     with:
       config: tcg.yaml
       changes: changes.yaml
