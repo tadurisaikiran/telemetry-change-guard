@@ -111,10 +111,13 @@ The current deterministic engine has:
 Run the local checks with:
 
 ```bash
-gofmt -w .
-go vet ./...
-go test -race ./...
+make verify
 ```
+
+`make verify` checks module consistency, formatting, vet, race-enabled tests,
+the complete parser fuzz-smoke matrix, reachable Go vulnerabilities with the
+pinned scanner version, and Action shell syntax. It does not modify source
+formatting.
 
 ## Mandatory live E2E release gate
 
@@ -155,10 +158,8 @@ The release gate proves:
 Run the core and live layers with:
 
 ```bash
-go test -race ./...
-./e2e/scripts/run-control-plane-e2e.sh
-./e2e/scripts/run-e2e.sh
-./e2e/scripts/run-tempo-e2e.sh
+make verify
+make e2e
 ```
 
 See [the E2E harness guide](../e2e/README.md) for pinned versions, scenario

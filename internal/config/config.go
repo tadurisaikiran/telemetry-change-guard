@@ -24,7 +24,21 @@ const (
 
 	RuntimeQueryFormatPrometheusLog = "prometheus_query_log"
 	RuntimeQueryFormatTMRHistory    = "tmr_query_history"
+
+	RemoteEvidenceEnabled  = "enabled"
+	RemoteEvidenceDisabled = "disabled"
 )
+
+// RemoteEvidencePolicy is execution policy supplied outside the analyzed
+// repository configuration. It is intentionally excluded from YAML and JSON
+// so repository-controlled tcg.yaml cannot authorize its own secret
+// destination. The zero value preserves local unauthenticated remote evidence,
+// while authenticated sources still require an explicit allowed origin.
+type RemoteEvidencePolicy struct {
+	Mode                  string   `json:"-"`
+	AllowedOrigins        []string `json:"-"`
+	AllowInsecureLoopback bool     `json:"-"`
+}
 
 // SourcePattern configures one local filesystem source.
 type SourcePattern struct {
@@ -143,14 +157,15 @@ type OwnershipConfig struct {
 
 // Config is the validated product analysis configuration.
 type Config struct {
-	APIVersion string          `json:"apiVersion"`
-	Kind       string          `json:"kind"`
-	Sources    Sources         `json:"sources"`
-	Mappings   MappingsConfig  `json:"mappings,omitempty"`
-	Ownership  OwnershipConfig `json:"ownership,omitempty"`
-	Analysis   AnalysisConfig  `json:"analysis"`
-	Policy     PolicyConfig    `json:"policy"`
-	Output     OutputConfig    `json:"output"`
+	APIVersion     string               `json:"apiVersion"`
+	Kind           string               `json:"kind"`
+	Sources        Sources              `json:"sources"`
+	Mappings       MappingsConfig       `json:"mappings,omitempty"`
+	Ownership      OwnershipConfig      `json:"ownership,omitempty"`
+	Analysis       AnalysisConfig       `json:"analysis"`
+	Policy         PolicyConfig         `json:"policy"`
+	Output         OutputConfig         `json:"output"`
+	RemoteEvidence RemoteEvidencePolicy `json:"-"`
 }
 
 type configDocument struct {

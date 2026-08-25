@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/adapters/argorollouts"
@@ -24,6 +26,7 @@ import (
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/ownership"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	remoteurl "github.com/tadurisaikiran/telemetry-change-guard/internal/remote"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
 	filesource "github.com/tadurisaikiran/telemetry-change-guard/internal/source"
 	"github.com/tadurisaikiran/telemetry-change-guard/pkg/traceql"
@@ -129,7 +132,11 @@ func ReadinessPolicy(configuration config.Config) readiness.Policy {
 // Discover runs configured adapters and constructs the dependency graph.
 func Discover(ctx context.Context, configuration config.Config) (domain.Discovery, *graph.Graph, error) {
 	var discovery domain.Discovery
-	environment, err := resolveEnvironmentReferences(configuration)
+	remotePolicy, err := newRemotePolicy(configuration.RemoteEvidence)
+	if err != nil {
+		return discovery, nil, fmt.Errorf("validate remote-evidence policy: %w", err)
+	}
+	environment, err := resolveAuthorizedEnvironmentReferences(configuration, remotePolicy)
 	if err != nil {
 		return discovery, nil, err
 	}
@@ -158,9 +165,9 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 			return (argorollouts.Loader{Required: required}).LoadFile(ctx, path)
 		})
 	loadHorizontalPodAutoscalers(ctx, configuration.Sources.HorizontalPodAutoscalers, &discovery)
-	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, &discovery)
+	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, remotePolicy, &discovery)
 	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)
-	loadTempoQueries(ctx, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, environment, &discovery)
+	loadTempoQueries(ctx, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, environment, remotePolicy, &discovery)
 	if err := ownership.Enrich(ctx, configuration.Ownership, &discovery); err != nil {
 		return domain.Discovery{}, nil, fmt.Errorf("enrich consumer ownership: %w", err)
 	}
@@ -180,6 +187,7 @@ func loadTempoQueries(
 	sources []config.TempoQuerySource,
 	mappings []config.TraceAttributeMapping,
 	environment map[string]environmentValue,
+	remotePolicy remotePolicy,
 	discovery *domain.Discovery,
 ) {
 	adapterMappings := make([]tempo.AttributeMapping, 0, len(mappings))
@@ -190,12 +198,24 @@ func loadTempoQueries(
 			Tempo:         mapping.Tempo,
 		})
 	}
-	loaded := make(map[string]struct{})
-	for _, source := range sources {
+	configured := append([]config.TempoQuerySource(nil), sources...)
+	sort.Slice(configured, func(i, j int) bool { return tempoSourceKey(configured[i]) < tempoSourceKey(configured[j]) })
+	type loadTask struct {
+		source   config.TempoQuerySource
+		path     string
+		required bool
+		conflict bool
+	}
+	tasks := make(map[string]*loadTask)
+	for _, source := range configured {
 		if ctx.Err() != nil {
 			return
 		}
-		timeout, err := time.ParseDuration(source.Timeout)
+		if err := remotePolicy.authorize(source.URL, source.BearerTokenEnv != ""); err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, source.Pattern, err.Error()))
+			continue
+		}
+		_, err := time.ParseDuration(source.Timeout)
 		if err != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, source.Pattern, err.Error()))
 			continue
@@ -222,27 +242,74 @@ func loadTempoQueries(
 			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, source.Pattern, "source pattern matched no files"))
 			continue
 		}
-		validator := tempo.Client{BaseURL: source.URL, Timeout: timeout, BearerToken: token}
-		sourceContext, cancel := context.WithTimeout(ctx, timeout)
 		for _, file := range files {
-			loadedKey := source.URL + "\x00" + file
-			if _, exists := loaded[loadedKey]; exists {
-				continue
-			}
-			loaded[loadedKey] = struct{}{}
-			additional, err := (tempo.Loader{
-				Required:           source.Required,
-				DefaultCriticality: domain.Criticality(source.Criticality),
-				Validator:          validator,
-				TempoURL:           source.URL,
-				Mappings:           adapterMappings,
-			}).LoadFile(sourceContext, file)
+			identity, display, err := filesource.CanonicalFile(file)
 			if err != nil {
 				discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, file, err.Error()))
 				continue
 			}
-			discovery.Append(additional)
+			loadedKey := normalizedRemoteBase(source.URL) + "\x00" + identity
+			task := tasks[loadedKey]
+			if task == nil {
+				tasks[loadedKey] = &loadTask{source: source, path: display, required: source.Required}
+				continue
+			}
+			task.required = task.required || source.Required
+			if tempoSourceSettingsKey(task.source) != tempoSourceSettingsKey(source) {
+				task.conflict = true
+			}
 		}
+	}
+	taskKeys := make([]string, 0, len(tasks))
+	for key := range tasks {
+		taskKeys = append(taskKeys, key)
+	}
+	sort.Strings(taskKeys)
+	sourceContexts := make(map[string]context.Context)
+	var sourceCancels []context.CancelFunc
+	for _, key := range taskKeys {
+		task := tasks[key]
+		source := task.source
+		source.Required = task.required
+		if task.conflict {
+			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(
+				source,
+				task.path,
+				"Tempo query file is configured repeatedly with conflicting URL, timeout, token environment, or criticality settings",
+			))
+			continue
+		}
+		timeout, _ := time.ParseDuration(source.Timeout)
+		var token string
+		if source.BearerTokenEnv != "" {
+			token = environment[source.BearerTokenEnv].value
+		}
+		validator := tempo.Client{
+			BaseURL: source.URL, Timeout: timeout, BearerToken: token,
+			AllowInsecureLoopback: remotePolicy.allowInsecureLoopback,
+		}
+		contextKey := tempoSourceSettingsKey(source)
+		sourceContext := sourceContexts[contextKey]
+		if sourceContext == nil {
+			var cancel context.CancelFunc
+			sourceContext, cancel = context.WithTimeout(ctx, timeout)
+			sourceContexts[contextKey] = sourceContext
+			sourceCancels = append(sourceCancels, cancel)
+		}
+		additional, err := (tempo.Loader{
+			Required:           task.required,
+			DefaultCriticality: domain.Criticality(source.Criticality),
+			Validator:          validator,
+			TempoURL:           source.URL,
+			Mappings:           adapterMappings,
+		}).LoadFile(sourceContext, task.path)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, task.path, err.Error()))
+			continue
+		}
+		discovery.Append(additional)
+	}
+	for _, cancel := range sourceCancels {
 		cancel()
 	}
 }
@@ -325,7 +392,16 @@ func loadRuntimeQueries(
 	sources []config.RuntimeQuerySource,
 	discovery *domain.Discovery,
 ) {
-	loaded := make(map[string]struct{})
+	type loadTask struct {
+		source   config.RuntimeQuerySource
+		path     string
+		window   time.Duration
+		required bool
+		conflict bool
+	}
+	tasks := make(map[string]*loadTask)
+	sources = append([]config.RuntimeQuerySource(nil), sources...)
+	sort.Slice(sources, func(i, j int) bool { return runtimeSourceKey(sources[i]) < runtimeSourceKey(sources[j]) })
 	for _, source := range sources {
 		if ctx.Err() != nil {
 			return
@@ -345,22 +421,53 @@ func loadRuntimeQueries(
 			continue
 		}
 		for _, file := range files {
-			if _, exists := loaded[file]; exists {
-				continue
-			}
-			loaded[file] = struct{}{}
-			additional, err := (runtimequeries.Loader{
-				Required:    source.Required,
-				Format:      source.Format,
-				Window:      window,
-				Criticality: domain.Criticality(source.Criticality),
-			}).LoadFile(ctx, file)
+			identity, display, err := filesource.CanonicalFile(file)
 			if err != nil {
 				discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, file, err.Error()))
 				continue
 			}
-			discovery.Append(additional)
+			task := tasks[identity]
+			if task == nil {
+				tasks[identity] = &loadTask{
+					source: source, path: display, window: window, required: source.Required,
+				}
+				continue
+			}
+			task.required = task.required || source.Required
+			task.conflict = task.conflict || runtimeSourceSettingsKey(task.source) != runtimeSourceSettingsKey(source)
 		}
+	}
+	keys := make([]string, 0, len(tasks))
+	for key := range tasks {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if ctx.Err() != nil {
+			return
+		}
+		task := tasks[key]
+		source := task.source
+		source.Required = task.required
+		if task.conflict {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(
+				source,
+				task.path,
+				"runtime-query file is configured repeatedly with conflicting format, window, or criticality settings",
+			))
+			continue
+		}
+		additional, err := (runtimequeries.Loader{
+			Required:    task.required,
+			Format:      source.Format,
+			Window:      task.window,
+			Criticality: domain.Criticality(source.Criticality),
+		}).LoadFile(ctx, task.path)
+		if err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, task.path, err.Error()))
+			continue
+		}
+		discovery.Append(additional)
 	}
 }
 
@@ -373,15 +480,61 @@ func runtimeQueryDiagnostic(source config.RuntimeQuerySource, path, message stri
 	}
 }
 
+func runtimeSourceKey(source config.RuntimeQuerySource) string {
+	return filepath.Clean(source.Pattern) + "\x00" + runtimeSourceSettingsKey(source) + "\x00" + fmt.Sprint(source.Required)
+}
+
+func runtimeSourceSettingsKey(source config.RuntimeQuerySource) string {
+	return source.Format + "\x00" + source.Window + "\x00" + source.Criticality
+}
+
 func loadPersesUsage(
 	ctx context.Context,
 	sources []config.PersesUsageSource,
 	environment map[string]environmentValue,
+	remotePolicy remotePolicy,
 	discovery *domain.Discovery,
 ) {
-	for _, source := range sources {
+	configured := append([]config.PersesUsageSource(nil), sources...)
+	sort.Slice(configured, func(i, j int) bool { return persesSourceKey(configured[i]) < persesSourceKey(configured[j]) })
+	type loadTask struct {
+		source   config.PersesUsageSource
+		required bool
+		conflict bool
+	}
+	tasks := make(map[string]*loadTask)
+	for _, source := range configured {
+		key := normalizedRemoteBase(source.URL)
+		task := tasks[key]
+		if task == nil {
+			tasks[key] = &loadTask{source: source, required: source.Required}
+			continue
+		}
+		task.required = task.required || source.Required
+		task.conflict = task.conflict || persesSourceSettingsKey(task.source) != persesSourceSettingsKey(source)
+	}
+	keys := make([]string, 0, len(tasks))
+	for key := range tasks {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		task := tasks[key]
+		source := task.source
+		source.Required = task.required
 		if err := ctx.Err(); err != nil {
 			return
+		}
+		if task.conflict {
+			discovery.Diagnostics = append(discovery.Diagnostics, persesDiagnostic(
+				source,
+				"Perses metrics-usage origin is configured repeatedly with conflicting timeout or token environment settings",
+			))
+			continue
+		}
+		if err := remotePolicy.authorize(source.URL, source.BearerTokenEnv != ""); err != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, persesDiagnostic(source, err.Error()))
+			continue
 		}
 		timeout, err := time.ParseDuration(source.Timeout)
 		if err != nil {
@@ -401,10 +554,11 @@ func loadPersesUsage(
 			}
 		}
 		additional, err := (persesusage.Loader{
-			BaseURL:     source.URL,
-			Required:    source.Required,
-			Timeout:     timeout,
-			BearerToken: token,
+			BaseURL:               source.URL,
+			Required:              source.Required,
+			Timeout:               timeout,
+			BearerToken:           token,
+			AllowInsecureLoopback: remotePolicy.allowInsecureLoopback,
 		}).Discover(ctx)
 		if err != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, persesDiagnostic(source, err.Error()))
@@ -417,6 +571,87 @@ func loadPersesUsage(
 type environmentValue struct {
 	value  string
 	exists bool
+}
+
+type remotePolicy struct {
+	enabled               bool
+	allowedOrigins        map[string]struct{}
+	allowInsecureLoopback bool
+}
+
+func newRemotePolicy(policy config.RemoteEvidencePolicy) (remotePolicy, error) {
+	mode := strings.TrimSpace(policy.Mode)
+	if mode == "" {
+		mode = config.RemoteEvidenceEnabled
+	}
+	if mode != config.RemoteEvidenceEnabled && mode != config.RemoteEvidenceDisabled {
+		return remotePolicy{}, fmt.Errorf("mode must be %q or %q", config.RemoteEvidenceDisabled, config.RemoteEvidenceEnabled)
+	}
+	result := remotePolicy{
+		enabled:               mode == config.RemoteEvidenceEnabled,
+		allowedOrigins:        make(map[string]struct{}, len(policy.AllowedOrigins)),
+		allowInsecureLoopback: policy.AllowInsecureLoopback,
+	}
+	for _, configured := range policy.AllowedOrigins {
+		origin, err := remoteurl.ParseAllowedOrigin(configured)
+		if err != nil {
+			return remotePolicy{}, fmt.Errorf("invalid allowed origin %q: %w", configured, err)
+		}
+		result.allowedOrigins[origin] = struct{}{}
+	}
+	if !result.enabled && (len(result.allowedOrigins) != 0 || result.allowInsecureLoopback) {
+		return remotePolicy{}, fmt.Errorf("allowed origins and insecure loopback are invalid when remote evidence is disabled")
+	}
+	return result, nil
+}
+
+func (policy remotePolicy) authorize(rawURL string, credentialConfigured bool) error {
+	if !policy.enabled {
+		return fmt.Errorf("remote evidence is disabled by execution policy")
+	}
+	parsed, err := remoteurl.ParseBaseURL(rawURL, "remote evidence")
+	if err != nil {
+		return err
+	}
+	origin, err := remoteurl.Origin(parsed)
+	if err != nil {
+		return fmt.Errorf("canonicalize remote evidence origin: %w", err)
+	}
+	if len(policy.allowedOrigins) != 0 {
+		if _, allowed := policy.allowedOrigins[origin]; !allowed {
+			return fmt.Errorf("remote evidence origin %q is not in the execution policy allowlist", origin)
+		}
+	}
+	if credentialConfigured && len(policy.allowedOrigins) == 0 {
+		return fmt.Errorf("credentialed remote evidence requires an exact allowed origin supplied outside repository configuration")
+	}
+	if err := remoteurl.ValidateCredentialTransport(
+		parsed,
+		credentialConfigured,
+		policy.allowInsecureLoopback,
+		"remote evidence",
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func resolveAuthorizedEnvironmentReferences(
+	configuration config.Config,
+	policy remotePolicy,
+) (map[string]environmentValue, error) {
+	names := make([]string, 0, len(configuration.Sources.PersesUsage)+len(configuration.Sources.TempoQueries))
+	for _, source := range configuration.Sources.PersesUsage {
+		if source.BearerTokenEnv != "" && policy.authorize(source.URL, true) == nil {
+			names = append(names, source.BearerTokenEnv)
+		}
+	}
+	for _, source := range configuration.Sources.TempoQueries {
+		if source.BearerTokenEnv != "" && policy.authorize(source.URL, true) == nil {
+			names = append(names, source.BearerTokenEnv)
+		}
+	}
+	return resolveEnvironmentNames(names)
 }
 
 func resolveEnvironmentReferences(configuration config.Config) (map[string]environmentValue, error) {
@@ -432,6 +667,10 @@ func resolveEnvironmentReferences(configuration config.Config) (map[string]envir
 		}
 	}
 
+	return resolveEnvironmentNames(names)
+}
+
+func resolveEnvironmentNames(names []string) (map[string]environmentValue, error) {
 	resolved := make(map[string]environmentValue, len(names))
 	for _, name := range names {
 		if _, exists := resolved[name]; exists {
@@ -444,6 +683,28 @@ func resolveEnvironmentReferences(configuration config.Config) (map[string]envir
 		resolved[name] = environmentValue{value: value, exists: exists}
 	}
 	return resolved, nil
+}
+
+func normalizedRemoteBase(value string) string {
+	return strings.TrimRight(strings.TrimSpace(value), "/")
+}
+
+func persesSourceKey(source config.PersesUsageSource) string {
+	return normalizedRemoteBase(source.URL) + "\x00" + persesSourceSettingsKey(source) + "\x00" + fmt.Sprint(source.Required)
+}
+
+func persesSourceSettingsKey(source config.PersesUsageSource) string {
+	return source.Timeout + "\x00" + source.BearerTokenEnv
+}
+
+func tempoSourceKey(source config.TempoQuerySource) string {
+	return normalizedRemoteBase(source.URL) + "\x00" + filepath.Clean(source.Pattern) + "\x00" +
+		tempoSourceSettingsKey(source) + "\x00" + fmt.Sprint(source.Required)
+}
+
+func tempoSourceSettingsKey(source config.TempoQuerySource) string {
+	return normalizedRemoteBase(source.URL) + "\x00" + source.Timeout + "\x00" +
+		source.BearerTokenEnv + "\x00" + source.Criticality
 }
 
 func persesDiagnostic(source config.PersesUsageSource, message string) domain.Diagnostic {
@@ -463,12 +724,21 @@ func loadHorizontalPodAutoscalers(
 	discovery *domain.Discovery,
 ) {
 	type loadTask struct {
+		path         string
 		mapping      hpa.Mapping
 		mappingPaths []string
 		required     bool
 	}
 	tasks := make(map[string]*loadTask)
-	var order []string
+	sources = append([]config.HorizontalPodAutoscalerSource(nil), sources...)
+	sort.Slice(sources, func(i, j int) bool {
+		left := filepath.Clean(sources[i].Pattern) + "\x00" + filepath.Clean(sources[i].MappingPath)
+		right := filepath.Clean(sources[j].Pattern) + "\x00" + filepath.Clean(sources[j].MappingPath)
+		if left != right {
+			return left < right
+		}
+		return sources[i].Required && !sources[j].Required
+	})
 	for _, source := range sources {
 		if ctx.Err() != nil {
 			return
@@ -502,16 +772,31 @@ func loadHorizontalPodAutoscalers(
 			})
 			continue
 		}
-		mappingPath := filepath.Clean(source.MappingPath)
+		_, mappingPath, canonicalErr := filesource.CanonicalFile(source.MappingPath)
+		if canonicalErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: "hpa_mapping", Source: domain.SourceLocation{File: source.MappingPath},
+				Message: canonicalErr.Error(), Required: source.Required,
+			})
+			continue
+		}
 		for _, file := range files {
-			task, exists := tasks[file]
+			identity, display, canonicalErr := filesource.CanonicalFile(file)
+			if canonicalErr != nil {
+				discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+					Adapter: "hpa", Source: domain.SourceLocation{File: file},
+					Message: canonicalErr.Error(), Required: source.Required,
+				})
+				continue
+			}
+			task, exists := tasks[identity]
 			if !exists {
-				tasks[file] = &loadTask{
+				tasks[identity] = &loadTask{
+					path:         display,
 					mapping:      mapping,
 					mappingPaths: []string{mappingPath},
 					required:     source.Required,
 				}
-				order = append(order, file)
 				continue
 			}
 			task.required = task.required || source.Required
@@ -521,15 +806,22 @@ func loadHorizontalPodAutoscalers(
 			}
 			if !seenMapping {
 				task.mappingPaths = append(task.mappingPaths, mappingPath)
+				sort.Strings(task.mappingPaths)
 			}
 		}
 	}
 
-	for _, file := range order {
+	keys := make([]string, 0, len(tasks))
+	for key := range tasks {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		if ctx.Err() != nil {
 			return
 		}
-		task := tasks[file]
+		task := tasks[key]
+		file := task.path
 		if len(task.mappingPaths) != 1 {
 			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 				Adapter:  "hpa",
@@ -564,46 +856,37 @@ func loadPatterns(
 	discovery *domain.Discovery,
 	load fileLoader,
 ) {
-	loaded := make(map[string]struct{})
+	configured := make([]filesource.Pattern, 0, len(patterns))
 	for _, pattern := range patterns {
+		configured = append(configured, filesource.Pattern{Path: pattern.Pattern, Required: pattern.Required})
+	}
+	matches, failures := filesource.ExpandPatterns(configured)
+	for _, failure := range failures {
+		discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+			Adapter:  adapter,
+			Source:   domain.SourceLocation{File: failure.Pattern},
+			Message:  failure.Err.Error(),
+			Required: failure.Required,
+		})
+	}
+	for _, match := range matches {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		files, err := filesource.Expand(pattern.Pattern)
+		additional, err := load(ctx, match.Path, match.Required)
 		if err != nil {
+			message := err.Error()
+			if len(match.Patterns) > 1 {
+				message = fmt.Sprintf("%s (matched by patterns %q)", message, match.Patterns)
+			}
 			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 				Adapter:  adapter,
-				Source:   domain.SourceLocation{File: pattern.Pattern},
-				Message:  err.Error(),
-				Required: pattern.Required,
+				Source:   domain.SourceLocation{File: match.Path},
+				Message:  message,
+				Required: match.Required,
 			})
 			continue
 		}
-		if len(files) == 0 {
-			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
-				Adapter:  adapter,
-				Source:   domain.SourceLocation{File: pattern.Pattern},
-				Message:  "source pattern matched no files",
-				Required: pattern.Required,
-			})
-			continue
-		}
-		for _, file := range files {
-			if _, exists := loaded[file]; exists {
-				continue
-			}
-			loaded[file] = struct{}{}
-			additional, err := load(ctx, file, pattern.Required)
-			if err != nil {
-				discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
-					Adapter:  adapter,
-					Source:   domain.SourceLocation{File: file},
-					Message:  err.Error(),
-					Required: pattern.Required,
-				})
-				continue
-			}
-			discovery.Append(additional)
-		}
+		discovery.Append(additional)
 	}
 }

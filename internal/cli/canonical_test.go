@@ -207,6 +207,7 @@ spec:
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"check", "--config", configPath, "--changes", changesPath, "--format", "json",
+		"--allowed-remote-origin", "https://usage.example.test",
 	}, &stdout, &stderr)
 	if exitCode != 1 {
 		t.Fatalf("exit code = %d, want ERROR exit 1; stderr = %q", exitCode, stderr.String())
@@ -652,6 +653,7 @@ func TestCanonicalSnapshotCollectsPrometheusContract(t *testing.T) {
 	exitCode := Run(context.Background(), []string{
 		"snapshot", "--prometheus", server.URL, "--name", "checkout", "--output", outputPath,
 		"--bearer-token-env", "TCG_SNAPSHOT_TEST_TOKEN", "--max-metrics", "10", "--max-series", "10",
+		"--allow-insecure-loopback",
 	}, &stdout, &stderr)
 	if exitCode != 0 || stdout.Len() != 0 || stderr.Len() != 0 {
 		t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())

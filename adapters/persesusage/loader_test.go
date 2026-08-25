@@ -49,10 +49,11 @@ func TestLoaderFetchesAllEndpointsWithAuthentication(t *testing.T) {
 	defer server.Close()
 
 	discovery, err := (Loader{
-		BaseURL:     server.URL + "/base",
-		Required:    true,
-		Timeout:     time.Second,
-		BearerToken: "test-token",
+		BaseURL:               server.URL + "/base",
+		Required:              true,
+		Timeout:               time.Second,
+		BearerToken:           "test-token",
+		AllowInsecureLoopback: true,
 	}).Discover(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -141,9 +142,10 @@ func TestLoaderRejectsCrossOriginRedirectWithoutLeakingToken(t *testing.T) {
 	defer redirect.Close()
 
 	_, err := (Loader{
-		BaseURL:     redirect.URL,
-		Timeout:     time.Second,
-		BearerToken: "must-not-leak",
+		BaseURL:               redirect.URL,
+		Timeout:               time.Second,
+		BearerToken:           "must-not-leak",
+		AllowInsecureLoopback: true,
 	}).Discover(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "refuse redirect") {
 		t.Fatalf("error = %v, want redirect refusal", err)
@@ -153,6 +155,17 @@ func TestLoaderRejectsCrossOriginRedirectWithoutLeakingToken(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "must-not-leak") {
 		t.Fatal("error contains bearer token")
+	}
+}
+
+func TestLoaderRejectsBearerTokenOverPlaintextHTTP(t *testing.T) {
+	t.Parallel()
+
+	_, err := (Loader{
+		BaseURL: "http://perses.example.test", BearerToken: "must-not-leak",
+	}).Discover(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "requires HTTPS") || strings.Contains(err.Error(), "must-not-leak") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

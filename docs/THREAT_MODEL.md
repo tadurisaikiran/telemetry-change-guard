@@ -94,6 +94,15 @@ values, and internal topology to that deployment. Bearer tokens are read only
 from named environment variables, never serialized, and are not forwarded
 across origins. Error messages omit the query string and response body.
 
+Repository-controlled URLs do not authorize secret destinations. Credentialed
+remote evidence requires an exact execution-policy origin supplied outside
+`tcg.yaml` and HTTPS, except for an explicit loopback-only development mode.
+The GitHub Action disables remote evidence by default, clears the analysis
+environment, and exposes only its fixed remote bearer-token input. Redirects
+are bounded to the canonical configured origin. The remaining workflow trust
+boundary—who may change workflow code or approve a protected environment—is
+documented in [Secure CI usage](SECURE_CI_USAGE.md).
+
 ## Decision integrity
 
 Only `internal/readiness` produces `READY`, `BLOCKED`, or `INCOMPLETE`. The AI

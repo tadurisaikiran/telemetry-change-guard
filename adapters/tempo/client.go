@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	remoteurl "github.com/tadurisaikiran/telemetry-change-guard/internal/remote"
 )
 
 const maxValidationResponseBytes = 1 << 20
@@ -20,10 +22,11 @@ type Validator interface {
 
 // Client validates TraceQL through Tempo's documented Search API.
 type Client struct {
-	BaseURL     string
-	Timeout     time.Duration
-	BearerToken string
-	HTTPClient  *http.Client
+	BaseURL               string
+	Timeout               time.Duration
+	BearerToken           string
+	AllowInsecureLoopback bool
+	HTTPClient            *http.Client
 }
 
 // Validate submits a bounded search against an empty historical interval.
@@ -32,6 +35,14 @@ type Client struct {
 func (client Client) Validate(ctx context.Context, expression string) error {
 	baseURL, err := parseTempoURL(client.BaseURL)
 	if err != nil {
+		return err
+	}
+	if err := remoteurl.ValidateCredentialTransport(
+		baseURL,
+		client.BearerToken != "",
+		client.AllowInsecureLoopback,
+		"Tempo",
+	); err != nil {
 		return err
 	}
 	timeout := client.Timeout
@@ -79,16 +90,7 @@ func (client Client) Validate(ctx context.Context, expression string) error {
 }
 
 func parseTempoURL(raw string) (*url.URL, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Host == "" ||
-		(!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) {
-		return nil, fmt.Errorf("Tempo URL must be an absolute http or https URL")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, fmt.Errorf("Tempo URL must not contain user information, a query, or a fragment")
-	}
-	parsed.Path = strings.TrimRight(parsed.Path, "/")
-	return parsed, nil
+	return remoteurl.ParseBaseURL(raw, "Tempo")
 }
 
 func (client Client) httpClient(baseURL *url.URL, timeout time.Duration) *http.Client {
@@ -101,8 +103,7 @@ func (client Client) httpClient(baseURL *url.URL, timeout time.Duration) *http.C
 		if len(via) >= 10 {
 			return fmt.Errorf("stop after 10 Tempo redirects")
 		}
-		if !strings.EqualFold(request.URL.Scheme, baseURL.Scheme) ||
-			!strings.EqualFold(request.URL.Host, baseURL.Host) {
+		if !remoteurl.SameOrigin(request.URL, baseURL) {
 			return fmt.Errorf("refuse redirect outside configured Tempo origin")
 		}
 		return nil
