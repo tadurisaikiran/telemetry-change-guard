@@ -17,7 +17,7 @@ No database, hosted service, AI provider, or production credential is needed.
 Until an owner publishes `v0.1.0-alpha.1`, install the exact verified commit:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@626f5443021f14a8a4a3ddb67e8b7af6e92afed8
 telemetry-change-guard version --format json
 ```
 
@@ -30,7 +30,7 @@ If the command is not found, add `$(go env GOPATH)/bin` to `PATH`, or set
 ```bash
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 90c0b41629b76f67f6bfda42ad88eb93bd275328
+git checkout 626f5443021f14a8a4a3ddb67e8b7af6e92afed8
 ```
 
 Run all following commands from this repository root. Paths in `tcg.yaml` are
@@ -117,7 +117,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: tadurisaikiran/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328 # v0.1.0-alpha.1 candidate
+  - uses: tadurisaikiran/telemetry-change-guard@626f5443021f14a8a4a3ddb67e8b7af6e92afed8 # v0.1.0-alpha.1 candidate
     with:
       config: tcg.yaml
       changes: changes.yaml
