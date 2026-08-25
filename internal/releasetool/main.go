@@ -1090,14 +1090,22 @@ func runHostSmoke(directory string, manifest releaseManifest) error {
 	}
 	defer os.RemoveAll(temporary)
 	prefix := fmt.Sprintf("%s_%s_%s_%s/", projectName, manifest.Version, host.OS, host.Arch)
+	extension := ""
+	if host.OS == "windows" {
+		extension = ".exe"
+	}
+	allowedBinaries := map[string]string{
+		prefix + "telemetry-change-guard" + extension: "telemetry-change-guard" + extension,
+		prefix + "tmr" + extension:                    "tmr" + extension,
+	}
 	binaries := map[string]string{}
 	for _, entry := range entries {
-		base := path.Base(entry.Name)
-		if base != "telemetry-change-guard" && base != "tmr" && base != "telemetry-change-guard.exe" && base != "tmr.exe" {
+		// Never derive a filesystem destination from an archive-controlled path.
+		// Exact expected archive paths map to hard-coded destination basenames;
+		// every other entry is ignored by the executable smoke test.
+		base, allowed := allowedBinaries[entry.Name]
+		if !allowed {
 			continue
-		}
-		if !strings.HasPrefix(entry.Name, prefix) {
-			return fmt.Errorf("host binary is outside expected archive prefix: %s", entry.Name)
 		}
 		destination := filepath.Join(temporary, base)
 		if err := os.WriteFile(destination, entry.Data, 0o755); err != nil {

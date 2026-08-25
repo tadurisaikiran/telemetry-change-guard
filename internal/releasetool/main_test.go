@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"encoding/json"
 	"os"
@@ -165,6 +166,40 @@ func TestReadTarGzipRejectsSymlink(t *testing.T) {
 	}
 }
 
+func TestReadTarGzipRejectsTraversal(t *testing.T) {
+	t.Parallel()
+
+	invalid := filepath.Join(t.TempDir(), "invalid.tar.gz")
+	writeTestTarGzip(t, invalid, []testTarEntry{
+		{name: "release/../../escape", typeflag: tar.TypeReg, body: "unsafe"},
+	})
+	if _, err := readTarGzip(invalid); err == nil {
+		t.Fatal("tar traversal entry was accepted")
+	}
+}
+
+func TestReadZipRejectsTraversalAndSymlink(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		mode os.FileMode
+	}{
+		{name: "../escape", mode: 0o644},
+		{name: "release/link", mode: os.ModeSymlink | 0o777},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			invalid := filepath.Join(t.TempDir(), "invalid.zip")
+			writeTestZip(t, invalid, test.name, test.mode)
+			if _, err := readZip(invalid); err == nil {
+				t.Fatalf("unsafe zip entry %q was accepted", test.name)
+			}
+		})
+	}
+}
+
 func writeTestTarGzip(t *testing.T, file string, entries []testTarEntry) {
 	t.Helper()
 	output, err := os.Create(file)
@@ -193,6 +228,30 @@ func writeTestTarGzip(t *testing.T, file string, entries []testTarEntry) {
 		t.Fatal(err)
 	}
 	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeTestZip(t *testing.T, file, name string, mode os.FileMode) {
+	t.Helper()
+	output, err := os.Create(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zipWriter := zip.NewWriter(output)
+	header := &zip.FileHeader{Name: name, Method: zip.Store}
+	header.SetMode(mode)
+	entry, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte("unsafe")); err != nil {
+		t.Fatal(err)
+	}
+	if err := zipWriter.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := output.Close(); err != nil {
