@@ -79,7 +79,7 @@ func TestNormalizeCycloneDX(t *testing.T) {
 		"serialNumber": "urn:uuid:random",
 		"components": []any{
 			map[string]any{"name": "z"},
-			map[string]any{"name": "a"},
+			map[string]any{"name": "/private/tmp/syft-archive-contents-1234/archive/a"},
 		},
 		"metadata": map[string]any{
 			"timestamp": "2020-01-01T00:00:00Z",
@@ -100,8 +100,23 @@ func TestNormalizeCycloneDX(t *testing.T) {
 		t.Fatalf("timestamp = %v", metadata["timestamp"])
 	}
 	components := document["components"].([]any)
-	if components[0].(map[string]any)["name"] != "a" || components[1].(map[string]any)["name"] != "z" {
+	if components[0].(map[string]any)["name"] != "archive/a" || components[1].(map[string]any)["name"] != "z" {
 		t.Fatalf("components were not canonicalized: %#v", components)
+	}
+}
+
+func TestNormalizeSyftExtractionPath(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"/tmp/syft-archive-contents-42/release/tmr":       "release/tmr",
+		`C:\Temp\syft-archive-contents-7\release\tmr.exe`: "release/tmr.exe",
+		"release/tmr": "release/tmr",
+	}
+	for input, expected := range tests {
+		if actual := normalizeSyftExtractionPath(input); actual != expected {
+			t.Errorf("normalizeSyftExtractionPath(%q) = %q; want %q", input, actual, expected)
+		}
 	}
 }
 

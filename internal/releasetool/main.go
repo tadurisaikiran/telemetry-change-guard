@@ -451,9 +451,27 @@ func canonicalizeJSON(value any) any {
 			return bytes.Compare(left, right) < 0
 		})
 		return typed
+	case string:
+		return normalizeSyftExtractionPath(typed)
 	default:
 		return value
 	}
+}
+
+func normalizeSyftExtractionPath(value string) string {
+	for _, separator := range []string{"/syft-archive-contents-", `\syft-archive-contents-`} {
+		index := strings.Index(value, separator)
+		if index < 0 {
+			continue
+		}
+		remainder := value[index+len(separator):]
+		boundary := strings.IndexAny(remainder, `/\`)
+		if boundary < 1 {
+			return value
+		}
+		return strings.ReplaceAll(remainder[boundary+1:], `\`, "/")
+	}
+	return value
 }
 
 func writeJSON(file string, value any) error {
@@ -1002,6 +1020,13 @@ func verifySourceArchive(file, version string) error {
 
 func verifySBOM(directory string, manifest releaseManifest, artifact expectedArtifact) error {
 	file := filepath.Join(directory, artifact.File)
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	if bytes.Contains(raw, []byte("syft-archive-contents-")) {
+		return fmt.Errorf("%s leaks a temporary Syft extraction path", artifact.File)
+	}
 	document, err := decodeJSONObject(file)
 	if err != nil {
 		return err

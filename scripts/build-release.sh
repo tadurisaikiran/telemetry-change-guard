@@ -74,7 +74,9 @@ commit_epoch="$(git show -s --format=%ct HEAD)"
 [[ "${build_date}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]] || die "could not resolve the commit date"
 [[ "${commit_epoch}" =~ ^[0-9]+$ ]] || die "could not resolve the commit timestamp"
 
-release_args=(release --clean --config .goreleaser.yaml)
+# A single worker makes multi-binary tar entry ordering independent of build
+# completion timing. The binaries themselves are already deterministic.
+release_args=(release --clean --config .goreleaser.yaml --parallelism=1)
 if [[ "${mode}" == "snapshot" ]]; then
   release_args+=(--snapshot)
 else

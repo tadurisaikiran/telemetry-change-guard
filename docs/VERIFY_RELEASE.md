@@ -76,8 +76,9 @@ architecture. The archive also contains `LICENSE`, `README.md`, and
 
 The `.spdx.json` and `.cdx.json` files are per-artifact Syft results. TCG
 normalizes invocation-dependent timestamps, the SPDX namespace, the optional
-CycloneDX random serial number, and JSON array ordering before checksumming;
-identified component values are not rewritten. SBOMs describe what Syft found
+CycloneDX random serial number, temporary archive-extraction path prefixes,
+and JSON array ordering before checksumming. Package names, versions, hashes,
+licenses, and relationships are not rewritten. SBOMs describe what Syft found
 and are not a claim that every vulnerability or license concern has been
 resolved.
 
