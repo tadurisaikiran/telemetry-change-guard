@@ -58,6 +58,7 @@ docker buildx build \
   --output "type=oci,dest=${output}" \
   --provenance=mode=max \
   --sbom=true \
+  --tag "${image}" \
   "${build_args[@]}" \
   .
 

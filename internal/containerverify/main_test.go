@@ -54,10 +54,20 @@ func TestVerifyLayoutRejectsMissingSLSAProvenance(t *testing.T) {
 	}
 }
 
+func TestVerifyLayoutRejectsMismatchedOCIAttestationSubject(t *testing.T) {
+	t.Parallel()
+
+	file := writeTestLayout(t, testLayoutOptions{mismatchedManifestSubject: true})
+	if err := verifyLayout(file, testIdentity); err == nil || !strings.Contains(err.Error(), "does not bind") {
+		t.Fatalf("error = %v; want mismatched OCI attestation subject", err)
+	}
+}
+
 type testLayoutOptions struct {
-	runtimeUser string
-	omitSLSA    bool
-	nestedIndex bool
+	runtimeUser               string
+	omitSLSA                  bool
+	nestedIndex               bool
+	mismatchedManifestSubject bool
 }
 
 type testLayoutBuilder struct {
@@ -77,7 +87,7 @@ func writeTestLayout(t *testing.T, options testLayoutOptions) string {
 	for _, architecture := range []string{"amd64", "arm64"} {
 		runtime := builder.addRuntime(architecture, options.runtimeUser)
 		descriptors = append(descriptors, runtime)
-		descriptors = append(descriptors, builder.addAttestation(runtime, options.omitSLSA))
+		descriptors = append(descriptors, builder.addAttestation(runtime, options.omitSLSA, options.mismatchedManifestSubject))
 	}
 	index := imageIndex{SchemaVersion: 2, MediaType: indexMediaType, Manifests: descriptors}
 	if options.nestedIndex {
@@ -148,15 +158,26 @@ func (builder *testLayoutBuilder) addRuntime(architecture, user string) descript
 	return descriptor
 }
 
-func (builder *testLayoutBuilder) addAttestation(runtime descriptor, omitSLSA bool) descriptor {
-	config := builder.addBlob([]byte("{}"), "application/vnd.oci.empty.v1+json")
+func (builder *testLayoutBuilder) addAttestation(runtime descriptor, omitSLSA, mismatchedManifestSubject bool) descriptor {
+	config := builder.addBlob([]byte("{}"), emptyConfigMediaType)
 	layers := []descriptor{
 		builder.addStatement(runtime.Digest, "https://spdx.dev/Document"),
 	}
 	if !omitSLSA {
 		layers = append(layers, builder.addStatement(runtime.Digest, "https://slsa.dev/provenance/v1"))
 	}
-	manifest := imageManifest{SchemaVersion: 2, MediaType: manifestMediaType, Config: config, Layers: layers}
+	subject := runtime
+	if mismatchedManifestSubject {
+		subject.Digest = "sha256:" + strings.Repeat("b", 64)
+	}
+	manifest := imageManifest{
+		SchemaVersion: 2,
+		MediaType:     manifestMediaType,
+		ArtifactType:  attestationMediaType,
+		Config:        config,
+		Layers:        layers,
+		Subject:       &subject,
+	}
 	descriptor := builder.addBlob(marshalTestJSON(builder.t, manifest), manifestMediaType)
 	descriptor.Platform = &platform{Architecture: "unknown", OS: "unknown"}
 	descriptor.Annotations = map[string]string{
@@ -178,7 +199,9 @@ func (builder *testLayoutBuilder) addStatement(subjectDigest, predicateType stri
 		}},
 		"predicate": map[string]any{},
 	}
-	return builder.addBlob(marshalTestJSON(builder.t, document), "application/vnd.in-toto+json")
+	descriptor := builder.addBlob(marshalTestJSON(builder.t, document), inTotoMediaType)
+	descriptor.Annotations = map[string]string{predicateTypeKey: predicateType}
+	return descriptor
 }
 
 func (builder *testLayoutBuilder) addBlob(data []byte, mediaType string) descriptor {
