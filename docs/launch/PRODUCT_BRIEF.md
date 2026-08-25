@@ -97,10 +97,10 @@ field-accuracy evidence.
 
 ## Evaluate the reviewed commit
 
-Before artifact publication, evaluators with Go 1.27+ can install:
+Before artifact publication, evaluators with Go 1.26.7+ can install:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 ```
 
 Start with the [five-minute quickstart](../QUICKSTART.md), then bring one

@@ -9,7 +9,7 @@ the exact reviewed main commit and all release gates.
 | Channel | Candidate state | Available now? |
 | --- | --- | --- |
 | Immutable GitHub Action commit | Hosted consumer paths verified | Yes, at the documented full SHA |
-| `go install` at full commit | Clean external install verified | Yes, with Go 1.27+ |
+| `go install` at full commit | Clean external install verified | Yes, with Go 1.26.7+ |
 | GitHub release archives | Reproducible archives, checksums, manifest, notes, SBOMs, and provenance prepared | No |
 | OCI image | Linux amd64/arm64 non-root build and attestations verified | No registry publication |
 | Homebrew | Formula generation and Ruby syntax verified | No tap publication |

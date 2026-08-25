@@ -64,10 +64,10 @@ The repository includes a small example. It proposes removing
 `checkout_requests_total`; a critical alert named `CheckoutTrafficMissing`
 still queries the metric.
 
-Install the exact reviewed candidate commit with Go 1.27 or newer:
+Install the exact reviewed candidate commit with Go 1.26.7 or newer:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 ```
 
 Then run the matching example from the repository root:

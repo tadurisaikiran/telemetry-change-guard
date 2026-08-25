@@ -192,6 +192,7 @@ in that security-focused reordering.
 | Install and consumer validation | `#51` | Merged at `8528ab9d7017eda3190377d2e726ec3ac750ce91`; external Action, exact-ref `go install`, multi-arch container, formula, SBOM, and provenance paths verified |
 | Public-alpha documentation and regression corpus | `#52` | Merged at `b42396bdfcc476b4892b9e9fe4b464420b4b36f7`; front door, doc checks, 11-case synthetic benchmark, and evaluation kit |
 | Evidence-constrained public launch kit | `#53` | Merged at `2f74b952acf438eeb0728aed7d0314bf8c56dd58`; draft-only materials, no external publication |
+| Go and CodeQL compatibility closeout | `#56` | Merged at `90c0b41629b76f67f6bfda42ad88eb93bd275328`; Go 1.26.7 artifacts and complete, annotation-free CodeQL extraction verified |
 
 The launch kit is developed on `docs/public-launch-kit`, a human-named branch
 from the fully verified `#52` merge, and reviewed separately in `#53`. These

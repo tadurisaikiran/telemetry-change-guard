@@ -7,7 +7,7 @@ run demonstrates a `BLOCK` instead of an empty pass.
 ## Prerequisites
 
 - Git;
-- Go `1.27.0` or newer; and
+- Go `1.26.7` or newer; and
 - macOS, Linux, or Windows for the CLI. The prepared container is Linux-only.
 
 No database, hosted service, AI provider, or production credential is needed.
@@ -17,7 +17,7 @@ No database, hosted service, AI provider, or production credential is needed.
 Until an owner publishes `v0.1.0-alpha.1`, install the exact verified commit:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 telemetry-change-guard version --format json
 ```
 
@@ -30,7 +30,7 @@ If the command is not found, add `$(go env GOPATH)/bin` to `PATH`, or set
 ```bash
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
+git checkout 90c0b41629b76f67f6bfda42ad88eb93bd275328
 ```
 
 Run all following commands from this repository root. Paths in `tcg.yaml` are
@@ -117,7 +117,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91 # v0.1.0-alpha.1 candidate
+  - uses: tadurisaikiran/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328 # v0.1.0-alpha.1 candidate
     with:
       config: tcg.yaml
       changes: changes.yaml
