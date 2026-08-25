@@ -61,3 +61,29 @@ func TestNewInfoRejectsMalformedReleaseIdentity(t *testing.T) {
 		t.Fatalf("malformed linker identity = %#v", info)
 	}
 }
+
+func TestEffectiveVersionUsesImmutableModuleVersionForGoInstall(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		linked string
+		module string
+		want   string
+	}{
+		{name: "release linker metadata wins", linked: "0.1.0-alpha.1", module: "v9.9.9", want: "0.1.0-alpha.1"},
+		{name: "tagged module", linked: "dev", module: "v0.1.0-alpha.1", want: "0.1.0-alpha.1"},
+		{name: "pseudo version", linked: "dev", module: "v0.0.0-20260825120000-0123456789ab", want: "0.0.0-20260825120000-0123456789ab"},
+		{name: "local checkout", linked: "dev", module: "(devel)", want: "dev"},
+		{name: "malformed module", linked: "dev", module: "latest", want: "dev"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := effectiveVersion(test.linked, test.module); got != test.want {
+				t.Fatalf("effectiveVersion(%q, %q) = %q; want %q", test.linked, test.module, got, test.want)
+			}
+		})
+	}
+}

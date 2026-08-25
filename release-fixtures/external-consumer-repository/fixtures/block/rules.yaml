@@ -1,0 +1,7 @@
+groups:
+  - name: checkout
+    rules:
+      - alert: OldMetricMissing
+        expr: old_metric == 0
+        labels:
+          severity: critical

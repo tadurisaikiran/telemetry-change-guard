@@ -1,0 +1,9 @@
+{
+  "apiVersion": "tcg/v1alpha1",
+  "kind": "TelemetrySnapshot",
+  "metadata": {"name": "consumer-baseline"},
+  "spec": {
+    "domain": "prometheus",
+    "metrics": [{"name": "old_metric", "type": "gauge", "labels": []}]
+  }
+}

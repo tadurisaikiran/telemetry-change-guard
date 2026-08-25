@@ -1,0 +1,11 @@
+apiVersion: telemetry-migration/v1alpha1
+kind: Migration
+metadata:
+  name: safe-consumer-migration
+spec:
+  changes:
+    - id: remove-old-metric
+      kind: metric_remove
+      domain: prometheus
+      from:
+        metric: old_metric

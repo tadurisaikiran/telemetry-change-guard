@@ -1,5 +1,13 @@
 *
+!.dockerignore
+!Dockerfile
 !go.mod
-!e2e/
-!e2e/exporter/
-!e2e/exporter/main.go
+!go.sum
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!adapters/
+!adapters/**
+!pkg/
+!pkg/**
