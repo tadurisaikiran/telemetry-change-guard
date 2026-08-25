@@ -145,6 +145,8 @@ See [the ownership discovery guide](OWNERSHIP.md).
 `internal/readiness` form the deterministic core. The graph is rebuilt in
 memory for every run and traversal is cycle-safe. `internal/impact` emits
 policy-independent findings with evidence and dependency paths.
+Graph export crosses an explicit `tcg-graph/v1alpha1` report DTO boundary, so
+refactoring internal Go structs cannot silently rename the machine contract.
 `internal/safety` applies generic policy and is the only component allowed to
 produce `PASS`, `WARN`, `BLOCK`, `INCOMPLETE`, or `ERROR`. The compatibility
 `internal/readiness` evaluator independently preserves the existing

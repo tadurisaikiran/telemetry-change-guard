@@ -122,6 +122,12 @@ for fork-safe, protected internal, local, comment-permission, and secret
 handling examples. Never combine `pull_request_target`, a privileged token,
 and execution of an untrusted pull-request checkout.
 
+The Action always supplies `${{ github.workspace }}` as trusted
+`--repository-root`. Local evidence patterns, configuration, and change inputs
+cannot escape that root through absolute paths, `..`, or symlinks. Aggregate
+analysis limits and a total timeout are supplied by the canonical CLI and
+cannot be relaxed from the analyzed checkout.
+
 ## Outputs and artifacts
 
 | Output | Description |

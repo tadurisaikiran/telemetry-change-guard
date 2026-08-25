@@ -60,6 +60,17 @@ type codeownersEvidence struct {
 // Load and parse failures become advisory diagnostics. Ownership itself never
 // changes unresolved state or readiness.
 func Enrich(ctx context.Context, configuration config.OwnershipConfig, discovery *domain.Discovery) error {
+	return EnrichWithBudget(ctx, configuration, discovery, nil)
+}
+
+// EnrichWithBudget applies the trusted local-evidence boundary to ownership
+// metadata while retaining ownership's advisory decision semantics.
+func EnrichWithBudget(
+	ctx context.Context,
+	configuration config.OwnershipConfig,
+	discovery *domain.Discovery,
+	budget *filesource.Budget,
+) error {
 	if discovery == nil {
 		return nil
 	}
@@ -81,8 +92,8 @@ func Enrich(ctx context.Context, configuration config.OwnershipConfig, discovery
 	}
 	repositoryRoot = filepath.Clean(repositoryRoot)
 
-	metadataRules := loadMetadataRules(ctx, repositoryRoot, configuration.Metadata, discovery)
-	codeowners := loadCodeowners(ctx, repositoryRoot, configuration.Codeowners, discovery)
+	metadataRules := loadMetadataRules(ctx, repositoryRoot, configuration.Metadata, discovery, budget)
+	codeowners := loadCodeowners(ctx, repositoryRoot, configuration.Codeowners, discovery, budget)
 	for index := range discovery.Consumers {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -122,6 +133,7 @@ func loadMetadataRules(
 	repositoryRoot string,
 	patterns []config.OwnershipMetadataSource,
 	discovery *domain.Discovery,
+	budget *filesource.Budget,
 ) []metadataRule {
 	var rules []metadataRule
 	loaded := make(map[string]struct{})
@@ -130,7 +142,13 @@ func loadMetadataRules(
 			return rules
 		}
 		rootedPattern := filepath.Join(repositoryRoot, filepath.FromSlash(pattern.Pattern))
-		files, err := filesource.Expand(rootedPattern)
+		var files []string
+		var err error
+		if budget == nil {
+			files, err = filesource.Expand(rootedPattern)
+		} else {
+			files, err = budget.Expand(rootedPattern)
+		}
 		if err != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, ownershipDiagnostic(
 				"ownership_metadata", rootedPattern, 0, err.Error(),
@@ -154,7 +172,12 @@ func loadMetadataRules(
 				))
 				continue
 			}
-			file, err := os.Open(path)
+			var file *os.File
+			if budget == nil {
+				file, err = os.Open(path)
+			} else {
+				file, err = budget.Open(path)
+			}
 			if err != nil {
 				discovery.Diagnostics = append(discovery.Diagnostics, ownershipDiagnostic(
 					"ownership_metadata", path, 0, err.Error(),
@@ -187,6 +210,7 @@ func loadCodeowners(
 	repositoryRoot string,
 	configuration config.CodeownersConfig,
 	discovery *domain.Discovery,
+	budget *filesource.Budget,
 ) *codeownersEvidence {
 	if !configuration.Enabled || ctx.Err() != nil {
 		return nil
@@ -212,7 +236,22 @@ func loadCodeowners(
 		))
 		return nil
 	}
-	file, err := os.Open(path)
+	if budget != nil {
+		_, securedPath, secureErr := budget.Register(path)
+		if secureErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, ownershipDiagnostic(
+				"codeowners", path, 0, secureErr.Error(),
+			))
+			return nil
+		}
+		path = securedPath
+	}
+	var file *os.File
+	if budget == nil {
+		file, err = os.Open(path)
+	} else {
+		file, err = budget.Open(path)
+	}
 	if err != nil {
 		discovery.Diagnostics = append(discovery.Diagnostics, ownershipDiagnostic(
 			"codeowners", path, 0, err.Error(),

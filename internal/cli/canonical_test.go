@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,6 +41,97 @@ func TestCanonicalHelpUsesCollisionFreeExecutableName(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "\n  tcg ") {
 		t.Fatalf("help advertises the rejected colliding tcg binary:\n%s", stdout.String())
+	}
+}
+
+func TestCanonicalInitCreatesRunnableStarterWithoutOverwriting(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if exitCode := Run(context.Background(), []string{"init", "--directory", root}, &stdout, &stderr); exitCode != 0 {
+		t.Fatalf("init exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
+	}
+	for _, relative := range []string{
+		"tcg.yaml",
+		"tcg-changes.example.yaml",
+		filepath.Join(".tcg", "getting-started", "prometheus", "rules.yaml"),
+	} {
+		info, err := os.Stat(filepath.Join(root, relative))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s mode = %#o", relative, info.Mode().Perm())
+		}
+	}
+	output, exitCode := runCLIHelper(t, root, "canonical",
+		"check", "--config", "tcg.yaml", "--changes", "tcg-changes.example.yaml",
+	)
+	if exitCode != safety.ExitCode(safety.StatusBlock) || !strings.Contains(string(output), "STATUS: BLOCK") {
+		t.Fatalf("starter check exit/output = %d/%s", exitCode, output)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if exitCode := Run(context.Background(), []string{"init", "--directory", root}, &stdout, &stderr); exitCode != 1 ||
+		!strings.Contains(stderr.String(), "refusing to overwrite") {
+		t.Fatalf("second init exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
+	}
+}
+
+func TestCanonicalCheckConfinesLocalEvidenceAndEnforcesAggregateBudget(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.yaml")
+	writeCLIFixture(t, outside, "groups: []\n")
+	alias := filepath.Join(root, "outside.yaml")
+	if err := os.Symlink(outside, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	configPath := filepath.Join(root, "tcg.yaml")
+	changesPath := filepath.Join(root, "changes.yaml")
+	writeCLIFixture(t, changesPath, starterChanges)
+	writeCLIFixture(t, configPath, fmt.Sprintf(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  prometheusRules:
+    - path: %q
+      required: true
+output: {formats: [json]}
+`, alias))
+	var stdout, stderr bytes.Buffer
+	exitCode := Run(context.Background(), []string{
+		"check", "--config", configPath, "--changes", changesPath, "--repository-root", root,
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stdout.String(), `"status": "ERROR"`) ||
+		!strings.Contains(stderr.String(), "symbolic links are not allowed") {
+		t.Fatalf("symlink check exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
+	}
+	if err := os.Remove(alias); err != nil {
+		t.Fatal(err)
+	}
+
+	first := filepath.Join(root, "first.yaml")
+	second := filepath.Join(root, "second.yaml")
+	writeCLIFixture(t, first, "groups: []\n")
+	writeCLIFixture(t, second, "groups: []\n")
+	writeCLIFixture(t, configPath, fmt.Sprintf(`apiVersion: tcg/v1alpha1
+kind: Config
+sources:
+  prometheusRules:
+    - path: %q
+      required: true
+output: {formats: [json]}
+`, filepath.Join(root, "*.yaml")))
+	stdout.Reset()
+	stderr.Reset()
+	exitCode = Run(context.Background(), []string{
+		"check", "--config", configPath, "--changes", changesPath, "--repository-root", root,
+		"--max-source-files", "2",
+	}, &stdout, &stderr)
+	if exitCode != 1 || !strings.Contains(stdout.String(), `"status": "ERROR"`) || !strings.Contains(stderr.String(), "file count") {
+		t.Fatalf("limited check exit/stdout/stderr = %d/%q/%q", exitCode, stdout.String(), stderr.String())
 	}
 }
 
@@ -207,6 +299,7 @@ spec:
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"check", "--config", configPath, "--changes", changesPath, "--format", "json",
+		"--repository-root", root, "--remote-evidence", "enabled",
 		"--allowed-remote-origin", "https://usage.example.test",
 	}, &stdout, &stderr)
 	if exitCode != 1 {
@@ -285,6 +378,7 @@ spec:
 			var stdout, stderr bytes.Buffer
 			exitCode := Run(context.Background(), []string{
 				"check", "--config", configPath, "--changes", changesPath,
+				"--repository-root", root,
 				"--mode", test.mode, "--format", "json",
 			}, &stdout, &stderr)
 			if exitCode != test.wantExit {
@@ -386,6 +480,49 @@ func TestCanonicalCheckRejectsCollidingOutputPathsBeforeInputLoading(t *testing.
 	}
 }
 
+func TestOutputFilesArePrivateAtomicAndRejectSymlinks(t *testing.T) {
+	t.Parallel()
+
+	directory := t.TempDir()
+	path := filepath.Join(directory, "report.json")
+	if err := writeOutput(path, []byte("first"), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOutput(path, []byte("second"), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contents) != "second" || info.Mode().Perm() != 0o600 {
+		t.Fatalf("contents/mode = %q/%#o", contents, info.Mode().Perm())
+	}
+
+	target := filepath.Join(directory, "target")
+	if err := os.WriteFile(target, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(directory, "alias")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := writeOutput(alias, []byte("unsafe"), io.Discard); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("writeOutput() error = %v", err)
+	}
+	unchanged, err := os.ReadFile(target)
+	if err != nil || string(unchanged) != "unchanged" {
+		t.Fatalf("symlink target changed: %q, %v", unchanged, err)
+	}
+	if err := validateOutputPaths(target, alias, ""); err == nil {
+		t.Fatal("validateOutputPaths accepted a symlink output")
+	}
+}
+
 func TestCanonicalCheckRequiresExactlyOneCompleteChangeSource(t *testing.T) {
 	t.Parallel()
 
@@ -433,6 +570,7 @@ func TestCanonicalDiffWritesFullReportAndActionableChangeSet(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"diff", "--baseline", baselinePath, "--candidate", candidatePath,
+		"--repository-root", root,
 		"--name", "detected-contract", "--output", diffPath, "--changes-output", changesPath,
 	}, &stdout, &stderr)
 	if exitCode != 0 || stdout.Len() != 0 || stderr.Len() != 0 {
@@ -453,13 +591,17 @@ func TestCanonicalDiffWritesFullReportAndActionableChangeSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	canonicalCandidate, err := filepath.EvalSymlinks(candidatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if changeSet.Metadata.Name != "detected-contract" || len(changeSet.Changes) != 2 ||
-		changeSet.Changes[0].Metadata["source.candidate.file"] != candidatePath {
+		changeSet.Changes[0].Metadata["source.candidate.file"] != canonicalCandidate {
 		t.Fatalf("changeSet = %#v", changeSet)
 	}
 
 	var validateOut, validateErr bytes.Buffer
-	if got := Run(context.Background(), []string{"validate", "--snapshot", candidatePath}, &validateOut, &validateErr); got != 0 ||
+	if got := Run(context.Background(), []string{"validate", "--snapshot", candidatePath, "--repository-root", root}, &validateOut, &validateErr); got != 0 ||
 		validateOut.String() != "TelemetrySnapshot is valid.\nMetrics: 2\n" || validateErr.Len() != 0 {
 		t.Fatalf("validate exit = %d, stdout = %q, stderr = %q", got, validateOut.String(), validateErr.String())
 	}
@@ -495,6 +637,7 @@ output:
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"check", "--config", configPath, "--baseline", baselinePath, "--candidate", candidatePath, "--format", "json",
+		"--repository-root", root,
 	}, &stdout, &stderr)
 	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stderr.Len() != 0 {
 		t.Fatalf("exit = %d, stderr = %q", exitCode, stderr.String())
@@ -522,6 +665,7 @@ func TestCanonicalDiffSemanticDriftWritesEvidenceAndReturnsIncomplete(t *testing
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"diff", "--baseline", baselinePath, "--candidate", candidatePath,
+		"--repository-root", root,
 		"--output", diffPath, "--changes-output", changesPath,
 	}, &stdout, &stderr)
 	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stdout.Len() != 0 ||
@@ -548,26 +692,32 @@ func TestCanonicalDiffSemanticDriftWritesEvidenceAndReturnsIncomplete(t *testing
 func TestCanonicalCheckWeaverMissingMappingFailsIncompleteWithKnownChanges(t *testing.T) {
 	t.Parallel()
 
-	root, err := filepath.Abs(filepath.Join("..", ".."))
+	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
-	configPath := filepath.Join(t.TempDir(), "tcg.yaml")
-	writeCLIFixture(t, configPath, `apiVersion: tcg/v1alpha1
+	root := t.TempDir()
+	configPath := filepath.Join(root, "tcg.yaml")
+	writeCLIFixture(t, configPath, fmt.Sprintf(`apiVersion: tcg/v1alpha1
 kind: Config
 sources:
   prometheusRules:
-    - path: /definitely/missing/tcg-weaver-optional/*.yaml
+    - path: %q
       required: false
 output:
   formats: [json]
-`)
+`, filepath.Join(root, "missing", "*.yaml")))
+	diffPath := filepath.Join(root, "diff-v2.json")
+	mappingPath := filepath.Join(root, "mapping-incomplete.yaml")
+	copyFixture(t, filepath.Join(repositoryRoot, "adapters", "weaver", "testdata", "diff-v2.json"), diffPath)
+	copyFixture(t, filepath.Join(repositoryRoot, "adapters", "weaver", "testdata", "mapping-incomplete.yaml"), mappingPath)
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"check",
 		"--config", configPath,
-		"--weaver-diff", filepath.Join(root, "adapters", "weaver", "testdata", "diff-v2.json"),
-		"--weaver-mapping", filepath.Join(root, "adapters", "weaver", "testdata", "mapping-incomplete.yaml"),
+		"--weaver-diff", diffPath,
+		"--weaver-mapping", mappingPath,
+		"--repository-root", root,
 		"--format", "json",
 	}, &stdout, &stderr)
 	if exitCode != safety.ExitCode(safety.StatusIncomplete) || stderr.Len() != 0 {
@@ -598,6 +748,7 @@ func TestCanonicalValidateWeaverMissingMappingReturnsIncomplete(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
 		"validate",
+		"--repository-root", root,
 		"--weaver-diff", filepath.Join(root, "adapters", "weaver", "testdata", "diff-v2.json"),
 		"--weaver-mapping", filepath.Join(root, "adapters", "weaver", "testdata", "mapping-incomplete.yaml"),
 	}, &stdout, &stderr)
@@ -700,11 +851,12 @@ func TestCanonicalImpactIncludesPrometheusMetricFamilyDependencies(t *testing.T)
 func TestCanonicalImpactFailsClosedOnRequiredMissingEvidence(t *testing.T) {
 	t.Parallel()
 
-	configPath := filepath.Join(t.TempDir(), "tmr.yaml")
-	writeCLIFixture(t, configPath, `apiVersion: tmr/v1alpha1
+	root := t.TempDir()
+	configPath := filepath.Join(root, "tmr.yaml")
+	writeCLIFixture(t, configPath, fmt.Sprintf(`apiVersion: tmr/v1alpha1
 sources:
   prometheusRules:
-    - path: /definitely/missing/tcg-r5/*.yaml
+    - path: %q
       required: true
 analysis:
   includeTransitiveDependencies: true
@@ -715,10 +867,10 @@ policy:
   minimumBlockingCriticality: high
 output:
   formats: [json]
-`)
+`, filepath.Join(root, "missing", "*.yaml")))
 	var stdout, stderr bytes.Buffer
 	exitCode := Run(context.Background(), []string{
-		"impact", "--config", configPath, "--symbol", "old_metric",
+		"impact", "--config", configPath, "--symbol", "old_metric", "--repository-root", root,
 	}, &stdout, &stderr)
 	if exitCode != 3 || !strings.Contains(stdout.String(), "No confirmed dependents found") ||
 		!strings.Contains(stderr.String(), "Diagnostic [prometheus_rules/required]") {
@@ -730,8 +882,9 @@ func TestCanonicalValidateChangeSet(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join("..", "..", "examples", "checkout-migration", "changes.yaml")
+	root := filepath.Clean(filepath.Join("..", ".."))
 	var stdout, stderr bytes.Buffer
-	exitCode := Run(context.Background(), []string{"validate", "--changes", path}, &stdout, &stderr)
+	exitCode := Run(context.Background(), []string{"validate", "--changes", path, "--repository-root", root}, &stdout, &stderr)
 	if exitCode != 0 || stdout.String() != "ChangeSet manifest is valid.\nChanges: 2\n" || stderr.Len() != 0 {
 		t.Fatalf("exit = %d, stdout = %q, stderr = %q", exitCode, stdout.String(), stderr.String())
 	}
@@ -819,6 +972,17 @@ func runCLIHelper(t *testing.T, root string, args ...string) ([]byte, int) {
 func writeCLIFixture(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func copyFixture(t *testing.T, source, destination string) {
+	t.Helper()
+	contents, err := os.ReadFile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(destination, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -58,6 +58,7 @@ func runMigrationCheck(
 	jsonOutput := flags.String("json-output", "", "optional companion JSON report path")
 	statusOutput := flags.String("status-output", "", "optional authoritative status output path")
 	remoteFlags := addRemoteEvidenceFlags(flags)
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -77,6 +78,13 @@ func runMigrationCheck(
 		fmt.Fprintf(stderr, "%s requires %s or both --weaver-diff and --weaver-mapping\n", commandName, migrationFlag)
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, configPath, migrationPath, weaverDiffPath, weaverMappingPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
@@ -87,6 +95,7 @@ func runMigrationCheck(
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	execution.apply(&configuration)
 	migration, err := loadSelectedMigration(ctx, *migrationPath, *weaverDiffPath, *weaverMappingPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -160,6 +169,7 @@ func runMigrationAdvise(
 	var providerArgs stringListFlag
 	flags.Var(&providerArgs, "ai-arg", "argument passed directly to the AI provider executable (repeatable)")
 	remoteFlags := addRemoteEvidenceFlags(flags)
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -179,6 +189,13 @@ func runMigrationAdvise(
 		fmt.Fprintf(stderr, "%s requires %s or both --weaver-diff and --weaver-mapping\n", commandName, migrationFlag)
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, configPath, migrationPath, weaverDiffPath, weaverMappingPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
@@ -189,6 +206,7 @@ func runMigrationAdvise(
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	execution.apply(&configuration)
 	migration, err := loadSelectedMigration(ctx, *migrationPath, *weaverDiffPath, *weaverMappingPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -245,6 +263,7 @@ func runMigrationRemediate(
 	var providerArgs stringListFlag
 	flags.Var(&providerArgs, "ai-arg", "argument passed directly to the AI provider executable (repeatable)")
 	remoteFlags := addRemoteEvidenceFlags(flags)
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -264,6 +283,13 @@ func runMigrationRemediate(
 		fmt.Fprintf(stderr, "%s requires %s or both --weaver-diff and --weaver-mapping\n", commandName, migrationFlag)
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, configPath, migrationPath, weaverDiffPath, weaverMappingPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
@@ -274,6 +300,7 @@ func runMigrationRemediate(
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	execution.apply(&configuration)
 	migration, err := loadSelectedMigration(ctx, *migrationPath, *weaverDiffPath, *weaverMappingPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -357,6 +384,7 @@ func runGraphCommand(ctx context.Context, requireComplete bool, args []string, s
 	format := flags.String("format", "json", "graph format (json)")
 	output := flags.String("output", "", "optional graph output path")
 	remoteFlags := addRemoteEvidenceFlags(flags)
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -368,6 +396,13 @@ func runGraphCommand(ctx context.Context, requireComplete bool, args []string, s
 		fmt.Fprintln(stderr, "graph --format currently supports only json")
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -377,6 +412,7 @@ func runGraphCommand(ctx context.Context, requireComplete bool, args []string, s
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	execution.apply(&configuration)
 	discovery, target, err := analysis.Discover(ctx, configuration)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -413,6 +449,7 @@ func runSymbolImpact(
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
 	symbolName := flags.String("symbol", "", "Prometheus metric name")
 	remoteFlags := addRemoteEvidenceFlags(flags)
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -420,6 +457,13 @@ func runSymbolImpact(
 		fmt.Fprintf(stderr, "%s requires --config and --symbol and accepts no positional arguments\n", commandName)
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 	configuration, err := config.LoadConfig(ctx, *configPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -429,6 +473,7 @@ func runSymbolImpact(
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	execution.apply(&configuration)
 	discovery, target, err := analysis.Discover(ctx, configuration)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -566,8 +611,51 @@ func writeOutput(path string, contents []byte, stdout io.Writer) error {
 		_, err := stdout.Write(contents)
 		return err
 	}
-	if err := os.WriteFile(path, contents, 0o644); err != nil {
+	if err := writeFileAtomic(path, contents); err != nil {
 		return fmt.Errorf("write output %q: %w", path, err)
+	}
+	return nil
+}
+
+func writeFileAtomic(path string, contents []byte) error {
+	absolute, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return err
+	}
+	if info, statErr := os.Lstat(absolute); statErr == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to replace symbolic link")
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing to replace non-regular file")
+		}
+	} else if !os.IsNotExist(statErr) {
+		return statErr
+	}
+	directory := filepath.Dir(absolute)
+	temporary, err := os.CreateTemp(directory, ".tcg-output-*")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer func() {
+		_ = temporary.Close()
+		_ = os.Remove(temporaryPath)
+	}()
+	if err := temporary.Chmod(0o600); err != nil {
+		return err
+	}
+	if _, err := temporary.Write(contents); err != nil {
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(temporaryPath, absolute); err != nil {
+		return err
 	}
 	return nil
 }
@@ -586,17 +674,38 @@ func validateOutputPaths(outputPath, jsonOutputPath, statusOutputPath string) er
 		if candidate.path == "" {
 			continue
 		}
-		absolute, err := filepath.Abs(candidate.path)
+		absolute, err := secureOutputIdentity(candidate.path)
 		if err != nil {
 			return fmt.Errorf("resolve %s path %q: %w", candidate.flag, candidate.path, err)
 		}
-		absolute = filepath.Clean(absolute)
 		if previous, exists := resolved[absolute]; exists {
 			return fmt.Errorf("%s and %s must identify different files", previous, candidate.flag)
 		}
 		resolved[absolute] = candidate.flag
 	}
 	return nil
+}
+
+func secureOutputIdentity(path string) (string, error) {
+	absolute, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return "", err
+	}
+	parent, err := filepath.EvalSymlinks(filepath.Dir(absolute))
+	if err != nil {
+		return "", fmt.Errorf("resolve parent directory: %w", err)
+	}
+	if info, statErr := os.Lstat(absolute); statErr == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", fmt.Errorf("output path must not be a symbolic link")
+		}
+		if !info.Mode().IsRegular() {
+			return "", fmt.Errorf("output path must be a regular file")
+		}
+	} else if !os.IsNotExist(statErr) {
+		return "", statErr
+	}
+	return filepath.Join(parent, filepath.Base(absolute)), nil
 }
 
 func readablePath(target *graph.Graph, path graph.Path) string {

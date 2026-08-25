@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repository_root="${TCG_REPOSITORY_ROOT:-${GITHUB_WORKSPACE:-${PWD}}}"
+
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${GITHUB_STEP_SUMMARY:?GITHUB_STEP_SUMMARY is required}"
 : "${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
@@ -71,7 +73,7 @@ else
   command=("${RUNNER_TEMP}/telemetry-change-guard")
   if [[ "${generic_source_count}" -eq 1 ]]; then
     mode="generic"
-    command+=(check --config "${TCG_CONFIG}" --remote-evidence "${TCG_REMOTE_EVIDENCE:-disabled}")
+    command+=(check --config "${TCG_CONFIG}" --repository-root "${repository_root}" --remote-evidence "${TCG_REMOTE_EVIDENCE:-disabled}")
     case "${generic_source}" in
       changes) command+=(--changes "${TCG_CHANGES}") ;;
       snapshot) command+=(--baseline "${TCG_BASELINE}" --candidate "${TCG_CANDIDATE}") ;;
@@ -83,7 +85,7 @@ else
     esac
   else
     mode="migration"
-    command+=(migration check --config "${TCG_CONFIG}" --plan "${TCG_MIGRATION}" --remote-evidence "${TCG_REMOTE_EVIDENCE:-disabled}")
+    command+=(migration check --config "${TCG_CONFIG}" --plan "${TCG_MIGRATION}" --repository-root "${repository_root}" --remote-evidence "${TCG_REMOTE_EVIDENCE:-disabled}")
   fi
 
   if [[ "${TCG_REMOTE_EVIDENCE:-disabled}" == "enabled" ]]; then

@@ -94,9 +94,10 @@ values, and internal topology to that deployment. Bearer tokens are read only
 from named environment variables, never serialized, and are not forwarded
 across origins. Error messages omit the query string and response body.
 
-Repository-controlled URLs do not authorize secret destinations. Credentialed
-remote evidence requires an exact execution-policy origin supplied outside
-`tcg.yaml` and HTTPS, except for an explicit loopback-only development mode.
+Repository-controlled URLs do not authorize network destinations. Remote
+evidence is disabled by default, and every enabled source requires an exact
+execution-policy origin supplied outside `tcg.yaml`. Credentialed evidence
+also requires HTTPS, except for an explicit loopback-only development mode.
 The GitHub Action disables remote evidence by default, clears the analysis
 environment, and exposes only its fixed remote bearer-token input. Redirects
 are bounded to the canonical configured origin. The remaining workflow trust
@@ -122,10 +123,14 @@ verify GitHub permissions, or authorize a candidate patch.
 
 ## Availability and resource limits
 
-Configuration, adapter responses, explanation requests, provider responses,
-stderr, and execution time are bounded. AI providers have a maximum two-minute
-timeout. Oversized or malformed responses fail as tool errors instead of being
-partially trusted.
+Canonical CLI and Action runs confine every local input and evidence file to a
+trusted repository root, reject symbolic links, and open evidence through a
+rooted filesystem handle. Aggregate source files and bytes, consumers,
+references, productions, graph nodes and edges, findings, and total local
+analysis time are bounded. Configuration, adapter responses, explanation
+requests, provider responses, and stderr are independently bounded. AI
+providers have a maximum two-minute timeout. Oversized or malformed input
+fails as a tool error instead of being partially trusted.
 
 Runtime query input has explicit file, line, record, query, origin, and window
 limits. Time windows are anchored to the newest valid event, not wall time, to
@@ -148,9 +153,17 @@ scenarios protect against malformed inputs and fail-open regressions.
 
 ## Output handling
 
-AI output is untrusted prose. Telemetry Change Guard strips terminal control characters and labels
-it non-authoritative. Consumers of future machine interfaces must preserve this
-distinction and must not turn explanation text into executable commands.
+All repository-derived human-report fields and AI output are untrusted text.
+Telemetry Change Guard strips terminal control characters, collapses embedded
+line breaks, and contains Markdown fields inside non-terminable code spans.
+AI prose is additionally labeled non-authoritative. Consumers of machine
+interfaces must preserve this distinction and must not turn explanation text
+into executable commands.
+
+Report files are atomically replaced with owner-only permissions. Existing
+symbolic-link and non-regular output targets are rejected. JSON retains the
+original bounded values using JSON escaping because it is a machine evidence
+contract rather than terminal or Markdown content.
 
 Experimental agentic artifacts include the uncommitted diff, bounded adapter
 prose/stderr, tool identities, control hashes, paths, deterministic findings,

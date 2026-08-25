@@ -127,6 +127,7 @@ runs:
         TCG_ALLOWED_REMOTE_ORIGINS: ${{ inputs.allowed-remote-origins }}
         TCG_ALLOW_INSECURE_LOOPBACK: ${{ inputs.allow-insecure-loopback }}
         TCG_REMOTE_BEARER_TOKEN: ${{ inputs.remote-bearer-token }}
+        TCG_REPOSITORY_ROOT: ${{ github.workspace }}
       run: "${GITHUB_ACTION_PATH}/action/run-action.sh"
 
     - name: Upload JSON evidence

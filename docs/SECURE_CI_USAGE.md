@@ -163,8 +163,7 @@ remote discovery only from protected workflow code and a reviewed commit.
 
 ## Local execution with no remote evidence
 
-Make the intent explicit even though local execution preserves compatibility
-for unauthenticated remote sources:
+Remote evidence is disabled by default. Keep the intent explicit in scripts:
 
 ```bash
 telemetry-change-guard check \
@@ -196,9 +195,9 @@ origin. If a configuration references a bearer-token environment variable and
 the origin is not allowlisted, TCG fails closed before reading or sending the
 token.
 
-For an unauthenticated local development service, an allowlist is optional in
-the direct CLI. Supplying one is still recommended because it catches an
-unexpected URL change.
+Every enabled remote source, including an unauthenticated local development
+service, requires an exact trusted-origin allowlist supplied on the command
+line. Repository configuration can never authorize its own destination.
 
 ## Plaintext loopback development exception
 

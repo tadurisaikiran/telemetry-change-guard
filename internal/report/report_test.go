@@ -95,6 +95,53 @@ func TestGraphJSONIsStable(t *testing.T) {
 	if !bytes.Equal(first, second) {
 		t.Fatalf("GraphJSON output is not deterministic")
 	}
+	var document struct {
+		SchemaVersion string `json:"schemaVersion"`
+		Nodes         []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal(first, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.SchemaVersion != GraphSchemaVersion || len(document.Nodes) != 2 || document.Nodes[0].ID == "" {
+		t.Fatalf("graph document = %#v", document)
+	}
+	if strings.Contains(string(first), `"ID"`) || strings.Contains(string(first), `"From"`) {
+		t.Fatalf("graph output exposes internal Go field names:\n%s", first)
+	}
+}
+
+func TestHumanRenderersContainUntrustedFields(t *testing.T) {
+	t.Parallel()
+
+	result := fixtureResult()
+	result.Migration.Metadata.Name = "migration\n@ops"
+	result.Changes[0].Consumers[0].Consumer.Name = "[click](https://attacker.invalid) ` forged"
+	result.Diagnostics = []domain.Diagnostic{{
+		Adapter: "adapter\x1b[31m\u202e",
+		Message: "![remote](https://attacker.invalid/pixel)\n## forged",
+	}}
+	for name, render := range map[string]func(*bytes.Buffer, readiness.Result) error{
+		"console":  func(output *bytes.Buffer, value readiness.Result) error { return Console(output, value) },
+		"markdown": func(output *bytes.Buffer, value readiness.Result) error { return Markdown(output, value) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			if err := render(&output, result); err != nil {
+				t.Fatal(err)
+			}
+			text := output.String()
+			for _, forbidden := range []string{"\x1b", "\u202e", "\n@ops", "\n## forged"} {
+				if strings.Contains(text, forbidden) {
+					t.Fatalf("%s output contains unsafe sequence %q:\n%s", name, forbidden, text)
+				}
+			}
+			if name == "markdown" && !strings.Contains(text, "` ![remote](https://attacker.invalid/pixel) ## forged `") {
+				t.Fatalf("markdown did not contain diagnostic in a safe code span:\n%s", text)
+			}
+		})
+	}
 }
 
 func TestSafetyRenderersPreserveStatusImpactAndEvidence(t *testing.T) {

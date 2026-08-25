@@ -1,5 +1,5 @@
 GO ?= go
-GOFMT ?= $(dir $(GO))gofmt
+GOFMT ?= gofmt
 GOVULNCHECK_VERSION ?= v1.7.0
 ACTIONLINT_VERSION ?= v1.7.12
 FUZZ_PARALLELISM ?= 4
@@ -27,9 +27,14 @@ verify-module:
 	git diff --exit-code -- go.mod go.sum
 
 verify-format:
-	@test -z "$$($(GOFMT) -l .)" || { \
+	@command -v "$(GOFMT)" >/dev/null 2>&1 || { \
+		echo "gofmt executable not found: $(GOFMT)" >&2; \
+		exit 1; \
+	}
+	@unformatted="$$($(GOFMT) -l .)" || exit $$?; \
+	test -z "$$unformatted" || { \
 		echo "Go files require formatting:"; \
-		$(GOFMT) -l .; \
+		echo "$$unformatted"; \
 		exit 1; \
 	}
 
