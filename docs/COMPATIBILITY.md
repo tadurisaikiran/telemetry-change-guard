@@ -7,13 +7,13 @@ unpublished alpha release still needs to prove.
 
 | Surface | Current contract |
 | --- | --- |
-| Source build | Go `1.27.0`; the module declares `go 1.27.0`, and other toolchain lines are not release-gated yet |
+| Source build | The module, CI, and release builds require the security-patched Go `1.26.7` toolchain |
 | Canonical CLI | `telemetry-change-guard`; generic `PASS/WARN/ERROR/BLOCK/INCOMPLETE` exits remain `0/0/1/2/3` |
 | Migration compatibility | Temporary `tmr` executable plus canonical `migration` subcommands; existing `READY/BLOCKED/INCOMPLETE/ERROR` exits remain `0/2/3/1` |
 | Configuration | Strict `tcg/v1alpha1`; legacy `tmr/v1alpha1` continues to normalize through the shared model |
 | Machine results | `tcg-result/v1alpha1` and `tmr-result/v1alpha1` remain separate and unchanged by build identity |
 | GitHub Action | Hosted smoke tests currently run on `ubuntu-latest`; other runner operating systems are not yet claimed |
-| Local development | Verified on macOS ARM64 and hosted Linux AMD64; this is development evidence, not yet a published binary support promise |
+| Local development | Go `1.26.7` is verified on macOS ARM64 and hosted Linux AMD64; this is development evidence, not yet a published binary support promise |
 
 The release-snapshot phase must build and smoke-test its complete documented
 platform matrix before those platforms become alpha release claims. Windows,

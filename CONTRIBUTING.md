@@ -27,8 +27,8 @@ documentation fixes may skip a prior issue when their scope is self-evident.
 
 ## Local setup
 
-Telemetry Change Guard requires the Go version declared in `go.mod` (currently
-Go 1.27) and uses only local fixtures for its core test suite.
+Telemetry Change Guard requires the security-patched Go version declared in
+`go.mod` (currently Go 1.26.7). The core test suite uses only local fixtures.
 
 ```bash
 go mod download

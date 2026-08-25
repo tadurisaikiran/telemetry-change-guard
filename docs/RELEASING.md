@@ -27,7 +27,7 @@ Neither output is published by an active workflow.
 
 ## Candidate rehearsal
 
-From a clean commit with Go `1.27.0`:
+From a clean commit with the pinned release toolchain, Go `1.26.7`:
 
 ```sh
 make release-snapshot

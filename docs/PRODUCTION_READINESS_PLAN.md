@@ -117,11 +117,13 @@ All third-party Actions currently use movable major tags. README, Action guide,
 and design-user instructions reference different TCG commits. This conflicts
 with TCG's immutable supply-chain guidance.
 
-### P1: source-only distribution and missing version identity
+### P1: source-only distribution, build identity, and scanner compatibility
 
 There is no release, version command, binary archive, checksum manifest, SBOM,
 provenance, external-consumer fixture, container, or tested package-manager
-path. Source builds require the newly released Go 1.27 toolchain.
+path. The baseline source required the newly released Go 1.27 toolchain, which
+was newer than the Go 1.26 compiler used to build CodeQL CLI `2.26.3` and
+caused incomplete extraction despite a successful check conclusion.
 
 ### P1: first-use breadth
 
@@ -186,10 +188,10 @@ in that security-focused reordering.
 | P0 correctness and secret boundary | `#46` | Merged; fail-closed overlap and remote-origin controls verified |
 | Action and workflow hardening | `#47` | Merged; immutable dependencies, permissions, and warning-free smoke tests |
 | Version and build identity | `#49` | Merged; canonical and compatibility identity contracts |
-| Reproducible artifacts and provenance | `#50` | Merged at `4bb5ea7345f56291bebc65c63e8375e46d002f12`; CodeQL-clean, byte-reproducible candidate payload |
+| Reproducible artifacts and provenance | `#50` | Merged at `4bb5ea7345f56291bebc65c63e8375e46d002f12`; byte-reproducible candidate payload; later audit found CodeQL extractor annotations |
 | Install and consumer validation | `#51` | Merged at `8528ab9d7017eda3190377d2e726ec3ac750ce91`; external Action, exact-ref `go install`, multi-arch container, formula, SBOM, and provenance paths verified |
 | Public-alpha documentation and regression corpus | `#52` | Merged at `b42396bdfcc476b4892b9e9fe4b464420b4b36f7`; front door, doc checks, 11-case synthetic benchmark, and evaluation kit |
-| Evidence-constrained public launch kit | `#53` | Prepared as a separate draft-only review; no external publication |
+| Evidence-constrained public launch kit | `#53` | Merged at `2f74b952acf438eeb0728aed7d0314bf8c56dd58`; draft-only materials, no external publication |
 
 The launch kit is developed on `docs/public-launch-kit`, a human-named branch
 from the fully verified `#52` merge, and reviewed separately in `#53`. These
@@ -231,6 +233,8 @@ external repository, or announcement.
 
 - Every third-party Action is pinned to a full commit SHA with a version
   comment and Dependabot coverage.
+- CodeQL analysis rejects extraction diagnostics and unsuccessful tool
+  invocations instead of accepting a partial database as a clean result.
 - Workflow/job permissions are least privilege.
 - Local and external Action cache paths work without annotations.
 - The Action preserves one analysis, JSON evidence, Markdown summary, bounded
@@ -293,8 +297,8 @@ recorded in `docs/REPOSITORY_SETTINGS.md` after workflows stabilize.
   blocked integration.
 - Whether the first public alpha requires a published external fixture
   repository or owner acceptance of a fully generated but unpublished fixture.
-- Whether Go 1.26 can be supported without changing dependencies; verified
-  binary artifacts remain the primary low-friction path regardless.
+- Which owner-approved distribution channels will accompany the GitHub
+  prerelease; verified binary archives remain the primary low-friction path.
 
 ## Rollback strategy
 

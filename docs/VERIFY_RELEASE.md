@@ -100,7 +100,7 @@ review the release notes and known limitations.
 
 ## Maintainer deep verification
 
-From the exact source commit with Go `1.27.0`:
+From the exact source commit with the pinned release toolchain, Go `1.26.7`:
 
 ```sh
 make verify-release
