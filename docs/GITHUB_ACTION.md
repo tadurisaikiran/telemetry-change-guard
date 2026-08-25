@@ -10,10 +10,12 @@ optional pull-request comment from that result.
 
 The canonical repository does not currently publish a stable release or a
 `v1` tag. Until the first pre-release is published, pin the last fully verified
-implementation commit:
+implementation commit. The authoritative candidate coordinate is maintained in
+[`release/metadata.env`](../release/metadata.env) and checked against every
+README and documentation reference in CI:
 
 ```text
-tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
+tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
 ```
 
 Do not use `tadurisaikiran/telemetry-change-guard@v1`: that tag does not exist.
@@ -31,9 +33,9 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: actions/checkout@v7
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
+    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -48,7 +50,7 @@ generated snapshots:
 
 ```yaml
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
+    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
     with:
       config: tcg.yaml
       baseline: telemetry/main-contract.json
@@ -72,9 +74,9 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: actions/checkout@v7
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
+    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
     with:
       config: tcg.yaml
       migration: migration.yaml

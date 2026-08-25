@@ -116,8 +116,27 @@ make verify
 
 `make verify` checks module consistency, formatting, vet, race-enabled tests,
 the complete parser fuzz-smoke matrix, reachable Go vulnerabilities with the
-pinned scanner version, and Action shell syntax. It does not modify source
-formatting.
+pinned scanner version, GitHub workflow syntax and supply-chain policy, and
+Action shell syntax. It does not modify source formatting.
+
+Workflow validation uses three deliberately separate controls:
+
+- `actionlint` `v1.7.12` validates workflow syntax, expressions, and runner
+  commands locally and in the `Workflow Security` job;
+- `scripts/check-workflow-policy.sh` rejects movable third-party Action
+  references, missing version comments, and default permissions broader than
+  `contents: read`;
+- `zizmor` `v1.29.0` performs a high-confidence, medium-or-higher local
+  security audit without online collection. The wrapper Action and its own
+  binary version are both pinned.
+
+CodeQL runs the `security-extended` Go queries on pushes, pull requests, and a
+weekly schedule. Dependency Review rejects newly introduced high-severity
+dependencies on pull requests without posting a token-powered comment. The
+existing pinned `govulncheck` remains the reachable Go vulnerability gate.
+Dependabot separately proposes reviewed updates for both Go modules and
+GitHub Actions; an update must preserve full-SHA pins and pass the same policy
+checks.
 
 ## Mandatory live E2E release gate
 

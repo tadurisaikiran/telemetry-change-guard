@@ -25,6 +25,12 @@ initial assessment within seven business days. Timelines may change with
 severity and maintainer availability, but reporters will receive status
 updates.
 
+Repository administrators should keep private vulnerability reporting,
+secret scanning, push protection, the dependency graph, Dependabot alerts, and
+CodeQL enabled where the GitHub plan supports them. These hosted controls
+complement the repository's deterministic checks; they do not replace review
+or make a prerelease production-proven.
+
 ## Security boundaries
 
 Telemetry Change Guard treats repository and telemetry artifacts as untrusted

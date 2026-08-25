@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -51,7 +53,10 @@ func TestActionMetadataAndScript(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"./cmd/telemetry-change-guard",
-		"actions/upload-artifact@v7",
+		"actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0",
+		"actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
+		"actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0",
+		"steps.action-paths.outputs.go-sum",
 		"const marker = '<!-- telemetry-change-guard -->'",
 		"const legacyMarker = '<!-- telemetry-migration-readiness -->'",
 		"comment.body?.includes(marker) || comment.body?.includes(legacyMarker)",
@@ -80,6 +85,174 @@ func TestActionMetadataAndScript(t *testing.T) {
 		if !strings.Contains(string(script), expected) {
 			t.Errorf("run-action.sh does not contain %q", expected)
 		}
+	}
+}
+
+func TestResolveActionPathsCanonicalizesLocalAndExternalConsumption(t *testing.T) {
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name       string
+		actionPath func(t *testing.T) string
+	}{
+		{
+			name: "local path containing dot segment",
+			actionPath: func(t *testing.T) string {
+				return filepath.Join(root, ".") + string(filepath.Separator) + "."
+			},
+		},
+		{
+			name: "external checkout path through symlink",
+			actionPath: func(t *testing.T) string {
+				external := filepath.Join(t.TempDir(), "telemetry-change-guard")
+				if err := os.Symlink(root, external); err != nil {
+					t.Skipf("symlink unavailable: %v", err)
+				}
+				return external
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			outputPath := filepath.Join(t.TempDir(), "github-output")
+			command := exec.Command("bash", "resolve-action-paths.sh")
+			command.Env = []string{
+				"GITHUB_ACTION_PATH=" + test.actionPath(t),
+				"GITHUB_OUTPUT=" + outputPath,
+				"PATH=" + os.Getenv("PATH"),
+			}
+			if output, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("resolve-action-paths.sh error = %v\n%s", err, output)
+			}
+			outputs := readActionOutputs(t, outputPath)
+			if outputs["go-mod"] != filepath.Join(root, "go.mod") {
+				t.Errorf("go-mod = %q", outputs["go-mod"])
+			}
+			if outputs["go-sum"] != filepath.Join(root, "go.sum") {
+				t.Errorf("go-sum = %q", outputs["go-sum"])
+			}
+			for name, path := range outputs {
+				if path != filepath.Clean(path) {
+					t.Errorf("%s path is not canonical: %q", name, path)
+				}
+			}
+		})
+	}
+}
+
+func TestWorkflowDependenciesAreImmutableAndVersioned(t *testing.T) {
+	root := filepath.Clean("..")
+	files := []string{filepath.Join(root, "action.yml")}
+	for _, pattern := range []string{
+		filepath.Join(root, ".github", "workflows", "*.yml"),
+		filepath.Join(root, ".github", "workflows", "*.yaml"),
+	} {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, matches...)
+	}
+
+	usesPattern := regexp.MustCompile(`(?m)^\s*uses:\s*([^\s#]+)([^\n]*)$`)
+	immutablePattern := regexp.MustCompile(`^[^@]+@[0-9a-f]{40}$`)
+	versionPattern := regexp.MustCompile(`#\s*v[0-9]+(?:\.[0-9]+)*(?:[-.][0-9A-Za-z.-]+)?\s*$`)
+	for _, file := range files {
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, match := range usesPattern.FindAllStringSubmatch(string(contents), -1) {
+			reference := match[1]
+			if strings.HasPrefix(reference, "./") {
+				continue
+			}
+			if !immutablePattern.MatchString(reference) {
+				t.Errorf("%s has movable Action reference %q", file, reference)
+			}
+			if !versionPattern.MatchString(match[2]) {
+				t.Errorf("%s reference %q lacks an exact version comment", file, reference)
+			}
+		}
+	}
+}
+
+func TestWorkflowDefaultPermissionsAreReadOnly(t *testing.T) {
+	patterns := []string{
+		filepath.Join("..", ".github", "workflows", "*.yml"),
+		filepath.Join("..", ".github", "workflows", "*.yaml"),
+	}
+	for _, pattern := range patterns {
+		files, err := filepath.Glob(pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range files {
+			contents, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document struct {
+				Permissions map[string]string `yaml:"permissions"`
+			}
+			if err := yaml.Unmarshal(contents, &document); err != nil {
+				t.Fatalf("decode %s: %v", file, err)
+			}
+			want := map[string]string{"contents": "read"}
+			if !reflect.DeepEqual(document.Permissions, want) {
+				t.Errorf("%s default permissions = %#v, want %#v", file, document.Permissions, want)
+			}
+		}
+	}
+}
+
+func TestDocumentedActionCoordinatesMatchCandidateMetadata(t *testing.T) {
+	root := filepath.Clean("..")
+	metadata := readEnvironmentFile(t, filepath.Join(root, "release", "metadata.env"))
+	repository := metadata["TCG_ACTION_REPOSITORY"]
+	reference := metadata["TCG_ACTION_REF"]
+	if repository == "" || !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(reference) {
+		t.Fatalf("invalid release/metadata.env Action coordinate: %#v", metadata)
+	}
+
+	coordinatePattern := regexp.MustCompile(regexp.QuoteMeta(repository) + `@([0-9a-f]{40})`)
+	files := []string{filepath.Join(root, "README.md")}
+	err := filepath.WalkDir(filepath.Join(root, "docs"), func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && filepath.Ext(path) == ".md" {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := 0
+	for _, file := range files {
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, match := range coordinatePattern.FindAllStringSubmatch(string(contents), -1) {
+			found++
+			if match[1] != reference {
+				t.Errorf("%s documents stale Action ref %s; want %s", file, match[1], reference)
+			}
+		}
+	}
+	if found == 0 {
+		t.Fatal("no immutable Action installation coordinate is documented")
 	}
 }
 
@@ -432,4 +605,21 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func readEnvironmentFile(t *testing.T, path string) map[string]string {
+	t.Helper()
+	result := make(map[string]string)
+	for _, line := range strings.Split(readFile(t, path), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			t.Fatalf("invalid metadata line %q in %s", line, path)
+		}
+		result[parts[0]] = parts[1]
+	}
+	return result
 }

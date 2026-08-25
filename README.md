@@ -550,9 +550,9 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: actions/checkout@v7
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4b1b8216290328e619927ac84b9ae213f67acd44
+    uses: tadurisaikiran/telemetry-change-guard@9692424086189256a94ef3c2d89902dddc04d78c
     with:
       config: tcg.yaml
       changes: changes.yaml
