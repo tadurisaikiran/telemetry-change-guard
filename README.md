@@ -13,32 +13,52 @@
 </p>
 
 <p align="center">
+  <a href="#see-what-it-catches">Examples</a> ·
   <a href="#install">Install</a> ·
   <a href="#run-your-first-check">First check</a> ·
   <a href="#use-it-on-your-repository">Inputs and outputs</a> ·
-  <a href="#ai-assisted-telemetry-engineering">AI workflows</a> ·
   <a href="#what-telemetry-change-guard-protects">Coverage</a> ·
+  <a href="#ai-assisted-telemetry-engineering">AI workflows</a> ·
   <a href="#github-action">GitHub Action</a> ·
   <a href="#documentation">Documentation</a>
 </p>
 
-A metric, label, or trace attribute is an operational API. Dashboards visualize
-it. Alerts page on it. SLOs calculate against it. Autoscalers and deployment
-gates can use it to control production.
+Metrics, labels, span attributes, and resource attributes are operational APIs.
+Dashboards visualize them. Alerts page on them. SLOs measure them. Autoscalers
+and deployment gates can use them to control production.
 
-Renaming that API may take one line of code while breaking consumers spread
-across repositories and systems. The application can compile, its tests can
-pass, and the deployment can succeed before anyone notices the blind spot.
-That gap grows as human and AI coding agents change instrumentation faster
-than engineers can manually trace every downstream dependency.
+Changing one may take a single line of code while breaking consumers spread
+across repositories and systems. The application can compile, every test can
+pass, and the deployment can succeed while an alert goes blind, an SLO stops
+measuring the right behavior, or production automation acts on a broken signal.
 
-**Telemetry Change Guard (TCG) evaluates the downstream impact before merge or
-deployment.** Given a deterministic description of the proposed telemetry
-change, it discovers configured consumers, builds a provenance-bearing
-dependency graph, classifies operational risk, and applies explicit policy to
-produce one reproducible decision:
+That is the telemetry contract gap—and it grows as human and AI coding agents
+change instrumentation faster than engineers can manually trace its downstream
+blast radius.
 
-**PASS · WARN · BLOCK · INCOMPLETE · ERROR**
+**Telemetry Change Guard (TCG) finds that blast radius before merge or
+deployment.** Give it an explicit ChangeSet, baseline and candidate Prometheus
+snapshots, or a mapped OpenTelemetry Weaver diff. TCG discovers configured
+consumers, follows direct and transitive dependencies, classifies operational
+impact, and applies explicit policy.
+
+The result is reviewable evidence, not a guess: the affected consumer, source
+location, criticality, dependency path, policy reason, machine-readable report,
+and one authoritative decision.
+
+| Decision | What it means |
+| --- | --- |
+| `PASS` | No blocking impact was found under the configured evidence and policy |
+| `WARN` | Risk exists, remains visible, and is permitted by the current policy |
+| `BLOCK` | Complete evidence proves an enforced policy violation |
+| `INCOMPLETE` | Required evidence is missing, malformed, dynamic, or unresolved |
+| `ERROR` | The input, configuration, discovery, or evaluation failed safely |
+
+For example, the included getting-started scenario proposes removing
+`checkout_requests_total`. The application change is trivial, but a critical
+Prometheus alert still queries the old metric. TCG identifies the exact rule
+and source line, proves the dependency path, classifies `ALERTING_RISK`, and
+returns `BLOCK` with exit code `2` before the change reaches production.
 
 ```mermaid
 flowchart LR
@@ -55,120 +75,30 @@ TCG is local-first, open source, and useful without AI, a database, or a hosted
 service. Optional remote evidence and AI assistance are isolated behind
 explicit, bounded interfaces; neither can override the deterministic result.
 
-## AI-assisted telemetry engineering
-
-**AI can be the reader, explainer, fixer, and migration assistant—never the
-judge. Humans approve. TCG verifies and decides.**
-
-That separation makes AI useful without letting plausible prose become a
-production-safety decision. Models are good at interpreting unfamiliar code,
-turning findings into an action plan, and drafting repetitive migrations. TCG
-is responsible for strict input validation, dependency evidence, impact
-classification, policy, and reproducible status and exit codes.
-
-TCG can anchor an end-to-end, human-governed AI workflow today:
-
-| AI role | What it can do | Availability | Boundary that keeps the claim honest |
-| --- | --- | --- | --- |
-| **Change reader** | Inspect application code, instrumentation, or a diff and draft a candidate ChangeSet, TelemetrySnapshot, configuration, mapping, or ownership file | External coding-agent workflow | TCG does not scan arbitrary source code. AI cannot guarantee it found every change; a human reviews scope, and `validate` checks format rather than completeness. Prefer TCG-captured snapshots or mapped Weaver diffs when available. |
-| **Risk explainer** | Explain blockers and dependency paths, identify missing evidence, and prioritize consumers using criticality, ownership, and runtime context | Built in: `migration advise` | The provider receives a bounded, redacted packet. Its answer is labeled non-authoritative and cannot change a finding, status, or exit code. |
-| **Fixer** | Draft replacement PromQL for eligible direct rename targets in local Prometheus rule YAML or exported Grafana JSON | Built in: `migration remediate` | TCG accepts expressions, not arbitrary patches; it reparses and tests each candidate in memory, never edits the source file, and does not claim semantic equivalence. |
-| **Migration agent** | Apply a reviewed candidate on a branch, draft tests and a change request, and summarize the migration | External coding-agent or CI orchestration | TCG does not create branches or change requests. A human reviews and approves the real diff, independent tests run, and TCG re-evaluates the checked-out change. |
-| **Runbook and reporting assistant** | Turn versioned JSON findings into migration steps, test ideas, tickets, or review summaries | External AI workflow | Generated material must preserve the authoritative TCG status and evidence; prose cannot resolve uncertainty or create evidence. |
-
-An AI assistant can normalize the code and telemetry evidence it observes into
-TCG's accepted formats. Neither the model nor `validate` can certify that a
-partial observation contains every telemetry change or dependency.
-
-```mermaid
-flowchart LR
-    A["Code · diff · telemetry artifacts"] -. "optional external AI drafts" .-> B["Candidate inputs<br/>ChangeSet · config · mappings"]
-    B --> C["Human reviews scope<br/>and semantic mappings"]
-    C --> D["TCG validates<br/>discovers · graphs · decides"]
-    D --> E["Authoritative findings<br/>and status"]
-    E -. "migration advise" .-> F["AI explanation<br/>and priorities"]
-    E -. "eligible rename target" .-> G["AI expression candidate"]
-    G --> H["TCG validates candidate<br/>in memory"]
-    H --> I["Human or external agent<br/>applies reviewed change"]
-    I --> D
-```
-
-For example, an external AI assistant can draft a candidate input and hand it
-to the strict decoder before TCG evaluates any risk:
-
-```bash
-./bin/telemetry-change-guard validate --changes ./candidate-changes.yaml
-./bin/telemetry-change-guard validate --config ./candidate-tcg.yaml
-./bin/telemetry-change-guard check \
-  --config ./candidate-tcg.yaml \
-  --changes ./candidate-changes.yaml
-```
-
-For a planned migration, TCG can invoke a user-selected provider executable
-through a vendor-neutral JSON process protocol:
-
-```bash
-./bin/telemetry-change-guard migration advise \
-  --config ./tcg.yaml \
-  --plan ./migration.yaml \
-  --question "Why is this blocked, and what should we migrate first?" \
-  --ai-command ./my-tcg-ai-provider
-
-./bin/telemetry-change-guard migration remediate \
-  --config ./tcg.yaml \
-  --plan ./migration.yaml \
-  --ai-command ./my-tcg-ai-provider
-```
-
-No model SDK or remote model is bundled. The provider can use a local model or
-an approved hosted service, and runs only when explicitly selected. See the
-[complete AI workflow guide](docs/AI_WORKFLOWS.md),
-[explanation protocol](docs/AI_AGENT.md),
-[validated remediation contract](docs/REMEDIATION.md), and
-[threat model](docs/THREAT_MODEL.md).
-
-### Experimental optional agentic layer
-
-> **Status: isolated MVP implemented under `experiments/agentic/`; not a
-> supported production feature.** It is disabled unless a separate binary is
-> built and the user supplies `--acknowledge-experimental`. It does not create,
-> approve, push, or merge a change request.
-
-The provider-neutral MVP lets an explicitly selected coding-agent adapter make
-bounded changes inside one container-mounted workspace, receive deterministic
-`BLOCK` findings, attempt at most three repairs, and submit the actual edited
-tree to the public TCG CLI again before human review. TCG policy, evidence,
-binary, and prior artifacts remain outside the agent's writable mount and are
-integrity-checked. `INCOMPLETE`, `ERROR`, malformed output, timeout, tampering,
-and workspace escape all stop the loop. A successful result is an uncommitted
-review diff—not approval and not proof of query semantic equivalence.
-
-Start with the [experimental quickstart and adapter protocol](experiments/agentic/README.md).
-The layer consumes the standalone CLI and versioned results; it does not replace
-the CLI, GitHub Action, deterministic engine, repository-specific tests, or
-human approval.
-
-The work is intentionally staged:
-
-1. **Implemented experimentally:** [isolated feedback-loop MVP](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39)
-   with a synthetic local `BLOCK -> repair -> PASS` fixture and no source,
-   branch, or repository mutation outside its disposable workspace.
-2. [Controlled agent evaluation](https://github.com/tadurisaikiran/telemetry-change-guard/issues/40)
-   against no-guard, self-review, and conventional-check baselines.
-3. [Opt-in design-user workflow](https://github.com/tadurisaikiran/telemetry-change-guard/issues/41)
-   only after the safety and evaluation gates pass.
-4. [AI-assisted source-change extraction](https://github.com/tadurisaikiran/telemetry-change-guard/issues/42)
-   as separate later research, never a prerequisite for deterministic
-   enforcement.
-
-See the [agentic roadmap](docs/AGENTIC_ROADMAP.md) for the architecture,
-compatibility promise, promotion criteria, and relationship to the existing
-release and adoption work.
+> **AI proposes. Humans approve. TCG verifies and decides.** AI can help read a
+> change, explain evidence, draft a repair, or iterate inside the experimental
+> isolated agentic loop. It can never create or override TCG's authoritative
+> status. See [AI-assisted telemetry engineering](#ai-assisted-telemetry-engineering)
+> and the [experimental agentic quickstart](experiments/agentic/README.md).
 
 ## See what it catches
 
+Use TCG when you need to:
+
+- review a proposed metric, label, span-attribute, or resource-attribute rename
+  or removal before it merges;
+- compare baseline and candidate Prometheus contracts and turn drift into a
+  deterministic ChangeSet;
+- plan a staged telemetry migration and prove when legacy signals can be
+  removed;
+- protect alerts, dashboards, SLOs, runtime queries, autoscalers, and rollout
+  gates with one policy decision;
+- add a reproducible telemetry-safety check to CI; or
+- let AI help read, explain, or repair a change without letting model prose
+  become the production-safety authority.
+
 The repository includes runnable scenarios that exercise different parts of
-the product, not just one adapter:
+that lifecycle, not just one adapter:
 
 | Scenario | Proposed change | Dependency TCG proves | Result |
 | --- | --- | --- | --- |
@@ -501,6 +431,115 @@ implementation; equivalent migration checks produce byte-for-byte identical
 legacy reports and the same `READY`/`BLOCKED`/`INCOMPLETE`/`ERROR` exit
 contract.
 
+## AI-assisted telemetry engineering
+
+**AI can be the reader, explainer, fixer, and migration assistant—never the
+judge. Humans approve. TCG verifies and decides.**
+
+This division is deliberate. Models are useful for interpreting unfamiliar
+code, normalizing information, explaining evidence, and drafting repetitive
+repairs. They are not reliable authorities for proving that every dependency
+was discovered or that a production change is safe. TCG keeps discovery,
+dependency analysis, impact classification, policy, status, and exit codes
+deterministic.
+
+| AI role | Availability | What it can do | Authority boundary |
+| --- | --- | --- | --- |
+| **Change reader** | External AI or coding-agent workflow | Inspect code, instrumentation, or a diff and draft a candidate ChangeSet, snapshot, configuration, mapping, or ownership file | TCG validates accepted structure, not discovery completeness; a human confirms scope and semantic mappings |
+| **Risk explainer** | Built in with `migration advise` | Explain blockers and dependency paths, identify missing evidence, and prioritize consumers | Receives a bounded, redacted evidence packet; its prose cannot change a finding, status, or exit code |
+| **Fixer** | Built in with `migration remediate` | Draft replacement PromQL for eligible direct rename targets in local Prometheus rule YAML or exported Grafana JSON | TCG accepts an expression candidate, reparses and reanalyzes it in memory, and never edits the source file or claims semantic equivalence |
+| **Repair-loop adapter** | Experimental `experiments/agentic` MVP | Edit one isolated workspace, receive deterministic `BLOCK` feedback, and retry against the actual edited tree | A hardened container and bounded controller produce only an uncommitted review diff; they never approve, commit, push, open, or merge a change request |
+| **Test, runbook, and review assistant** | External AI workflow | Draft tests, migration steps, tickets, change-request text, or evidence summaries | Generated material remains a candidate and must preserve the authoritative TCG result |
+
+An AI assistant can normalize only the code and telemetry evidence it can
+observe. Neither a model nor `validate` can certify that a partial observation
+contains every telemetry change or downstream dependency. Prefer TCG-captured
+snapshots or explicitly mapped Weaver diffs when deterministic sources are
+available.
+
+```mermaid
+flowchart LR
+    A["Code · diff · telemetry artifacts"] -. "optional AI drafts" .-> B["Candidate inputs<br/>ChangeSet · config · mappings"]
+    B --> C["Human confirms scope<br/>and semantic mappings"]
+    C --> D["TCG validates<br/>discovers · graphs · decides"]
+    D --> E["Authoritative evidence<br/>and status"]
+    E -. "explain" .-> F["AI explanation<br/>and priorities"]
+    E -. "eligible target" .-> G["AI repair candidate"]
+    G --> H["TCG reparses<br/>and re-verifies"]
+    H --> I["Tests + human review"]
+    I --> D
+```
+
+### Use AI to draft inputs
+
+An external assistant can draft candidate files, but the strict public
+validators must receive them before analysis:
+
+```bash
+./bin/telemetry-change-guard validate --changes ./candidate-changes.yaml
+./bin/telemetry-change-guard validate --config ./candidate-tcg.yaml
+
+./bin/telemetry-change-guard check \
+  --config ./candidate-tcg.yaml \
+  --changes ./candidate-changes.yaml
+```
+
+Unknown fields, invalid symbols, unsupported change kinds, malformed mappings,
+and ambiguous source combinations fail explicitly. Successful validation means
+the file is structurally acceptable; it does not prove that the AI found every
+change.
+
+### Ask AI to explain or draft a bounded repair
+
+For planned migrations, TCG can invoke a user-selected provider executable
+through a vendor-neutral JSON process protocol:
+
+```bash
+./bin/telemetry-change-guard migration advise \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
+  --question "Why is this blocked, what evidence is missing, and what should we migrate first?" \
+  --ai-command ./my-tcg-ai-provider
+
+./bin/telemetry-change-guard migration remediate \
+  --config ./tcg.yaml \
+  --plan ./migration.yaml \
+  --ai-command ./my-tcg-ai-provider
+```
+
+No model SDK, hosted model, or provider account is bundled. The executable runs
+only when explicitly selected and may use a local model or a remote service
+approved by the user's organization. Review the provider's access, retention,
+training, and confidentiality terms before sending sensitive operational
+evidence.
+
+### Try the experimental isolated repair loop
+
+The optional agentic MVP demonstrates a bounded
+`agent attempt -> TCG decision -> repair -> recheck -> human review` lifecycle.
+The adapter runs by immutable image ID with a read-only container filesystem,
+no capabilities, no network by default, resource limits, and exactly one
+writable workspace mount. TCG policy, evidence, executable, controller, and
+previous artifacts remain outside that mount. Control files and the TCG
+executable are integrity-checked throughout the run.
+
+`PASS` or visible `WARN` produces `REVIEW_READY` and an uncommitted diff.
+`BLOCK` can retry at most three times. `INCOMPLETE`, `ERROR`, timeout, malformed
+output, tampering, workspace escape, or exhausted retries stop safely.
+
+> **Experimental—not a supported production feature.** Start with the
+> [five-minute fixture and adapter protocol](experiments/agentic/README.md).
+> Controlled comparison and external design-user work remain tracked in
+> [issue #40](https://github.com/tadurisaikiran/telemetry-change-guard/issues/40)
+> and [issue #41](https://github.com/tadurisaikiran/telemetry-change-guard/issues/41).
+
+Read the [complete AI workflow guide](docs/AI_WORKFLOWS.md),
+[explanation protocol](docs/AI_AGENT.md),
+[validated remediation contract](docs/REMEDIATION.md),
+[agentic roadmap](docs/AGENTIC_ROADMAP.md), and
+[threat model](docs/THREAT_MODEL.md) before enabling a provider in a sensitive
+repository.
+
 ## GitHub Action
 
 Add the same deterministic decision to a pull request:
@@ -513,7 +552,7 @@ permissions:
 steps:
   - uses: actions/checkout@v7
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@e319da72c091fd57df02d666452cb20bb1fa14ee
+    uses: tadurisaikiran/telemetry-change-guard@4b1b8216290328e619927ac84b9ae213f67acd44
     with:
       config: tcg.yaml
       changes: changes.yaml
