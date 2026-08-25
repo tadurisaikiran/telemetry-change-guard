@@ -10,7 +10,7 @@ then shows how to adapt the same check to a repository. Allow 10–15 minutes.
 ## Prerequisites
 
 - Git;
-- Go 1.27 or newer; and
+- Go 1.26.7 or newer; and
 - a shell from the repository root.
 
 No Kubernetes cluster, Prometheus server, database, AI provider, or credential
@@ -19,7 +19,7 @@ is required.
 ## Install and identify the exact build
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 telemetry-change-guard version --format json
 ```
 
@@ -32,7 +32,7 @@ If the executable is not on `PATH`, invoke
 ```bash
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
+git checkout 90c0b41629b76f67f6bfda42ad88eb93bd275328
 ```
 
 The fixture has three inputs:
@@ -178,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91 # v0.1.0-alpha.1 candidate
+      - uses: tadurisaikiran/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328 # v0.1.0-alpha.1 candidate
         with:
           config: tcg.yaml
           changes: changes.yaml

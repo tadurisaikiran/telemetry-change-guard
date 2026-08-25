@@ -8,7 +8,7 @@
   <a href="https://github.com/tadurisaikiran/telemetry-change-guard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/tadurisaikiran/telemetry-change-guard/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/tadurisaikiran/telemetry-change-guard/actions/workflows/e2e.yml"><img alt="Pinned E2E" src="https://github.com/tadurisaikiran/telemetry-change-guard/actions/workflows/e2e.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="Apache License 2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
-  <img alt="Go 1.27 or newer" src="https://img.shields.io/badge/Go-1.27%2B-00ADD8?logo=go&logoColor=white">
+  <img alt="Go 1.26.7 or newer" src="https://img.shields.io/badge/Go-1.26.7%2B-00ADD8?logo=go&logoColor=white">
   <img alt="Project status: pre-release" src="https://img.shields.io/badge/status-pre--release-orange.svg">
 </p>
 
@@ -54,10 +54,10 @@ authoritative decision.
 
 ## Try it in five minutes
 
-You need Git and Go 1.27 or newer. Install the exact reviewed CLI build:
+You need Git and Go 1.26.7 or newer. Install the exact reviewed CLI build:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 telemetry-change-guard version
 ```
 
@@ -66,7 +66,7 @@ Get the matching sample inputs and run the first check:
 ```bash
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
+git checkout 90c0b41629b76f67f6bfda42ad88eb93bd275328
 
 telemetry-change-guard validate \
   --changes ./examples/getting-started/changes.yaml
@@ -161,10 +161,10 @@ and returns `INCOMPLETE`. It never turns an incomplete graph into a clean pass.
 
 **Download status:** TCG does not yet publish packaged binaries, container
 images, Homebrew packages, or a stable release tag. The current evaluation
-path requires Go 1.27 or newer and pins the fully verified commit:
+path requires Go 1.26.7 or newer and pins the fully verified commit:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 telemetry-change-guard version --format json
 ```
 
@@ -588,7 +588,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+    uses: tadurisaikiran/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
     with:
       config: tcg.yaml
       changes: changes.yaml

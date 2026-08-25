@@ -150,7 +150,7 @@ contract. Optional AI stays outside the decision boundary.
 **Can it run without Go?**
 
 Prepared release archives, container, and Homebrew paths are pending owner
-publication. The current immutable evaluation path uses Go 1.27+ or the pinned
+publication. The current immutable evaluation path uses Go 1.26.7+ or the pinned
 GitHub Action.
 
 **Is it ready to become a required check?**

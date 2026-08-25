@@ -15,7 +15,7 @@ images from an unofficial location.
 | --- | --- | --- |
 | Pull-request check | [Immutable GitHub Action](#github-action) | Available at an exact verified commit |
 | Local CLI without Go | [Verified release archive](#verified-release-archive) | Prepared; pending owner publication |
-| Local CLI with Go 1.27 | [`go install`](#go-install) | Candidate tag pending; commit installs are CI-tested |
+| Local CLI with Go 1.26.7+ | [`go install`](#go-install) | Candidate tag pending; commit installs are CI-tested |
 | Hermetic Linux execution | [OCI image](#oci-container) | Multi-arch build verified; registry publication pending |
 | Homebrew | [Generated formula](#homebrew) | Formula generated and syntax-checked; tap pending |
 
@@ -98,13 +98,13 @@ existing migration automation.
 
 ## `go install`
 
-This path requires Go `1.27.0` or newer.
+This path requires Go `1.26.7` or newer.
 
 For evaluation before publication, install the fully verified commit:
 
 ```sh
 GOBIN="${HOME}/.local/bin" \
-  go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
+  go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328
 "${HOME}/.local/bin/telemetry-change-guard" version --format json
 ```
 
@@ -143,7 +143,7 @@ permissions:
 
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91 # v0.1.0-alpha.1 candidate
+  - uses: tadurisaikiran/telemetry-change-guard@90c0b41629b76f67f6bfda42ad88eb93bd275328 # v0.1.0-alpha.1 candidate
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -219,7 +219,7 @@ For contributor development—not release installation:
 ```sh
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 8528ab9d7017eda3190377d2e726ec3ac750ce91
+git checkout 90c0b41629b76f67f6bfda42ad88eb93bd275328
 go build -buildvcs=false -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ./bin/telemetry-change-guard version
 ```
