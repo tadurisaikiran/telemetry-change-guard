@@ -28,7 +28,7 @@ Sloth. The normal suite pins:
 
 | Component | Version |
 | --- | --- |
-| Go builder | 1.27.0 |
+| Go builder | 1.26.7 (digest-pinned) |
 | Prometheus / promtool | 3.13.2 LTS |
 | Grafana | 13.1.3 |
 | Sloth | 0.16.0 |

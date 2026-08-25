@@ -2,6 +2,7 @@ GO ?= go
 GOFMT ?= $(dir $(GO))gofmt
 GOVULNCHECK_VERSION ?= v1.7.0
 ACTIONLINT_VERSION ?= v1.7.12
+FUZZ_PARALLELISM ?= 4
 RELEASE_TOOLS_DIR ?= $(CURDIR)/.cache/release-tools
 GORELEASER ?= $(RELEASE_TOOLS_DIR)/goreleaser
 SYFT ?= $(RELEASE_TOOLS_DIR)/syft
@@ -39,24 +40,24 @@ verify-test:
 	$(GO) test -race ./...
 
 verify-fuzz:
-	$(GO) test ./internal/config -run=^$$ -fuzz=FuzzParseConfigDoesNotPanic -fuzztime=3s
-	$(GO) test ./internal/config -run=^$$ -fuzz=FuzzParseChangeSetDoesNotPanic -fuzztime=3s
-	$(GO) test ./internal/snapshot -run=^$$ -fuzz=FuzzParseSnapshotDoesNotPanic -fuzztime=3s
-	$(GO) test ./pkg/promql -run=^$$ -fuzz=FuzzAnalyze -fuzztime=5s
-	$(GO) test ./pkg/traceql -run=^$$ -fuzz=FuzzAnalyzeDoesNotPanic -fuzztime=5s
-	$(GO) test ./adapters/weaver -run=^$$ -fuzz=FuzzParseDiffDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/weaver -run=^$$ -fuzz=FuzzParseMappingDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/persesusage -run=^$$ -fuzz=FuzzDecodeMetricsDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/runtimequeries -run=^$$ -fuzz=FuzzDecodePrometheusQueryLog -fuzztime=3s
-	$(GO) test ./adapters/runtimequeries -run=^$$ -fuzz=FuzzDecodeTMRQueryHistory -fuzztime=3s
-	$(GO) test ./adapters/keda -run=^$$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/argorollouts -run=^$$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/hpa -run=^$$ -fuzz=FuzzParseMappingDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/hpa -run=^$$ -fuzz=FuzzParseManifestDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/cloudformation -run=^$$ -fuzz=FuzzParseTemplateDoesNotPanic -fuzztime=3s
-	$(GO) test ./adapters/cloudformation -run=^$$ -fuzz=FuzzParseManifestDoesNotPanic -fuzztime=3s
-	$(GO) test ./internal/explanation -run=^$$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
-	$(GO) test ./internal/remediation -run=^$$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s
+	$(GO) test ./internal/config -run=^$$ -fuzz=FuzzParseConfigDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./internal/config -run=^$$ -fuzz=FuzzParseChangeSetDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./internal/snapshot -run=^$$ -fuzz=FuzzParseSnapshotDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./pkg/promql -run=^$$ -fuzz=FuzzAnalyze -fuzztime=5s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./pkg/traceql -run=^$$ -fuzz=FuzzAnalyzeDoesNotPanic -fuzztime=5s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/weaver -run=^$$ -fuzz=FuzzParseDiffDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/weaver -run=^$$ -fuzz=FuzzParseMappingDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/persesusage -run=^$$ -fuzz=FuzzDecodeMetricsDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/runtimequeries -run=^$$ -fuzz=FuzzDecodePrometheusQueryLog -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/runtimequeries -run=^$$ -fuzz=FuzzDecodeTMRQueryHistory -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/keda -run=^$$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/argorollouts -run=^$$ -fuzz=FuzzParseDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/hpa -run=^$$ -fuzz=FuzzParseMappingDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/hpa -run=^$$ -fuzz=FuzzParseManifestDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/cloudformation -run=^$$ -fuzz=FuzzParseTemplateDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./adapters/cloudformation -run=^$$ -fuzz=FuzzParseManifestDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./internal/explanation -run=^$$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
+	$(GO) test ./internal/remediation -run=^$$ -fuzz=FuzzDecodeResponseDoesNotPanic -fuzztime=3s -parallel=$(FUZZ_PARALLELISM)
 
 verify-vulnerability:
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...

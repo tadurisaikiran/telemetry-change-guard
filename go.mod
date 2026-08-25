@@ -1,6 +1,6 @@
 module github.com/tadurisaikiran/telemetry-change-guard
 
-go 1.27.0
+go 1.26.7
 
 require (
 	github.com/prometheus/prometheus v0.314.0

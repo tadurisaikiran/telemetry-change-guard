@@ -41,6 +41,13 @@ jobs:
         uses: github/codeql-action/autobuild@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
 
       - name: Analyze
+        id: analyze
         uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           category: /language:go
+          output: ${{ runner.temp }}/codeql-results
+
+      - name: Require complete CodeQL extraction
+        env:
+          TCG_CODEQL_SARIF: ${{ steps.analyze.outputs.sarif-output }}
+        run: go run ./internal/codeqlverify --path "${TCG_CODEQL_SARIF}"

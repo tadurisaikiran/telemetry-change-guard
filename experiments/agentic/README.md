@@ -39,7 +39,7 @@ human, CI, and evaluation responsibilities.
 
 ## Five-minute local fixture
 
-Prerequisites are Go 1.27+, Git, Docker, and a running local Docker daemon.
+Prerequisites are Go 1.26.7+, Git, Docker, and a running local Docker daemon.
 Run these commands from the repository root:
 
 ```bash

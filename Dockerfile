@@ -3,7 +3,7 @@
 # Both stages are pinned to multi-architecture manifest digests. Update the
 # matching values in release/metadata.env and re-run the distribution checks
 # whenever either base is intentionally refreshed.
-FROM --platform=$BUILDPLATFORM golang:1.27.0-bookworm@sha256:ded31c68586d2e49e760acc2e65a884b23d032e9bbbed0ae0c55abd3fcaf4452 AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.7-bookworm@sha256:e8c859f5632dcfde7b32d2012b4351728f6437930887c2f6a91ea242459e5514 AS build
 
 ARG TARGETOS
 ARG TARGETARCH
