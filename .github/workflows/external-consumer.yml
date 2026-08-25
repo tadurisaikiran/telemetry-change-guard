@@ -98,7 +98,7 @@ jobs:
       - name: Run immutable remote Action coordinate
         id: guard
         continue-on-error: true
-        uses: tadurisaikiran/telemetry-change-guard@626f5443021f14a8a4a3ddb67e8b7af6e92afed8 # v0.1.0-alpha.1
+        uses: tadurisaikiran/telemetry-change-guard@20dbd241b3934418a4d288d05dd69eb55ad85079 # v0.1.0-alpha.1
         with:
           config: ${{ matrix.config }}
           changes: ${{ matrix.changes }}

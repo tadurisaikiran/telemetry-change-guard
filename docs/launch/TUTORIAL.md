@@ -19,7 +19,7 @@ is required.
 ## Install and identify the exact build
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@626f5443021f14a8a4a3ddb67e8b7af6e92afed8
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@20dbd241b3934418a4d288d05dd69eb55ad85079
 telemetry-change-guard version --format json
 ```
 
@@ -32,7 +32,7 @@ If the executable is not on `PATH`, invoke
 ```bash
 git clone https://github.com/tadurisaikiran/telemetry-change-guard.git
 cd telemetry-change-guard
-git checkout 626f5443021f14a8a4a3ddb67e8b7af6e92afed8
+git checkout 20dbd241b3934418a4d288d05dd69eb55ad85079
 ```
 
 The fixture has three inputs:
@@ -178,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: tadurisaikiran/telemetry-change-guard@626f5443021f14a8a4a3ddb67e8b7af6e92afed8 # v0.1.0-alpha.1 candidate
+      - uses: tadurisaikiran/telemetry-change-guard@20dbd241b3934418a4d288d05dd69eb55ad85079 # v0.1.0-alpha.1 candidate
         with:
           config: tcg.yaml
           changes: changes.yaml

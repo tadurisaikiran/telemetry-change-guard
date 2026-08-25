@@ -67,7 +67,7 @@ still queries the metric.
 Install the exact reviewed candidate commit with Go 1.26.7 or newer:
 
 ```bash
-go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@626f5443021f14a8a4a3ddb67e8b7af6e92afed8
+go install github.com/tadurisaikiran/telemetry-change-guard/cmd/telemetry-change-guard@20dbd241b3934418a4d288d05dd69eb55ad85079
 ```
 
 Then run the matching example from the repository root:
