@@ -4,13 +4,33 @@ The canonical executable is `telemetry-change-guard`:
 
 ```bash
 mkdir -p ./bin
-go build -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
+go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ```
 
 The longer name is intentional. The proposed `tcg` command collides with an
 existing global executable and a widely used software/security acronym, so it
 is not installed or advertised. `TCG` remains acceptable human shorthand for
 the product.
+
+## Version and build identity
+
+Inspect a binary before using it:
+
+```bash
+telemetry-change-guard version
+telemetry-change-guard version --format json
+telemetry-change-guard --version
+```
+
+Human output includes the product version, exact commit, build date,
+clean/dirty state, Go version, and platform. JSON uses
+`tcg-version/v1alpha1`; `dirty` is `null` when a development build cannot
+authoritatively determine the state. A source build without release linker
+metadata reports `dev` and never presents itself as a published version.
+
+The compatibility executable exposes the same identity through `tmr version`
+and `tmr --version`. See the [versioning](VERSIONING.md) and
+[compatibility](COMPATIBILITY.md) policies.
 
 ## Generic change safety
 

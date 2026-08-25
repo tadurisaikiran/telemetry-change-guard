@@ -94,7 +94,21 @@ runs:
     - name: Build Telemetry Change Guard
       shell: bash
       working-directory: ${{ github.action_path }}
-      run: go build -trimpath -o "${RUNNER_TEMP}/telemetry-change-guard" ./cmd/telemetry-change-guard
+      env:
+        TCG_ACTION_REF: ${{ github.action_ref }}
+        TCG_ACTION_REPOSITORY: ${{ github.action_repository }}
+        TCG_WORKFLOW_REPOSITORY: ${{ github.repository }}
+        TCG_WORKFLOW_SHA: ${{ github.sha }}
+      run: "${GITHUB_ACTION_PATH}/action/build-action.sh"
+
+    - name: Record build identity
+      shell: bash
+      run: |
+        {
+          printf '## Telemetry Change Guard build identity\n\n```text\n'
+          "${RUNNER_TEMP}/telemetry-change-guard" version
+          printf '```\n\n'
+        } >> "${GITHUB_STEP_SUMMARY}"
 
     - name: Analyze telemetry change
       id: analyze

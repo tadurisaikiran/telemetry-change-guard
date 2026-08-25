@@ -340,9 +340,11 @@ Docker-dependent local E2E remained environment-blocked because Docker Desktop
 was not running. PR #46 passed CI plus all three hosted pinned lifecycle jobs
 and was squash-merged as `9692424086189256a94ef3c2d89902dddc04d78c`.
 
-### Action production-hardening candidate
+### Action production hardening
 
-Branch: `action/production-hardening`
+- Branch: `action/production-hardening`
+- Pull request: #47
+- Merged main commit: `4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b`
 
 Implemented:
 
@@ -371,5 +373,38 @@ Local candidate verification so far:
   findings after adding a seven-day Dependabot update cooldown;
 - the workflow policy script, shell syntax checks, and `git diff --check` pass.
 
-Hosted Action jobs must additionally prove that all three local modes complete
-without cache-path annotations before this branch can merge.
+Hosted validation passed eleven checks: full CI, all three Action modes,
+CodeQL analysis and its code-scanning result, dependency review, workflow
+security, and all three pinned lifecycle jobs. The generic, snapshot, and
+migration Action check runs each returned an empty annotation list, proving the
+invalid cache-path warning was removed rather than hidden.
+
+### Version and build-metadata candidate
+
+Branch: `release/version-and-build-metadata`
+
+Implemented so far:
+
+- release-injectable product version, full commit, build date, and tri-state
+  dirty metadata plus runtime Go/platform identity;
+- shared `version`, `version --format json`, and `--version` commands for the
+  canonical and compatibility executables;
+- stable `tcg-version/v1alpha1` JSON and release-shaped linker/trimpath tests;
+- Action job-summary identity that records only an authoritative Action or
+  local-workflow commit and leaves a movable external ref unknown;
+- changelog, versioning, compatibility, and upgrade policies that preserve
+  both existing analysis schemas without inserting dynamic build fields.
+
+Local candidate verification:
+
+- `make verify GO=/private/tmp/tcg-go1.27/go/bin/go` passes module consistency,
+  formatting, vet, all race-enabled tests, all fuzz-smoke targets,
+  `govulncheck`, actionlint, workflow policy, and shell syntax;
+- a real release-shaped binary reports injected candidate version, exact full
+  commit, RFC 3339 build date, clean state, runtime, and platform, and does not
+  contain the local checkout path;
+- development canonical and `tmr` binaries report matching explicit `dev`
+  identity; malformed release linker values normalize to non-release values;
+- offline `zizmor@v1.29.0` reports no scoped findings and all local links
+  across 53 Markdown files resolve;
+- `git diff --check` passes.

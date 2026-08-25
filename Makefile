@@ -60,7 +60,7 @@ verify-workflows:
 	./scripts/check-workflow-policy.sh
 
 verify-shell:
-	bash -n action/run-action.sh action/resolve-action-paths.sh scripts/check-workflow-policy.sh
+	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh scripts/check-workflow-policy.sh
 
 e2e:
 	./e2e/scripts/run-control-plane-e2e.sh

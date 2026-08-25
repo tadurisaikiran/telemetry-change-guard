@@ -23,6 +23,7 @@ import (
 const canonicalUsage = `Telemetry Change Guard
 
 Usage:
+  telemetry-change-guard version [--format text|json]
   telemetry-change-guard check --config <path> (--changes <path> | --weaver-diff <path> --weaver-mapping <path> | --baseline <snapshot> --candidate <snapshot>) [--mode audit|warn|enforce]
   telemetry-change-guard snapshot --prometheus <url> --output <path>
   telemetry-change-guard diff --baseline <snapshot> --candidate <snapshot> [--output <path>] [--changes-output <path>]
@@ -35,6 +36,7 @@ Usage:
   telemetry-change-guard migration remediate --config <path> --plan <path> --ai-command <executable>
 
 Commands:
+  version     Print build identity for verification and support
   check       Evaluate the operational safety of a ChangeSet
   snapshot    Capture a bounded deterministic Prometheus telemetry contract
   diff        Compare baseline and candidate telemetry snapshots
@@ -63,6 +65,14 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 
 	switch args[0] {
+	case "version":
+		return runVersion("telemetry-change-guard", args[1:], stdout, stderr)
+	case "--version":
+		if len(args) != 1 {
+			fmt.Fprintln(stderr, "--version does not accept arguments")
+			return 1
+		}
+		return runVersion("telemetry-change-guard", nil, stdout, stderr)
 	case "check":
 		return runCheck(ctx, args[1:], stdout, stderr)
 	case "snapshot":
