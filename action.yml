@@ -80,11 +80,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Resolve Action dependency paths
+      id: action-paths
+      shell: bash
+      run: "${GITHUB_ACTION_PATH}/action/resolve-action-paths.sh"
+
     - name: Set up official Go
-      uses: actions/setup-go@v7
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version-file: ${{ github.action_path }}/go.mod
-        cache-dependency-path: ${{ github.action_path }}/go.sum
+        go-version-file: ${{ steps.action-paths.outputs.go-mod }}
+        cache-dependency-path: ${{ steps.action-paths.outputs.go-sum }}
 
     - name: Build Telemetry Change Guard
       shell: bash
@@ -110,7 +115,7 @@ runs:
 
     - name: Upload JSON evidence
       if: always()
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: ${{ inputs.artifact-name }}
         path: ${{ steps.analyze.outputs.json-report }}
@@ -118,7 +123,7 @@ runs:
 
     - name: Post pull-request summary
       if: always() && github.event_name == 'pull_request' && inputs.comment == 'true'
-      uses: actions/github-script@v8
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
       continue-on-error: true
       env:
         TCG_REPORT_PATH: ${{ steps.analyze.outputs.report }}

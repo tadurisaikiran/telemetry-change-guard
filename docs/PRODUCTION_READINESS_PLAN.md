@@ -147,20 +147,20 @@ without force-pushing shared history.
    - merge overlapping-source requirements deterministically;
    - add explicit remote-evidence policy and trusted-origin enforcement;
    - add adversarial regression tests and secure CI guidance.
-2. `release/version-and-build-metadata`
-   - add version commands, linker-injected metadata, and compatibility policy;
-   - add `CHANGELOG.md`, versioning, compatibility, and upgrade guidance.
-3. `release/artifacts-and-provenance`
-   - add reproducible multi-platform archives, checksums, SBOMs, manifests,
-     provenance-ready workflows, snapshot builds, and verification scripts;
-   - add `make verify`, `make e2e`, and `make release-snapshot`.
-4. `action/production-hardening`
+2. `action/production-hardening`
    - pin every Action dependency;
    - minimize permissions;
    - fix local cache warnings;
    - add CodeQL, dependency review, workflow lint/security checks, and release
      coordinate validation;
    - preserve authoritative Action outputs and exit enforcement.
+3. `release/version-and-build-metadata`
+   - add version commands, linker-injected metadata, and compatibility policy;
+   - add `CHANGELOG.md`, versioning, compatibility, and upgrade guidance.
+4. `release/artifacts-and-provenance`
+   - add reproducible multi-platform archives, checksums, SBOMs, manifests,
+     provenance-ready workflows, snapshot builds, and verification scripts;
+   - add `make verify`, `make e2e`, and `make release-snapshot`.
 5. `docs/install-quickstart-and-security`
    - rebuild the README front door and installation/quickstart hierarchy;
    - document security, configuration, limitations, troubleshooting, releases,
@@ -174,8 +174,10 @@ without force-pushing shared history.
    - add an evidence-constrained product brief, launch article, deep dive,
      tutorial, demo, FAQ, social drafts, and case-study template.
 
-The exact split may be adjusted when one change must land earlier to make the
-next PR independently testable. Any adjustment will be recorded here.
+Action hardening moved ahead of version metadata after the P0 merge because
+immutable dependencies and warning-free hosted Action checks are prerequisites
+for trusting the later release workflows. No publication behavior is included
+in that security-focused reordering.
 
 ## Acceptance criteria by phase
 
@@ -334,6 +336,40 @@ Verified locally on Go 1.27.0:
 - all local links across 48 Markdown files resolved;
 - `git diff --check` passed.
 
-Docker-dependent local E2E remains environment-blocked because Docker Desktop
-is not running. The pull request must pass the repository's `Pinned E2E`
-workflow before merge.
+Docker-dependent local E2E remained environment-blocked because Docker Desktop
+was not running. PR #46 passed CI plus all three hosted pinned lifecycle jobs
+and was squash-merged as `9692424086189256a94ef3c2d89902dddc04d78c`.
+
+### Action production-hardening candidate
+
+Branch: `action/production-hardening`
+
+Implemented:
+
+- every existing and newly introduced third-party Action is pinned to a full
+  commit SHA with an exact version comment;
+- Action-owned Go dependency paths are canonicalized before `setup-go`,
+  preserving cache use for local and external consumption without `/.//`;
+- workflow defaults are read-only, while CodeQL's write permission is isolated
+  to its analysis job;
+- CodeQL, dependency review, pinned actionlint, offline zizmor auditing, and a
+  repository policy check provide complementary, maintainable security gates;
+- `release/metadata.env` is the single candidate Action coordinate source,
+  with a test rejecting stale SHA references in README or documentation;
+- Dependabot continues to cover both Go modules and GitHub Actions.
+
+Local candidate verification so far:
+
+- `make verify GO=/private/tmp/tcg-go1.27/go/bin/go` passes with the same
+  loopback access required by the baseline, including module consistency,
+  formatting, vet, race tests, all fuzz smoke targets, `govulncheck`,
+  actionlint, workflow policy, and shell syntax;
+- Action contract and path-resolution tests pass for local dot-segment and
+  external symlinked consumption;
+- `actionlint@v1.7.12` reports no workflow errors;
+- `zizmor@v1.29.0` reports no medium-or-higher, high-confidence offline
+  findings after adding a seven-day Dependabot update cooldown;
+- the workflow policy script, shell syntax checks, and `git diff --check` pass.
+
+Hosted Action jobs must additionally prove that all three local modes complete
+without cache-path annotations before this branch can merge.

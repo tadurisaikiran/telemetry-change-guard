@@ -1,8 +1,9 @@
 GO ?= go
 GOFMT ?= $(dir $(GO))gofmt
 GOVULNCHECK_VERSION ?= v1.7.0
+ACTIONLINT_VERSION ?= v1.7.12
 
-.PHONY: verify verify-module verify-format verify-vet verify-test verify-fuzz verify-vulnerability verify-shell e2e
+.PHONY: verify verify-module verify-format verify-vet verify-test verify-fuzz verify-vulnerability verify-workflows verify-shell e2e
 
 verify:
 	$(MAKE) verify-module
@@ -11,6 +12,7 @@ verify:
 	$(MAKE) verify-test
 	$(MAKE) verify-fuzz
 	$(MAKE) verify-vulnerability
+	$(MAKE) verify-workflows
 	$(MAKE) verify-shell
 
 verify-module:
@@ -53,8 +55,12 @@ verify-fuzz:
 verify-vulnerability:
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
+verify-workflows:
+	$(GO) run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION) -color
+	./scripts/check-workflow-policy.sh
+
 verify-shell:
-	bash -n action/run-action.sh
+	bash -n action/run-action.sh action/resolve-action-paths.sh scripts/check-workflow-policy.sh
 
 e2e:
 	./e2e/scripts/run-control-plane-e2e.sh
