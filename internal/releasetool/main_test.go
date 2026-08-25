@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"os"
@@ -10,6 +11,16 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestCanonicalRepositoryTextNormalizesOnlyWindowsLineEndings(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("first\r\nsecond\n")
+	want := []byte("first\nsecond\n")
+	if got := canonicalRepositoryText(input); !bytes.Equal(got, want) {
+		t.Fatalf("canonicalRepositoryText() = %q, want %q", got, want)
+	}
+}
 
 type testTarEntry struct {
 	name     string
