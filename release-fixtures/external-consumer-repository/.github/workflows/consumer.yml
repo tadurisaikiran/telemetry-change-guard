@@ -101,6 +101,7 @@ jobs:
           ACTUAL_JSON: ${{ steps.guard.outputs.json-report }}
           ACTUAL_MODE: ${{ steps.guard.outputs.mode }}
           ACTUAL_OUTCOME: ${{ steps.guard.outcome }}
+          ACTUAL_REPORT: ${{ steps.guard.outputs.report }}
           ACTUAL_STATUS: ${{ steps.guard.outputs.status }}
           EXPECTED_EXIT: ${{ matrix.exit_code }}
           EXPECTED_MODE: ${{ matrix.mode }}
@@ -117,7 +118,7 @@ jobs:
             --arg status "${EXPECTED_STATUS}" \
             '.schemaVersion == $schema and .status == $status' \
             "${ACTUAL_JSON}"
-          grep -Fq 'Telemetry Change Guard' "${GITHUB_STEP_SUMMARY}"
+          grep -Fq "**Status:** **${EXPECTED_STATUS}**" "${ACTUAL_REPORT}"
 
   verify-artifacts:
     needs: consumer

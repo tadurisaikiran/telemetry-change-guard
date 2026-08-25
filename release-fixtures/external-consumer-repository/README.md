@@ -14,8 +14,9 @@ The fixture proves five consumer-visible contracts:
 | `snapshot` | baseline/candidate snapshot pair | `BLOCK` / exit `2` | failure |
 | `migration` | compatibility migration plan | `READY` / exit `0` | success |
 
-Each case also verifies the versioned JSON report and job summary. A final job
-downloads all five artifacts and validates their schemas and statuses.
+Each case also verifies the versioned JSON report and the Markdown report that
+the Action appends to its job summary. A final job downloads all five artifacts
+and validates their schemas and statuses.
 
 The source is retained here because creating another GitHub repository is an
 external action that requires owner authorization. Until that repository is

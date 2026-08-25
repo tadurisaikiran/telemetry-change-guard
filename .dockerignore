@@ -11,3 +11,6 @@
 !adapters/**
 !pkg/
 !pkg/**
+!e2e/
+!e2e/exporter/
+!e2e/exporter/main.go
