@@ -1,0 +1,13 @@
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: remove-checkout-queue-source
+spec:
+  changes:
+    - id: remove-checkout-queue-source
+      kind: metric_remove
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: rabbitmq_queue_messages_ready

@@ -1,0 +1,9 @@
+groups:
+  - name: checkout
+    rules:
+      - record: checkout:request_rate5m
+        expr: sum(rate(checkout_requests_total[5m]))
+      - alert: CheckoutTrafficMissing
+        expr: checkout:request_rate5m == 0
+        labels:
+          severity: critical

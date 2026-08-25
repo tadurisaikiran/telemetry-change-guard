@@ -15,6 +15,7 @@ metadata_value() {
 
 action_repository="$(metadata_value TCG_ACTION_REPOSITORY)"
 action_ref="$(metadata_value TCG_ACTION_REF)"
+candidate_version="$(metadata_value TCG_CANDIDATE_VERSION)"
 dockerfile_frontend="$(metadata_value TCG_DOCKERFILE_FRONTEND)"
 builder_image="$(metadata_value TCG_GO_BUILDER_IMAGE)"
 runtime_image="$(metadata_value TCG_RUNTIME_IMAGE)"
@@ -68,6 +69,29 @@ for file in "${files[@]}"; do
     echo "${file#"${root}/"}: unpublished movable TCG Action tag is forbidden" >&2
     failures=1
   fi
+  while IFS= read -r coordinate; do
+    [[ -z "${coordinate}" ]] && continue
+    if [[ "${coordinate}" != "github.com/${action_repository}/cmd/telemetry-change-guard@${action_ref}" && \
+          "${coordinate}" != "github.com/${action_repository}/cmd/tmr@${action_ref}" ]]; then
+      echo "${file#"${root}/"}: stale or inconsistent commit-based go install coordinate: ${coordinate}" >&2
+      failures=1
+    fi
+  done < <(grep -Eo "github.com/${action_repository}/cmd/(telemetry-change-guard|tmr)@[0-9a-f]{40}" "${file}" || true)
+  while IFS= read -r coordinate; do
+    [[ -z "${coordinate}" ]] && continue
+    if [[ "${coordinate}" != "github.com/${action_repository}/cmd/telemetry-change-guard@v${candidate_version}" && \
+          "${coordinate}" != "github.com/${action_repository}/cmd/tmr@v${candidate_version}" ]]; then
+      echo "${file#"${root}/"}: stale or inconsistent candidate go install coordinate: ${coordinate}" >&2
+      failures=1
+    fi
+  done < <(grep -Eo "github.com/${action_repository}/cmd/(telemetry-change-guard|tmr)@v[0-9][0-9A-Za-z.+-]*" "${file}" || true)
+  while IFS= read -r checkout_ref; do
+    [[ -z "${checkout_ref}" ]] && continue
+    if [[ "${checkout_ref}" != "git checkout ${action_ref}" ]]; then
+      echo "${file#"${root}/"}: stale or inconsistent checkout coordinate: ${checkout_ref}" >&2
+      failures=1
+    fi
+  done < <(grep -Eo 'git checkout [0-9a-f]{40}' "${file}" || true)
 done
 
 if ! grep -Fq "git checkout ${action_ref}" "${root}/docs/DESIGN_USER_PROGRAM.md"; then

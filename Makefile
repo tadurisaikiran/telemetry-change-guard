@@ -6,7 +6,7 @@ RELEASE_TOOLS_DIR ?= $(CURDIR)/.cache/release-tools
 GORELEASER ?= $(RELEASE_TOOLS_DIR)/goreleaser
 SYFT ?= $(RELEASE_TOOLS_DIR)/syft
 
-.PHONY: verify verify-module verify-format verify-vet verify-test verify-fuzz verify-vulnerability verify-workflows verify-distribution verify-shell e2e release-tools release-ensure-tools release-snapshot release-reproducible release-tag release-tag-reproducible verify-release container-snapshot homebrew-formula verify-go-install
+.PHONY: verify verify-module verify-format verify-vet verify-test verify-fuzz verify-vulnerability verify-workflows verify-distribution verify-docs verify-shell benchmark e2e release-tools release-ensure-tools release-snapshot release-reproducible release-tag release-tag-reproducible verify-release container-snapshot homebrew-formula verify-go-install
 
 verify:
 	$(MAKE) verify-module
@@ -17,6 +17,8 @@ verify:
 	$(MAKE) verify-vulnerability
 	$(MAKE) verify-workflows
 	$(MAKE) verify-distribution
+	$(MAKE) verify-docs
+	$(MAKE) benchmark
 	$(MAKE) verify-shell
 
 verify-module:
@@ -68,8 +70,14 @@ verify-distribution:
 	./scripts/check-release-coordinates.sh
 	GO="$(GO)" ./scripts/verify-consumer-fixtures.sh
 
+verify-docs:
+	GO="$(GO)" ./scripts/verify-docs.sh
+
+benchmark:
+	GO="$(GO)" ./benchmarks/scripts/run.sh
+
 verify-shell:
-	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh scripts/build-container-snapshot.sh scripts/check-release-coordinates.sh scripts/check-workflow-policy.sh scripts/generate-homebrew-formula.sh scripts/install-release-tools.sh scripts/build-release.sh scripts/verify-consumer-fixtures.sh scripts/verify-container.sh scripts/verify-go-install.sh scripts/verify-release.sh scripts/verify-reproducible-release.sh scripts/validate-release-tag.sh
+	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh benchmarks/scripts/run.sh scripts/build-container-snapshot.sh scripts/check-release-coordinates.sh scripts/check-workflow-policy.sh scripts/generate-homebrew-formula.sh scripts/install-release-tools.sh scripts/build-release.sh scripts/verify-consumer-fixtures.sh scripts/verify-container.sh scripts/verify-docs.sh scripts/verify-go-install.sh scripts/verify-release.sh scripts/verify-reproducible-release.sh scripts/validate-release-tag.sh
 
 e2e:
 	./e2e/scripts/run-control-plane-e2e.sh

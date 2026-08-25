@@ -1,0 +1,11 @@
+apiVersion: tcg.hpa/v1alpha1
+kind: HPAMetricMappings
+spec:
+  mappings:
+    - kubernetes:
+        type: External
+        metric: checkout_queue_depth
+      prometheus:
+        metric: rabbitmq_queue_messages_ready
+        labels:
+          queue: checkout

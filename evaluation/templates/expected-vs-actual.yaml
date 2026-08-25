@@ -1,0 +1,44 @@
+schemaVersion: tcg-evaluation/v1alpha1
+evaluationId: replace-with-sanitized-case-id
+recordedAt: 2026-08-25T00:00:00Z
+tcg:
+  version: dev
+  commit: 8528ab9d7017eda3190377d2e726ec3ac750ce91
+  resultSchema: tcg-result/v1alpha1
+scope:
+  workflow: generic-check
+  changeSource: changeset
+  configuredEvidence:
+    - Prometheus rules under sanitized/observability
+  knownExcludedEvidence:
+    - Hosted dashboards were not exported for this evaluation
+expected:
+  status: BLOCK
+  consumers:
+    - CheckoutTrafficMissing alert
+  dependencyPaths:
+    - checkout_requests_total -> CheckoutTrafficMissing
+  diagnostics: []
+actual:
+  status: BLOCK
+  consumers:
+    - CheckoutTrafficMissing alert
+  dependencyPaths:
+    - checkout_requests_total -> CheckoutTrafficMissing
+  diagnostics: []
+comparison:
+  statusMatch: true
+  consumerMatch: true
+  pathMatch: true
+  mismatches: []
+  timeToFirstUsefulResultMinutes: 5
+environment:
+  operatingSystem: replace-me
+  architecture: replace-me
+privacy:
+  sanitized: true
+  containsCredentials: false
+  publicSharingAuthorized: false
+notes: >-
+  Record expected fields before running TCG. Do not change ground truth merely
+  to make the comparison pass.

@@ -15,7 +15,7 @@ implementation commit. The authoritative candidate coordinate is maintained in
 README and documentation reference in CI:
 
 ```text
-tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12
+tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
 ```
 
 Do not use `tadurisaikiran/telemetry-change-guard@v1`: that tag does not exist.
@@ -35,7 +35,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12
+    uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -50,7 +50,7 @@ generated snapshots:
 
 ```yaml
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12
+    uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
     with:
       config: tcg.yaml
       baseline: telemetry/main-contract.json
@@ -76,7 +76,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12
+    uses: tadurisaikiran/telemetry-change-guard@8528ab9d7017eda3190377d2e726ec3ac750ce91
     with:
       config: tcg.yaml
       migration: migration.yaml
