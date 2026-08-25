@@ -1,0 +1,17 @@
+apiVersion: tcg/v1alpha1
+kind: ChangeSet
+metadata:
+  name: agentic-fixture-metric-rename
+spec:
+  changes:
+    - id: rename-checkout-requests
+      kind: metric_rename
+      domain: prometheus
+      from:
+        domain: prometheus
+        kind: metric
+        name: checkout_requests_total
+      to:
+        domain: prometheus
+        kind: metric
+        name: checkout_server_requests_total

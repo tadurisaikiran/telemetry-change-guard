@@ -21,7 +21,8 @@ when evaluating the product:
 | Explain and prioritize migration findings | Built in through `migration advise` | A bounded, redacted request, strict response schema, non-authoritative rendering, and unchanged readiness exit code |
 | Draft a replacement expression | Built in through `migration remediate` for eligible local Prometheus and Grafana rename targets | Strict candidate schema plus PromQL, artifact, graph, and policy validation against an in-memory copy |
 | Read application code or a source diff and draft TCG inputs | Compatible external AI workflow | Strict input decoding once the draft reaches `validate`; TCG does not guarantee the AI found every change |
-| Edit a branch or open a change request | Compatible external coding-agent workflow | Nothing until the real edited tree is checked again; TCG itself never writes the edit or opens the request |
+| Draft bounded edits in a disposable workspace and recheck them | Experimental `experiments/agentic` MVP | A container-isolated adapter can propose changes; the public TCG CLI independently rechecks the actual tree and produces an uncommitted review diff |
+| Edit a branch or open a change request | Compatible external coding-agent workflow | Nothing until the real edited tree is checked again; TCG itself never writes the branch edit or opens the request |
 | Draft tests, runbooks, tickets, or review summaries | Compatible external AI workflow | Versioned deterministic findings can be used as source material; generated prose has no authority |
 
 The current release does not bundle a model, model SDK, source-code scanner,
@@ -153,9 +154,12 @@ re-verifies” workflow today, with one important qualification: branch and
 change-request creation are orchestration outside TCG. Do not describe TCG as
 opening, approving, or merging a pull request or change request.
 
-TCG does not yet ship the isolated agent runner or bounded repair controller
-for this loop. Their staged implementation, evaluation, and promotion criteria
-are tracked in the [optional agentic roadmap](AGENTIC_ROADMAP.md).
+TCG now includes an explicitly experimental isolated runner and bounded repair
+controller under [`experiments/agentic`](../experiments/agentic/README.md). It
+produces an uncommitted review bundle and never runs unless its separate binary
+and acknowledgement flag are selected. Comparative evaluation and any
+supported design-user workflow remain future gates in the
+[optional agentic roadmap](AGENTIC_ROADMAP.md).
 
 The final check must run against the actual edited files. A previously
 simulated result is not evidence that the committed change is safe.
@@ -181,11 +185,18 @@ policy decide.
 
 ## Security and provider responsibility
 
-The provider protocol minimizes data but is not a sandbox. The selected
-executable runs with the user's operating-system permissions and may access
-files, environment variables, or the network independently. Use only a
-reviewed provider, and evaluate the model service's access, retention, and
-training policies before sending sensitive operational data.
+The built-in `migration advise` and `migration remediate` provider protocols
+minimize data but are not sandboxes. Their selected executable runs with the
+user's operating-system permissions and may access files, environment
+variables, or the network independently. Use only a reviewed provider, and
+evaluate the model service's access, retention, and training policies before
+sending sensitive operational data.
+
+The separate experimental agentic harness adds container isolation, resource
+limits, an immutable image ID, no network by default, and one writable
+workspace mount. Its [security and operational limits](../experiments/agentic/README.md#security-and-operational-limits)
+still require a trusted container runtime, trusted local repository, reviewed
+adapter image, and human review.
 
 Repository text is untrusted and may contain prompt injection. TCG marks it as
 data, bounds requests and responses, redacts common secret patterns, rejects

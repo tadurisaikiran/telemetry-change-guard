@@ -35,6 +35,28 @@ still runs with the user's OS permissions and may independently access files,
 environment, or the network. Only use a reviewed provider executable.
 Telemetry Change Guard does not sandbox it.
 
+The experimental `tcg-agent-eval` command has a different boundary. It treats
+the coding-agent adapter and model as untrusted and runs the adapter by immutable
+container image ID with a read-only root filesystem, no capabilities,
+`no-new-privileges`, an unprivileged UID/GID, resource limits, no network by
+default, and exactly one writable bind mount. The container runtime/daemon and
+the explicitly selected local repository remain trusted infrastructure. A Git
+worktree organizes the candidate tree but is not the security boundary.
+
+TCG configuration, ChangeSet/evidence, the TCG executable, controller, and run
+artifacts are not mounted into the adapter. Declared control roots are hashed
+before the run and rewalked before and after every adapter and TCG execution;
+added, removed, changed, symlinked, or special files fail closed. Git-derived
+changed paths must remain inside the declared workspace. The harness refuses
+to commit, push, open or merge a change request, or call production APIs.
+
+The local repository is trusted because checkout may use locally configured
+Git content filters. Do not run the harness against an untrusted repository or
+Git configuration. The MVP also refuses to execute repository tests on the
+host; approved tests belong in a separate isolated CI job. Enabling bridge
+networking or explicitly forwarding a model credential expands the trust and
+data-disclosure boundary and requires provider-specific review.
+
 ## Prompt injection
 
 Repository text can contain instructions such as “ignore previous rules” or
@@ -120,6 +142,12 @@ scenarios protect against malformed inputs and fail-open regressions.
 AI output is untrusted prose. Telemetry Change Guard strips terminal control characters and labels
 it non-authoritative. Consumers of future machine interfaces must preserve this
 distinction and must not turn explanation text into executable commands.
+
+Experimental agentic artifacts include the uncommitted diff, bounded adapter
+prose/stderr, tool identities, control hashes, paths, deterministic findings,
+and authoritative TCG JSON. The output directory is newly created with owner
+permissions and individual artifacts are owner-readable. Treat the complete
+directory as sensitive review evidence; do not publish it without inspection.
 
 ## Production mutation
 
