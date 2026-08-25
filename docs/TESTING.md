@@ -102,6 +102,9 @@ The current deterministic engine has:
 - fail-closed readiness and required-source failure tests;
 - an exact JSON golden report for the checkout migration;
 - CLI integration tests for output and the permanent `0/1/2/3` exit contract;
+- adversarial CLI/source tests for parent traversal, out-of-root absolute paths,
+  symlinks, aggregate budgets, atomic private outputs, and Markdown/terminal
+  containment;
 - CI checks for formatting, vetting, and race-enabled tests.
 - pinned live Docker lifecycles against Prometheus, Grafana, and Sloth, plus a
   digest-pinned Tempo TraceQL validation tier;
@@ -152,7 +155,9 @@ SHA-256 set, safe archive paths, stable modes and timestamps, `CGO_ENABLED=0`,
 `-trimpath`, embedded version/commit/date, per-artifact SPDX and CycloneDX
 documents, and a clean source archive. It executes both host binaries' version
 commands and the real getting-started `BLOCK`/exit `2` fixture. The release
-workflow builds twice and requires byte-identical checksum sets:
+snapshot workflow then downloads that exact payload on Linux, macOS, and
+Windows and executes the native host archive. Reproducible builds require
+byte-identical checksum sets:
 
 ```bash
 make release-snapshot       # one non-publishing build plus deep verification

@@ -36,6 +36,13 @@ larger than the configured decoder limit are rejected. Defaults are applied
 before validation, and every accepted document becomes one canonical in-memory
 `Config` value.
 
+Filesystem roots, aggregate resource limits, analysis timeouts, remote-access
+authorization, and credential transport exceptions are execution policy. They
+are accepted only as trusted CLI/Action inputs and are deliberately excluded
+from `tcg.yaml`, so repository-controlled data cannot relax its own boundary.
+The CLI defaults `--repository-root` to the current working directory, rejects
+symlinked inputs and evidence, and fails if a configured local source escapes.
+
 ## Legacy document compatibility
 
 Existing documents remain accepted without edits:
@@ -64,11 +71,12 @@ sources:
       bearerTokenEnv: TCG_PERSES_TOKEN
 ```
 
-Credentialed remote evidence also requires execution policy supplied outside
-this configuration: an exact allowed origin and HTTPS, except for an explicitly
-enabled loopback-only development exception. The GitHub Action accepts only the
-fixed `TCG_REMOTE_BEARER_TOKEN` reference and defaults remote evidence to
-disabled. See [Secure CI usage](SECURE_CI_USAGE.md).
+All remote evidence requires execution policy supplied outside this
+configuration: remote access must be explicitly enabled and every source needs
+an exact allowed origin. Credentialed access additionally requires HTTPS,
+except for an explicitly enabled loopback-only development exception. The
+GitHub Action accepts only the fixed `TCG_REMOTE_BEARER_TOKEN` reference and
+defaults remote evidence to disabled. See [Secure CI usage](SECURE_CI_USAGE.md).
 
 For every configured `TCG_NAME`, Telemetry Change Guard resolves environment
 values as follows:

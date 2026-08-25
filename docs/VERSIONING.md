@@ -67,6 +67,7 @@ Product, configuration, and result versions advance independently:
 | --- | --- | --- |
 | Generic ChangeSet/configuration | `tcg/v1alpha1` | Unknown fields fail strict parsing; breaking changes require a new schema |
 | Generic analysis result | `tcg-result/v1alpha1` | Status/exit semantics remain stable; breaking structural changes require a new schema |
+| Dependency-graph export | `tcg-graph/v1alpha1` | Public lower-case DTOs are isolated from internal Go structs; breaking structural changes require a new schema |
 | Migration compatibility result | `tmr-result/v1alpha1` | Preserved while the temporary compatibility surface is supported |
 | Version output | `tcg-version/v1alpha1` | Additive compatible fields may be introduced; breaking changes require a new schema |
 

@@ -7,13 +7,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/config"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/domain"
+	"github.com/tadurisaikiran/telemetry-change-guard/internal/graph"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/impact"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/readiness"
+	remoteurl "github.com/tadurisaikiran/telemetry-change-guard/internal/remote"
 	"github.com/tadurisaikiran/telemetry-change-guard/internal/safety"
 )
 
@@ -440,7 +443,7 @@ func TestRemoteEvidencePolicyFailsClosedWithoutErasingLocalFindings(t *testing.T
 					URL: "https://usage.example.test", Required: test.required, Timeout: "1s",
 				}},
 			})
-			configuration.RemoteEvidence.Mode = config.RemoteEvidenceDisabled
+			configuration.RemoteEvidence = config.RemoteEvidencePolicy{Mode: config.RemoteEvidenceDisabled}
 			result, _, discovery, err := Run(context.Background(), configuration, mustParseRemovalMigration(t))
 			if err != nil {
 				t.Fatal(err)
@@ -487,13 +490,51 @@ func TestDisabledRequiredRemoteEvidenceCannotProduceReady(t *testing.T) {
 	configuration := testConfiguration(config.Sources{PersesUsage: []config.PersesUsageSource{{
 		URL: "https://usage.example.test", Required: true, Timeout: "1s",
 	}}})
-	configuration.RemoteEvidence.Mode = config.RemoteEvidenceDisabled
+	configuration.RemoteEvidence = config.RemoteEvidencePolicy{Mode: config.RemoteEvidenceDisabled}
 	result, _, _, err := Run(context.Background(), configuration, mustParseRemovalMigration(t))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.Summary.Status != readiness.StatusIncomplete {
 		t.Fatalf("status = %s, want INCOMPLETE", result.Summary.Status)
+	}
+}
+
+func TestRemoteEvidenceDefaultsDisabledAndAlwaysRequiresAllowlist(t *testing.T) {
+	t.Parallel()
+
+	policy, err := newRemotePolicy(config.RemoteEvidencePolicy{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if policy.enabled {
+		t.Fatal("zero-value remote policy is enabled")
+	}
+	if err := policy.authorize("https://usage.example.test", false); err == nil || !strings.Contains(err.Error(), "disabled") {
+		t.Fatalf("authorize() error = %v", err)
+	}
+	if _, err := newRemotePolicy(config.RemoteEvidencePolicy{Mode: config.RemoteEvidenceEnabled}); err == nil ||
+		!strings.Contains(err.Error(), "allowed origin") {
+		t.Fatalf("enabled policy error = %v", err)
+	}
+}
+
+func TestAggregateDiscoveryAndGraphLimitsFailClosed(t *testing.T) {
+	t.Parallel()
+
+	policy := config.DefaultExecutionPolicy(".")
+	policy.MaxConsumers = 1
+	if err := validateDiscoveryLimits(policy, domain.Discovery{Consumers: make([]domain.Consumer, 2)}); err == nil ||
+		!strings.Contains(err.Error(), "consumer count") {
+		t.Fatalf("consumer limit error = %v", err)
+	}
+	target := graph.New()
+	if err := target.AddNode(graph.Node{ID: "one", Kind: graph.NodeKindConsumer, Name: "one"}); err != nil {
+		t.Fatal(err)
+	}
+	policy.MaxGraphNodes = 0
+	if err := validateGraphLimits(policy, target); err == nil || !strings.Contains(err.Error(), "graph node count") {
+		t.Fatalf("graph limit error = %v", err)
 	}
 }
 
@@ -1090,7 +1131,7 @@ spec:
 }
 
 func testConfiguration(sources config.Sources) config.Config {
-	return config.Config{
+	configuration := config.Config{
 		APIVersion: config.ConfigAPIVersion,
 		Kind:       config.ConfigKind,
 		Sources:    sources,
@@ -1105,6 +1146,37 @@ func testConfiguration(sources config.Sources) config.Config {
 		},
 		Output: config.OutputConfig{Formats: []string{"json"}},
 	}
+	seenOrigins := make(map[string]struct{})
+	for _, rawURL := range appendRemoteSourceURLs(sources) {
+		parsed, err := remoteurl.ParseBaseURL(rawURL, "test remote")
+		if err != nil {
+			continue
+		}
+		origin, err := remoteurl.Origin(parsed)
+		if err == nil {
+			seenOrigins[origin] = struct{}{}
+		}
+	}
+	if len(seenOrigins) != 0 {
+		configuration.RemoteEvidence.Mode = config.RemoteEvidenceEnabled
+		configuration.RemoteEvidence.AllowInsecureLoopback = true
+		for origin := range seenOrigins {
+			configuration.RemoteEvidence.AllowedOrigins = append(configuration.RemoteEvidence.AllowedOrigins, origin)
+		}
+		sort.Strings(configuration.RemoteEvidence.AllowedOrigins)
+	}
+	return configuration
+}
+
+func appendRemoteSourceURLs(sources config.Sources) []string {
+	result := make([]string, 0, len(sources.PersesUsage)+len(sources.TempoQueries))
+	for _, source := range sources.PersesUsage {
+		result = append(result, source.URL)
+	}
+	for _, source := range sources.TempoQueries {
+		result = append(result, source.URL)
+	}
+	return result
 }
 
 func mustParseRemovalMigration(t *testing.T) domain.Migration {

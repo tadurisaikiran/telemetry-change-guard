@@ -132,6 +132,18 @@ artifact provenance is required.
 
 Never use `@latest`, `@main`, or a nonexistent `@v1` in a required check.
 
+After installation, create and execute a safe starter in a new repository:
+
+```sh
+telemetry-change-guard init
+telemetry-change-guard validate --config ./tcg.yaml --changes ./tcg-changes.example.yaml
+telemetry-change-guard check --config ./tcg.yaml --changes ./tcg-changes.example.yaml
+```
+
+The last command intentionally exits `2` with `BLOCK`; this proves discovery,
+parsing, graph construction, policy, and output before you replace the sample
+files with real telemetry evidence. `init` never overwrites an existing target.
+
 ## GitHub Action
 
 The Action builds the CLI inside the job, so no separate installation is

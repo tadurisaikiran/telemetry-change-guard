@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -128,5 +129,95 @@ func TestExpandPatternsReturnsStableFileOrder(t *testing.T) {
 	want := []string{"a.yaml", "m.yaml", "z.yaml"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("order = %v, want %v (%s)", got, want, fmt.Sprint(matches))
+	}
+}
+
+func TestBudgetRejectsEscapesSymlinksAndAggregateLimits(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	inside := filepath.Join(root, "inside.yaml")
+	outside := filepath.Join(t.TempDir(), "outside.yaml")
+	for _, path := range []string{inside, outside} {
+		if err := os.WriteFile(path, []byte("1234"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	budget, err := NewBudget(root, 1, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer budget.Close()
+
+	files, err := budget.Expand(inside)
+	if err != nil || len(files) != 1 {
+		t.Fatalf("Expand() = %v, %v", files, err)
+	}
+	file, err := budget.Open(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	if _, err := budget.Expand(outside); err == nil || !strings.Contains(err.Error(), "outside repository root") {
+		t.Fatalf("outside Expand() error = %v", err)
+	}
+
+	alias := filepath.Join(root, "alias.yaml")
+	if err := os.Symlink(outside, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := budget.Expand(alias); err == nil || !strings.Contains(err.Error(), "symbolic links") {
+		t.Fatalf("symlink Expand() error = %v", err)
+	}
+
+	second := filepath.Join(root, "second.yaml")
+	if err := os.WriteFile(second, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := budget.Expand(second); err == nil || !strings.Contains(err.Error(), "file count") {
+		t.Fatalf("count-limited Expand() error = %v", err)
+	}
+}
+
+func TestBudgetRejectsTotalBytes(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	file := filepath.Join(root, "large.yaml")
+	if err := os.WriteFile(file, []byte("12345"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	budget, err := NewBudget(root, 10, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer budget.Close()
+	if _, err := budget.Expand(file); err == nil || !strings.Contains(err.Error(), "total source bytes") {
+		t.Fatalf("Expand() error = %v", err)
+	}
+}
+
+func TestBudgetRejectsFileGrowthAfterRegistration(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "evidence.yaml")
+	if err := os.WriteFile(path, []byte("1234"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	budget, err := NewBudget(root, 1, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer budget.Close()
+	files, err := budget.Expand(path)
+	if err != nil || len(files) != 1 {
+		t.Fatalf("Expand() = %v, %v", files, err)
+	}
+	if err := os.WriteFile(path, []byte("12345"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := budget.Open(files[0]); err == nil || !IsPolicyViolation(err) {
+		t.Fatalf("Open() error = %v, want policy violation", err)
 	}
 }

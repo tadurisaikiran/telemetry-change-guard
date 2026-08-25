@@ -92,6 +92,7 @@ func runMigrationValidate(
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	configPath := flags.String("config", "", "path to a tmr YAML configuration")
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -114,6 +115,13 @@ func runMigrationValidate(
 		fmt.Fprintln(stderr, "--weaver-diff and --weaver-mapping must be provided together")
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, migrationPath, weaverDiffPath, weaverMappingPath, configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 
 	if *migrationPath != "" {
 		migration, err := config.LoadMigration(ctx, *migrationPath)

@@ -19,6 +19,9 @@ coverage.
 - TCG does not crawl an organization or automatically discover every repository,
   dashboard service, runtime query, or generated configuration.
 - Local source globs and optional remote adapters must be explicitly configured.
+- Canonical runs reject symlinks and local evidence outside the trusted
+  repository root. Cross-repository evidence must be exported into that root
+  or analyzed in a separately trusted invocation.
 - A `PASS` is scoped to those configured sources and the selected policy.
 - Snapshot evidence represents what the queried Prometheus deployment exposed
   at capture time; absence from a snapshot does not prove a signal cannot be

@@ -42,7 +42,11 @@ func TestRunValidateSuccess(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	exitCode := run(context.Background(), []string{"validate", "--migration", manifest}, &stdout, &stderr)
+	exitCode := run(context.Background(), []string{
+		"validate",
+		"--repository-root", filepath.Join("..", ".."),
+		"--migration", manifest,
+	}, &stdout, &stderr)
 	if got, want := exitCode, 0; got != want {
 		t.Fatalf("exit code = %d, want %d; stderr = %q", got, want, stderr.String())
 	}
@@ -61,7 +65,11 @@ func TestRunValidateFailure(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	exitCode := run(context.Background(), []string{"validate", "--migration", manifest}, &stdout, &stderr)
+	exitCode := run(context.Background(), []string{
+		"validate",
+		"--repository-root", filepath.Join("..", ".."),
+		"--migration", manifest,
+	}, &stdout, &stderr)
 	if got, want := exitCode, 1; got != want {
 		t.Fatalf("exit code = %d, want %d", got, want)
 	}
@@ -95,6 +103,7 @@ func TestRunValidateWeaverSuccess(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := run(context.Background(), []string{
 		"validate",
+		"--repository-root", filepath.Join("..", ".."),
 		"--weaver-diff", filepath.Join("..", "..", "adapters", "weaver", "testdata", "diff-v2.json"),
 		"--weaver-mapping", filepath.Join("..", "..", "adapters", "weaver", "testdata", "mapping.yaml"),
 	}, &stdout, &stderr)
@@ -113,6 +122,7 @@ func TestRunValidateWeaverMissingMappingIsIncomplete(t *testing.T) {
 	var stderr bytes.Buffer
 	exitCode := run(context.Background(), []string{
 		"validate",
+		"--repository-root", filepath.Join("..", ".."),
 		"--weaver-diff", filepath.Join("..", "..", "adapters", "weaver", "testdata", "diff-v2.json"),
 		"--weaver-mapping", filepath.Join("..", "..", "adapters", "weaver", "testdata", "mapping-incomplete.yaml"),
 	}, &stdout, &stderr)
@@ -127,7 +137,9 @@ func TestRunValidateWeaverMissingMappingIsIncomplete(t *testing.T) {
 func TestRunValidateWeaverUnsupportedChangeIsIncomplete(t *testing.T) {
 	t.Parallel()
 
-	diffPath := filepath.Join(t.TempDir(), "updated.json")
+	root := t.TempDir()
+	diffPath := filepath.Join(root, "updated.json")
+	mappingPath := filepath.Join(root, "mapping.yaml")
 	diff := `{
   "head":{"semconv_version":"v2"},
   "baseline":{"semconv_version":"v1"},
@@ -136,12 +148,20 @@ func TestRunValidateWeaverUnsupportedChangeIsIncomplete(t *testing.T) {
 	if err := os.WriteFile(diffPath, []byte(diff), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	mapping, err := os.ReadFile(filepath.Join("..", "..", "adapters", "weaver", "testdata", "mapping.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mappingPath, mapping, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := run(context.Background(), []string{
 		"validate",
+		"--repository-root", root,
 		"--weaver-diff", diffPath,
-		"--weaver-mapping", filepath.Join("..", "..", "adapters", "weaver", "testdata", "mapping.yaml"),
+		"--weaver-mapping", mappingPath,
 	}, &stdout, &stderr)
 	if got, want := exitCode, 3; got != want {
 		t.Fatalf("exit code = %d, want %d; stderr = %q", got, want, stderr.String())

@@ -27,17 +27,56 @@ const (
 
 	RemoteEvidenceEnabled  = "enabled"
 	RemoteEvidenceDisabled = "disabled"
+
+	DefaultMaxSourceFiles = 10_000
+	DefaultMaxSourceBytes = int64(512 << 20)
+	DefaultMaxConsumers   = 100_000
+	DefaultMaxReferences  = 500_000
+	DefaultMaxProductions = 500_000
+	DefaultMaxGraphNodes  = 200_000
+	DefaultMaxGraphEdges  = 1_000_000
+	DefaultMaxFindings    = 100_000
 )
 
 // RemoteEvidencePolicy is execution policy supplied outside the analyzed
 // repository configuration. It is intentionally excluded from YAML and JSON
 // so repository-controlled tcg.yaml cannot authorize its own secret
-// destination. The zero value preserves local unauthenticated remote evidence,
-// while authenticated sources still require an explicit allowed origin.
+// destination. The zero value disables remote evidence. Every enabled remote
+// source requires an exact origin supplied by trusted execution policy.
 type RemoteEvidencePolicy struct {
 	Mode                  string   `json:"-"`
 	AllowedOrigins        []string `json:"-"`
 	AllowInsecureLoopback bool     `json:"-"`
+}
+
+// ExecutionPolicy is trusted process policy and is never decoded from
+// repository configuration. The canonical CLI always supplies it.
+type ExecutionPolicy struct {
+	RepositoryRoot string `json:"-"`
+	MaxSourceFiles int    `json:"-"`
+	MaxSourceBytes int64  `json:"-"`
+	MaxConsumers   int    `json:"-"`
+	MaxReferences  int    `json:"-"`
+	MaxProductions int    `json:"-"`
+	MaxGraphNodes  int    `json:"-"`
+	MaxGraphEdges  int    `json:"-"`
+	MaxFindings    int    `json:"-"`
+}
+
+// DefaultExecutionPolicy returns conservative aggregate limits for one local
+// analysis. Callers may lower them, but repository data cannot change them.
+func DefaultExecutionPolicy(repositoryRoot string) ExecutionPolicy {
+	return ExecutionPolicy{
+		RepositoryRoot: repositoryRoot,
+		MaxSourceFiles: DefaultMaxSourceFiles,
+		MaxSourceBytes: DefaultMaxSourceBytes,
+		MaxConsumers:   DefaultMaxConsumers,
+		MaxReferences:  DefaultMaxReferences,
+		MaxProductions: DefaultMaxProductions,
+		MaxGraphNodes:  DefaultMaxGraphNodes,
+		MaxGraphEdges:  DefaultMaxGraphEdges,
+		MaxFindings:    DefaultMaxFindings,
+	}
 }
 
 // SourcePattern configures one local filesystem source.
@@ -166,6 +205,7 @@ type Config struct {
 	Policy         PolicyConfig         `json:"policy"`
 	Output         OutputConfig         `json:"output"`
 	RemoteEvidence RemoteEvidencePolicy `json:"-"`
+	Execution      ExecutionPolicy      `json:"-"`
 }
 
 type configDocument struct {

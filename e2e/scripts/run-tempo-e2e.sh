@@ -57,6 +57,8 @@ run_analysis() {
   (cd "${repo_dir}" && "${tmr_bin}" analyze \
     --config "e2e/tempo/tmr-${scenario}.yaml" \
     --migration e2e/tempo/migration.yaml \
+    --remote-evidence enabled \
+    --allowed-remote-origin http://127.0.0.1:13200 \
     --format json \
     --output "${report_file}")
   local actual_exit=$?

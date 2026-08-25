@@ -25,7 +25,7 @@ func SafetyConsole(writer io.Writer, result safety.Result) error {
 	var output bytes.Buffer
 	fmt.Fprintln(&output, productName)
 	fmt.Fprintln(&output, strings.Repeat("=", len(productName)))
-	fmt.Fprintf(&output, "ChangeSet: %s\n", result.ChangeSet.Metadata.Name)
+	fmt.Fprintf(&output, "ChangeSet: %s\n", terminalValue(result.ChangeSet.Metadata.Name))
 	fmt.Fprintf(&output, "Status:    %s\n", result.Status)
 	fmt.Fprintf(&output, "Findings:  %d\n", len(result.Findings))
 
@@ -37,20 +37,20 @@ func SafetyConsole(writer io.Writer, result safety.Result) error {
 			"\n[%s] %s — %s\n",
 			safetyActionLabel(decision, decided),
 			finding.Impact,
-			finding.Consumer.Name,
+			terminalValue(finding.Consumer.Name),
 		)
-		fmt.Fprintf(&output, "  Change:      %s\n", finding.Change.ID)
-		fmt.Fprintf(&output, "  Consumer:    %s (%s)\n", finding.Consumer.ID, finding.Consumer.Kind)
+		fmt.Fprintf(&output, "  Change:      %s\n", terminalValue(finding.Change.ID))
+		fmt.Fprintf(&output, "  Consumer:    %s (%s)\n", terminalValue(finding.Consumer.ID), finding.Consumer.Kind)
 		fmt.Fprintf(&output, "  Criticality: %s\n", finding.Criticality)
-		fmt.Fprintf(&output, "  Source:      %s\n", formatLocation(finding.Consumer.Source.File, finding.Consumer.Source.Line))
+		fmt.Fprintf(&output, "  Source:      %s\n", terminalValue(formatLocation(finding.Consumer.Source.File, finding.Consumer.Source.Line)))
 		if finding.Uncertain {
 			fmt.Fprintln(&output, "  Evidence:    unresolved")
 		}
 		if len(finding.Paths) != 0 {
-			fmt.Fprintf(&output, "  Path:        %s\n", strings.Join(finding.Paths[0].Nodes, " -> "))
+			fmt.Fprintf(&output, "  Path:        %s\n", terminalValue(strings.Join(finding.Paths[0].Nodes, " -> ")))
 		}
 		if decided {
-			fmt.Fprintf(&output, "  Policy:      %s\n", decision.Reason)
+			fmt.Fprintf(&output, "  Policy:      %s\n", terminalValue(decision.Reason))
 		}
 	}
 
@@ -64,17 +64,17 @@ func SafetyConsole(writer io.Writer, result safety.Result) error {
 			fmt.Fprintf(
 				&output,
 				"  - [%s/%s] %s: %s\n",
-				diagnostic.Adapter,
+				terminalValue(diagnostic.Adapter),
 				requirement,
-				formatLocation(diagnostic.Source.File, diagnostic.Source.Line),
-				diagnostic.Message,
+				terminalValue(formatLocation(diagnostic.Source.File, diagnostic.Source.Line)),
+				terminalValue(diagnostic.Message),
 			)
 		}
 	}
 	if len(result.Errors) != 0 {
 		fmt.Fprintln(&output, "\nERRORS")
 		for _, message := range result.Errors {
-			fmt.Fprintf(&output, "  - %s\n", message)
+			fmt.Fprintf(&output, "  - %s\n", terminalValue(message))
 		}
 	}
 
@@ -88,7 +88,7 @@ func SafetyConsole(writer io.Writer, result safety.Result) error {
 func SafetyMarkdown(writer io.Writer, result safety.Result) error {
 	var output bytes.Buffer
 	fmt.Fprintf(&output, "# %s\n", productName)
-	fmt.Fprintf(&output, "\n**ChangeSet:** `%s`  \n", result.ChangeSet.Metadata.Name)
+	fmt.Fprintf(&output, "\n**ChangeSet:** %s  \n", markdownCode(result.ChangeSet.Metadata.Name))
 	fmt.Fprintf(&output, "**Status:** **%s**  \n", result.Status)
 	fmt.Fprintf(&output, "**Findings:** %d\n", len(result.Findings))
 
@@ -100,23 +100,23 @@ func SafetyMarkdown(writer io.Writer, result safety.Result) error {
 		decision, decided := decisions[findingKey(finding)]
 		fmt.Fprintf(
 			&output,
-			"\n- **%s — %s** (`%s`)\n",
+			"\n- **%s** — %s (%s)\n",
 			finding.Impact,
-			finding.Consumer.Name,
-			finding.Change.ID,
+			markdownCode(finding.Consumer.Name),
+			markdownCode(finding.Change.ID),
 		)
-		fmt.Fprintf(&output, "  - Consumer: `%s` (`%s`)\n", finding.Consumer.ID, finding.Consumer.Kind)
+		fmt.Fprintf(&output, "  - Consumer: %s (`%s`)\n", markdownCode(finding.Consumer.ID), finding.Consumer.Kind)
 		fmt.Fprintf(&output, "  - Criticality: `%s`\n", finding.Criticality)
 		fmt.Fprintf(&output, "  - Effective action: **%s**\n", safetyActionLabel(decision, decided))
-		fmt.Fprintf(&output, "  - Source: `%s`\n", formatLocation(finding.Consumer.Source.File, finding.Consumer.Source.Line))
+		fmt.Fprintf(&output, "  - Source: %s\n", markdownCode(formatLocation(finding.Consumer.Source.File, finding.Consumer.Source.Line)))
 		if finding.Uncertain {
 			fmt.Fprintln(&output, "  - Evidence: **unresolved**")
 		}
 		if len(finding.Paths) != 0 {
-			fmt.Fprintf(&output, "  - Dependency path: `%s`\n", strings.Join(finding.Paths[0].Nodes, " -> "))
+			fmt.Fprintf(&output, "  - Dependency path: %s\n", markdownCode(strings.Join(finding.Paths[0].Nodes, " -> ")))
 		}
 		if decision.Reason != "" {
-			fmt.Fprintf(&output, "  - Policy: %s\n", decision.Reason)
+			fmt.Fprintf(&output, "  - Policy: %s\n", markdownCode(decision.Reason))
 		}
 	}
 
@@ -127,13 +127,13 @@ func SafetyMarkdown(writer io.Writer, result safety.Result) error {
 			if diagnostic.Required {
 				requirement = "required"
 			}
-			fmt.Fprintf(&output, "\n- `%s/%s`: %s\n", diagnostic.Adapter, requirement, diagnostic.Message)
+			fmt.Fprintf(&output, "\n- %s: %s\n", markdownCode(diagnostic.Adapter+"/"+requirement), markdownCode(diagnostic.Message))
 		}
 	}
 	if len(result.Errors) != 0 {
 		fmt.Fprintln(&output, "\n## Errors")
 		for _, message := range result.Errors {
-			fmt.Fprintf(&output, "\n- %s\n", message)
+			fmt.Fprintf(&output, "\n- %s\n", markdownCode(message))
 		}
 	}
 

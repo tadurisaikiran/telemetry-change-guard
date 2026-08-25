@@ -18,6 +18,9 @@ import (
 
 const productName = "Telemetry Change Guard"
 
+// GraphSchemaVersion identifies the stable dependency-graph machine contract.
+const GraphSchemaVersion = "tcg-graph/v1alpha1"
+
 // JSON renders the versioned machine result.
 func JSON(result readiness.Result) ([]byte, error) {
 	contents, err := json.MarshalIndent(result, "", "  ")
@@ -32,12 +35,12 @@ func Console(writer io.Writer, result readiness.Result) error {
 	var output bytes.Buffer
 	fmt.Fprintln(&output, productName)
 	fmt.Fprintln(&output, strings.Repeat("=", len(productName)))
-	fmt.Fprintf(&output, "Migration: %s\n", result.Migration.Metadata.Name)
+	fmt.Fprintf(&output, "Migration: %s\n", terminalValue(result.Migration.Metadata.Name))
 	for _, change := range result.Migration.Changes {
 		if change.To == nil {
-			fmt.Fprintf(&output, "  %s: remove %s\n", change.ID, change.From.Name)
+			fmt.Fprintf(&output, "  %s: remove %s\n", terminalValue(change.ID), terminalValue(change.From.Name))
 		} else {
-			fmt.Fprintf(&output, "  %s: %s -> %s\n", change.ID, change.From.Name, change.To.Name)
+			fmt.Fprintf(&output, "  %s: %s -> %s\n", terminalValue(change.ID), terminalValue(change.From.Name), terminalValue(change.To.Name))
 		}
 	}
 	fmt.Fprintln(&output)
@@ -56,15 +59,15 @@ func Console(writer io.Writer, result readiness.Result) error {
 	if len(blockers) != 0 {
 		fmt.Fprintln(&output, "\nBLOCKERS")
 		for _, finding := range blockers {
-			fmt.Fprintf(&output, "  - %s [%s] (%s)\n", finding.name, finding.changeID, formatLocation(finding.file, finding.line))
+			fmt.Fprintf(&output, "  - %s [%s] (%s)\n", terminalValue(finding.name), terminalValue(finding.changeID), terminalValue(formatLocation(finding.file, finding.line)))
 			if finding.owner != "" {
-				fmt.Fprintf(&output, "    Owner: %s\n", finding.owner)
+				fmt.Fprintf(&output, "    Owner: %s\n", terminalValue(finding.owner))
 			}
 			if finding.runtime != "" {
-				fmt.Fprintf(&output, "    Runtime: %s\n", finding.runtime)
+				fmt.Fprintf(&output, "    Runtime: %s\n", terminalValue(finding.runtime))
 			}
 			if finding.path != "" {
-				fmt.Fprintf(&output, "    Path: %s\n", finding.path)
+				fmt.Fprintf(&output, "    Path: %s\n", terminalValue(finding.path))
 			}
 		}
 	}
@@ -73,12 +76,12 @@ func Console(writer io.Writer, result readiness.Result) error {
 	if len(uncertain) != 0 {
 		fmt.Fprintln(&output, "\nUNCERTAIN")
 		for _, finding := range uncertain {
-			fmt.Fprintf(&output, "  - %s [%s] (%s)\n", finding.name, finding.changeID, formatLocation(finding.file, finding.line))
+			fmt.Fprintf(&output, "  - %s [%s] (%s)\n", terminalValue(finding.name), terminalValue(finding.changeID), terminalValue(formatLocation(finding.file, finding.line)))
 			if finding.owner != "" {
-				fmt.Fprintf(&output, "    Owner: %s\n", finding.owner)
+				fmt.Fprintf(&output, "    Owner: %s\n", terminalValue(finding.owner))
 			}
 			if finding.runtime != "" {
-				fmt.Fprintf(&output, "    Runtime: %s\n", finding.runtime)
+				fmt.Fprintf(&output, "    Runtime: %s\n", terminalValue(finding.runtime))
 			}
 		}
 	}
@@ -90,7 +93,7 @@ func Console(writer io.Writer, result readiness.Result) error {
 			if diagnostic.Required {
 				required = "required"
 			}
-			fmt.Fprintf(&output, "  - [%s/%s] %s: %s\n", diagnostic.Adapter, required, formatLocation(diagnostic.Source.File, diagnostic.Source.Line), diagnostic.Message)
+			fmt.Fprintf(&output, "  - [%s/%s] %s: %s\n", terminalValue(diagnostic.Adapter), required, terminalValue(formatLocation(diagnostic.Source.File, diagnostic.Source.Line)), terminalValue(diagnostic.Message))
 		}
 	}
 
@@ -103,7 +106,7 @@ func Console(writer io.Writer, result readiness.Result) error {
 func Markdown(writer io.Writer, result readiness.Result) error {
 	var output bytes.Buffer
 	fmt.Fprintf(&output, "# %s\n", productName)
-	fmt.Fprintf(&output, "\n**Migration:** `%s`  \n", result.Migration.Metadata.Name)
+	fmt.Fprintf(&output, "\n**Migration:** %s  \n", markdownCode(result.Migration.Metadata.Name))
 	fmt.Fprintf(&output, "**Status:** **%s**  \n", result.Summary.Status)
 	fmt.Fprintf(&output, "**Progress:** %d%% _(informational only)_\n", result.Summary.Progress)
 	if runtimeCount := runtimeConsumerCount(result); runtimeCount != 0 {
@@ -130,15 +133,15 @@ func Markdown(writer io.Writer, result readiness.Result) error {
 		}
 		fmt.Fprintf(&output, "\n## %s\n", section.title)
 		for _, item := range items {
-			fmt.Fprintf(&output, "\n- **%s** (`%s`) — %s\n", item.name, item.changeID, formatLocation(item.file, item.line))
+			fmt.Fprintf(&output, "\n- %s (%s) — %s\n", markdownCode(item.name), markdownCode(item.changeID), markdownCode(formatLocation(item.file, item.line)))
 			if item.owner != "" {
-				fmt.Fprintf(&output, "  - Owner: %s\n", item.owner)
+				fmt.Fprintf(&output, "  - Owner: %s\n", markdownCode(item.owner))
 			}
 			if item.runtime != "" {
-				fmt.Fprintf(&output, "  - Runtime: %s\n", item.runtime)
+				fmt.Fprintf(&output, "  - Runtime: %s\n", markdownCode(item.runtime))
 			}
 			if item.path != "" {
-				fmt.Fprintf(&output, "  - Dependency path: `%s`\n", item.path)
+				fmt.Fprintf(&output, "  - Dependency path: %s\n", markdownCode(item.path))
 			}
 		}
 	}
@@ -146,7 +149,7 @@ func Markdown(writer io.Writer, result readiness.Result) error {
 	if len(result.Diagnostics) != 0 {
 		fmt.Fprintln(&output, "\n## Diagnostics")
 		for _, diagnostic := range result.Diagnostics {
-			fmt.Fprintf(&output, "\n- `%s`: %s\n", diagnostic.Adapter, diagnostic.Message)
+			fmt.Fprintf(&output, "\n- %s: %s\n", markdownCode(diagnostic.Adapter), markdownCode(diagnostic.Message))
 		}
 	}
 
@@ -156,12 +159,108 @@ func Markdown(writer io.Writer, result readiness.Result) error {
 
 // GraphJSON renders the dependency graph as a stable JSON document.
 func GraphJSON(target *graph.Graph) ([]byte, error) {
+	if target == nil {
+		return nil, fmt.Errorf("encode graph JSON: graph is required")
+	}
+	type graphSymbol struct {
+		Domain string `json:"domain"`
+		Kind   string `json:"kind"`
+		Name   string `json:"name"`
+		Parent string `json:"parent,omitempty"`
+	}
+	type graphSource struct {
+		File   string `json:"file,omitempty"`
+		Line   int    `json:"line,omitempty"`
+		Column int    `json:"column,omitempty"`
+		URL    string `json:"url,omitempty"`
+		Repo   string `json:"repo,omitempty"`
+	}
+	type graphOwner struct {
+		Name  string `json:"name"`
+		Email string `json:"email,omitempty"`
+	}
+	type graphRuntime struct {
+		Format           string   `json:"format"`
+		ExecutionCount   int      `json:"executionCount"`
+		FirstSeen        string   `json:"firstSeen"`
+		LastSeen         string   `json:"lastSeen"`
+		Window           string   `json:"window"`
+		WindowStart      string   `json:"windowStart,omitempty"`
+		WindowAnchor     string   `json:"windowAnchor"`
+		ExecutionsPerDay string   `json:"executionsPerDay,omitempty"`
+		Origins          []string `json:"origins"`
+		OriginDetails    []string `json:"originDetails,omitempty"`
+	}
+	type graphConsumer struct {
+		ID          string            `json:"id"`
+		Kind        string            `json:"kind"`
+		Name        string            `json:"name"`
+		Source      graphSource       `json:"source"`
+		Criticality string            `json:"criticality"`
+		Owner       *graphOwner       `json:"owner,omitempty"`
+		Runtime     *graphRuntime     `json:"runtime,omitempty"`
+		Expression  string            `json:"expression,omitempty"`
+		Metadata    map[string]string `json:"metadata,omitempty"`
+		Unresolved  bool              `json:"unresolved,omitempty"`
+	}
+	type graphNode struct {
+		ID       string         `json:"id"`
+		Kind     string         `json:"kind"`
+		Name     string         `json:"name"`
+		Symbol   *graphSymbol   `json:"symbol,omitempty"`
+		Consumer *graphConsumer `json:"consumer,omitempty"`
+	}
+	type graphEdge struct {
+		From string `json:"from"`
+		To   string `json:"to"`
+		Kind string `json:"kind"`
+	}
 	document := struct {
-		Nodes []graph.Node `json:"nodes"`
-		Edges []graph.Edge `json:"edges"`
+		SchemaVersion string      `json:"schemaVersion"`
+		Nodes         []graphNode `json:"nodes"`
+		Edges         []graphEdge `json:"edges"`
 	}{
-		Nodes: target.Nodes(),
-		Edges: target.Edges(),
+		SchemaVersion: GraphSchemaVersion,
+		Nodes:         make([]graphNode, 0, len(target.Nodes())),
+		Edges:         make([]graphEdge, 0, len(target.Edges())),
+	}
+	for _, node := range target.Nodes() {
+		encoded := graphNode{ID: node.ID, Kind: string(node.Kind), Name: node.Name}
+		if node.Symbol != nil {
+			encoded.Symbol = &graphSymbol{
+				Domain: string(node.Symbol.Domain), Kind: string(node.Symbol.Kind),
+				Name: node.Symbol.Name, Parent: node.Symbol.Parent,
+			}
+		}
+		if node.Consumer != nil {
+			consumer := node.Consumer
+			encoded.Consumer = &graphConsumer{
+				ID: consumer.ID, Kind: string(consumer.Kind), Name: consumer.Name,
+				Source: graphSource{
+					File: consumer.Source.File, Line: consumer.Source.Line, Column: consumer.Source.Column,
+					URL: consumer.Source.URL, Repo: consumer.Source.Repo,
+				},
+				Criticality: string(consumer.Criticality), Expression: consumer.Expression,
+				Metadata: consumer.Metadata, Unresolved: consumer.Unresolved,
+			}
+			if consumer.Owner != nil {
+				encoded.Consumer.Owner = &graphOwner{Name: consumer.Owner.Name, Email: consumer.Owner.Email}
+			}
+			if consumer.Runtime != nil {
+				runtime := consumer.Runtime
+				encoded.Consumer.Runtime = &graphRuntime{
+					Format: runtime.Format, ExecutionCount: runtime.ExecutionCount,
+					FirstSeen: runtime.FirstSeen, LastSeen: runtime.LastSeen, Window: runtime.Window,
+					WindowStart: runtime.WindowStart, WindowAnchor: runtime.WindowAnchor,
+					ExecutionsPerDay: runtime.ExecutionsPerDay, Origins: runtime.Origins,
+					OriginDetails: runtime.OriginDetails,
+				}
+			}
+		}
+		document.Nodes = append(document.Nodes, encoded)
+	}
+	for _, edge := range target.Edges() {
+		document.Edges = append(document.Edges, graphEdge{From: edge.From, To: edge.To, Kind: string(edge.Kind)})
 	}
 	contents, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {

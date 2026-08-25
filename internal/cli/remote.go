@@ -20,13 +20,13 @@ func addRemoteEvidenceFlags(flags *flag.FlagSet) *remoteEvidenceFlags {
 	values := &remoteEvidenceFlags{}
 	values.mode = flags.String(
 		"remote-evidence",
-		config.RemoteEvidenceEnabled,
+		config.RemoteEvidenceDisabled,
 		"remote evidence policy: disabled or enabled",
 	)
 	flags.Var(
 		&values.allowedOrigins,
 		"allowed-remote-origin",
-		"exact trusted remote origin, for example https://tempo.example.com (repeatable; required for credentials)",
+		"exact trusted remote origin, for example https://tempo.example.com (repeatable; required when remote evidence is enabled)",
 	)
 	values.allowInsecureLoopback = flags.Bool(
 		"allow-insecure-loopback",
@@ -43,6 +43,9 @@ func (values *remoteEvidenceFlags) apply(configuration *config.Config) error {
 	}
 	if mode == config.RemoteEvidenceDisabled && (len(values.allowedOrigins) != 0 || *values.allowInsecureLoopback) {
 		return fmt.Errorf("--allowed-remote-origin and --allow-insecure-loopback require --remote-evidence enabled")
+	}
+	if mode == config.RemoteEvidenceEnabled && len(values.allowedOrigins) == 0 {
+		return fmt.Errorf("--remote-evidence enabled requires at least one --allowed-remote-origin")
 	}
 	origins := make([]string, 0, len(values.allowedOrigins))
 	seen := make(map[string]struct{}, len(values.allowedOrigins))

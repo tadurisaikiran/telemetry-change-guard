@@ -32,6 +32,18 @@ The compatibility executable exposes the same identity through `tmr version`
 and `tmr --version`. See the [versioning](VERSIONING.md) and
 [compatibility](COMPATIBILITY.md) policies.
 
+## Safe starter
+
+Create a runnable configuration, ChangeSet, and sample consumer without
+overwriting existing files:
+
+```bash
+telemetry-change-guard init
+```
+
+The generated example intentionally blocks. Its printed next steps show how to
+validate both inputs and run the first check before replacing the sample data.
+
 ## Generic change safety
 
 Validate a native ChangeSet:
@@ -93,6 +105,17 @@ Action uses this option to avoid running remote discovery twice.
 `--status-output <path>` writes the authoritative status from that evaluation
 for integrations that must not infer a top-level decision from nested JSON
 fields. All requested output paths must be distinct.
+Files are written atomically with owner-only permissions; symbolic-link and
+non-regular output targets are rejected.
+
+Every command that reads repository data accepts trusted execution-policy
+flags. The defaults confine local inputs and evidence to the current working
+directory, reject symbolic links, stop local analysis after five minutes, and
+bound aggregate files, bytes, consumers, references, productions, graph nodes,
+graph edges, and findings. Use `--repository-root` when invoking TCG from a
+different directory. Limit overrides are command-line policy and cannot be
+read from `tcg.yaml`; run `telemetry-change-guard check --help` for their exact
+names and defaults.
 
 Policy rollout can be selected explicitly:
 
@@ -129,6 +152,9 @@ telemetry-change-guard graph \
   --config ./tcg.yaml \
   --output ./dependency-graph.json
 ```
+
+Graph JSON uses the stable `tcg-graph/v1alpha1` schema with lower-case public
+fields. Internal Go structures are not serialized as the public contract.
 
 Impact exploration is read-only and does not produce a safety status for a
 proposed change. Use `check` for an authoritative generic decision. Impact and

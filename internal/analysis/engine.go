@@ -5,6 +5,8 @@ package analysis
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -89,6 +91,10 @@ func RunSafetyWithDiagnostics(
 		err = fmt.Errorf("analyze impact: %w", err)
 		return safety.ErrorResult(changeSet, findings, discovery.Diagnostics, err), dependencyGraph, discovery, err
 	}
+	if limit := configuration.Execution.MaxFindings; configuration.Execution.RepositoryRoot != "" && len(findings) > limit {
+		err = fmt.Errorf("finding count %d exceeds the execution limit of %d", len(findings), limit)
+		return safety.ErrorResult(changeSet, findings[:limit], discovery.Diagnostics, err), dependencyGraph, discovery, err
+	}
 	result, err := safety.Evaluate(changeSet, findings, discovery.Diagnostics, policy)
 	if err != nil {
 		return result, dependencyGraph, discovery, fmt.Errorf("evaluate safety: %w", err)
@@ -132,6 +138,13 @@ func ReadinessPolicy(configuration config.Config) readiness.Policy {
 // Discover runs configured adapters and constructs the dependency graph.
 func Discover(ctx context.Context, configuration config.Config) (domain.Discovery, *graph.Graph, error) {
 	var discovery domain.Discovery
+	fileBudget, err := analysisFileBudget(configuration.Execution)
+	if err != nil {
+		return discovery, nil, fmt.Errorf("initialize local evidence policy: %w", err)
+	}
+	if fileBudget != nil {
+		defer fileBudget.Close()
+	}
 	remotePolicy, err := newRemotePolicy(configuration.RemoteEvidence)
 	if err != nil {
 		return discovery, nil, fmt.Errorf("validate remote-evidence policy: %w", err)
@@ -140,35 +153,63 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 	if err != nil {
 		return discovery, nil, err
 	}
-	loadPatterns(ctx, "prometheus_rules", configuration.Sources.PrometheusRules, &discovery,
-		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
-			return (prometheusrules.Loader{Required: required}).LoadFile(ctx, path)
-		})
-	loadPatterns(ctx, "grafana", configuration.Sources.Grafana, &discovery,
-		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
-			return (grafana.Loader{Required: required}).LoadFile(ctx, path)
-		})
-	loadPatterns(ctx, "sloth", configuration.Sources.Sloth, &discovery,
-		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
-			return (sloth.Loader{Required: required}).LoadFile(ctx, path)
-		})
-	loadPatterns(ctx, "pyrra", configuration.Sources.Pyrra, &discovery,
-		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
-			return (pyrra.Loader{Required: required}).LoadFile(ctx, path)
-		})
-	loadPatterns(ctx, "keda", configuration.Sources.KEDA, &discovery,
-		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
-			return (keda.Loader{Required: required}).LoadFile(ctx, path)
-		})
-	loadPatterns(ctx, "argo_rollouts", configuration.Sources.ArgoRollouts, &discovery,
-		func(ctx context.Context, path string, required bool) (domain.Discovery, error) {
-			return (argorollouts.Loader{Required: required}).LoadFile(ctx, path)
-		})
-	loadHorizontalPodAutoscalers(ctx, configuration.Sources.HorizontalPodAutoscalers, &discovery)
+	if err := loadPatterns(ctx, fileBudget, "prometheus_rules", configuration.Sources.PrometheusRules, &discovery,
+		func(ctx context.Context, path string, required bool, reader io.Reader) (domain.Discovery, error) {
+			return (prometheusrules.Loader{Required: required}).Parse(ctx, path, reader)
+		}); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadPatterns(ctx, fileBudget, "grafana", configuration.Sources.Grafana, &discovery,
+		func(_ context.Context, path string, required bool, reader io.Reader) (domain.Discovery, error) {
+			return (grafana.Loader{Required: required}).Parse(path, reader)
+		}); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadPatterns(ctx, fileBudget, "sloth", configuration.Sources.Sloth, &discovery,
+		func(_ context.Context, path string, required bool, reader io.Reader) (domain.Discovery, error) {
+			return (sloth.Loader{Required: required}).Parse(path, reader)
+		}); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadPatterns(ctx, fileBudget, "pyrra", configuration.Sources.Pyrra, &discovery,
+		func(ctx context.Context, path string, required bool, reader io.Reader) (domain.Discovery, error) {
+			return (pyrra.Loader{Required: required}).Parse(ctx, path, reader)
+		}); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadPatterns(ctx, fileBudget, "keda", configuration.Sources.KEDA, &discovery,
+		func(ctx context.Context, path string, required bool, reader io.Reader) (domain.Discovery, error) {
+			return (keda.Loader{Required: required}).Parse(ctx, path, reader)
+		}); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadPatterns(ctx, fileBudget, "argo_rollouts", configuration.Sources.ArgoRollouts, &discovery,
+		func(ctx context.Context, path string, required bool, reader io.Reader) (domain.Discovery, error) {
+			return (argorollouts.Loader{Required: required}).Parse(ctx, path, reader)
+		}); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadHorizontalPodAutoscalers(ctx, fileBudget, configuration.Sources.HorizontalPodAutoscalers, &discovery); err != nil {
+		return discovery, nil, err
+	}
 	loadPersesUsage(ctx, configuration.Sources.PersesUsage, environment, remotePolicy, &discovery)
-	loadRuntimeQueries(ctx, configuration.Sources.RuntimeQueries, &discovery)
-	loadTempoQueries(ctx, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, environment, remotePolicy, &discovery)
-	if err := ownership.Enrich(ctx, configuration.Ownership, &discovery); err != nil {
+	if err := loadRuntimeQueries(ctx, fileBudget, configuration.Sources.RuntimeQueries, &discovery); err != nil {
+		return discovery, nil, err
+	}
+	if err := loadTempoQueries(ctx, fileBudget, configuration.Sources.TempoQueries, configuration.Mappings.TraceAttributes, environment, remotePolicy, &discovery); err != nil {
+		return discovery, nil, err
+	}
+	if err := validateDiscoveryLimits(configuration.Execution, discovery); err != nil {
+		return discovery, nil, err
+	}
+	if fileBudget != nil && configuration.Ownership.Enabled {
+		ownershipRoot, err := fileBudget.ValidateDirectory(configuration.Ownership.RepositoryRoot)
+		if err != nil {
+			return discovery, nil, fmt.Errorf("validate ownership repository root: %w", err)
+		}
+		configuration.Ownership.RepositoryRoot = ownershipRoot
+	}
+	if err := ownership.EnrichWithBudget(ctx, configuration.Ownership, &discovery, fileBudget); err != nil {
 		return domain.Discovery{}, nil, fmt.Errorf("enrich consumer ownership: %w", err)
 	}
 
@@ -179,17 +220,21 @@ func Discover(ctx context.Context, configuration config.Config) (domain.Discover
 	if err != nil {
 		return domain.Discovery{}, nil, fmt.Errorf("build dependency graph: %w", err)
 	}
+	if err := validateGraphLimits(configuration.Execution, dependencyGraph); err != nil {
+		return domain.Discovery{}, nil, err
+	}
 	return discovery, dependencyGraph, nil
 }
 
 func loadTempoQueries(
 	ctx context.Context,
+	fileBudget *filesource.Budget,
 	sources []config.TempoQuerySource,
 	mappings []config.TraceAttributeMapping,
 	environment map[string]environmentValue,
 	remotePolicy remotePolicy,
 	discovery *domain.Discovery,
-) {
+) error {
 	adapterMappings := make([]tempo.AttributeMapping, 0, len(mappings))
 	for _, mapping := range mappings {
 		adapterMappings = append(adapterMappings, tempo.AttributeMapping{
@@ -209,7 +254,7 @@ func loadTempoQueries(
 	tasks := make(map[string]*loadTask)
 	for _, source := range configured {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		if err := remotePolicy.authorize(source.URL, source.BearerTokenEnv != ""); err != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, source.Pattern, err.Error()))
@@ -233,8 +278,11 @@ func loadTempoQueries(
 				continue
 			}
 		}
-		files, err := filesource.Expand(source.Pattern)
+		files, err := expandFiles(fileBudget, source.Pattern)
 		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("enforce Tempo source policy: %w", err)
+			}
 			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, source.Pattern, err.Error()))
 			continue
 		}
@@ -243,7 +291,7 @@ func loadTempoQueries(
 			continue
 		}
 		for _, file := range files {
-			identity, display, err := filesource.CanonicalFile(file)
+			identity, display, err := canonicalFile(fileBudget, file)
 			if err != nil {
 				discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, file, err.Error()))
 				continue
@@ -267,6 +315,11 @@ func loadTempoQueries(
 	sort.Strings(taskKeys)
 	sourceContexts := make(map[string]context.Context)
 	var sourceCancels []context.CancelFunc
+	defer func() {
+		for _, cancel := range sourceCancels {
+			cancel()
+		}
+	}()
 	for _, key := range taskKeys {
 		task := tasks[key]
 		source := task.source
@@ -296,22 +349,33 @@ func loadTempoQueries(
 			sourceContexts[contextKey] = sourceContext
 			sourceCancels = append(sourceCancels, cancel)
 		}
-		additional, err := (tempo.Loader{
+		reader, err := openFile(fileBudget, task.path)
+		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("open secured Tempo source %q: %w", task.path, err)
+			}
+			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, task.path, err.Error()))
+			continue
+		}
+		additional, loadErr := (tempo.Loader{
 			Required:           task.required,
 			DefaultCriticality: domain.Criticality(source.Criticality),
 			Validator:          validator,
 			TempoURL:           source.URL,
 			Mappings:           adapterMappings,
-		}).LoadFile(sourceContext, task.path)
-		if err != nil {
-			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, task.path, err.Error()))
+		}).Parse(sourceContext, task.path, reader)
+		closeErr := reader.Close()
+		if loadErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, task.path, loadErr.Error()))
+			continue
+		}
+		if closeErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, tempoDiagnostic(source, task.path, closeErr.Error()))
 			continue
 		}
 		discovery.Append(additional)
 	}
-	for _, cancel := range sourceCancels {
-		cancel()
-	}
+	return nil
 }
 
 func traceScope(scope string) traceql.Scope {
@@ -389,9 +453,10 @@ func changeSymbols(change domain.Change) []domain.Symbol {
 
 func loadRuntimeQueries(
 	ctx context.Context,
+	fileBudget *filesource.Budget,
 	sources []config.RuntimeQuerySource,
 	discovery *domain.Discovery,
-) {
+) error {
 	type loadTask struct {
 		source   config.RuntimeQuerySource
 		path     string
@@ -404,15 +469,18 @@ func loadRuntimeQueries(
 	sort.Slice(sources, func(i, j int) bool { return runtimeSourceKey(sources[i]) < runtimeSourceKey(sources[j]) })
 	for _, source := range sources {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		window, err := time.ParseDuration(source.Window)
 		if err != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, source.Pattern, err.Error()))
 			continue
 		}
-		files, err := filesource.Expand(source.Pattern)
+		files, err := expandFiles(fileBudget, source.Pattern)
 		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("enforce runtime-query source policy: %w", err)
+			}
 			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, source.Pattern, err.Error()))
 			continue
 		}
@@ -421,7 +489,7 @@ func loadRuntimeQueries(
 			continue
 		}
 		for _, file := range files {
-			identity, display, err := filesource.CanonicalFile(file)
+			identity, display, err := canonicalFile(fileBudget, file)
 			if err != nil {
 				discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, file, err.Error()))
 				continue
@@ -444,7 +512,7 @@ func loadRuntimeQueries(
 	sort.Strings(keys)
 	for _, key := range keys {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		task := tasks[key]
 		source := task.source
@@ -457,18 +525,32 @@ func loadRuntimeQueries(
 			))
 			continue
 		}
-		additional, err := (runtimequeries.Loader{
+		reader, err := openFile(fileBudget, task.path)
+		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("open secured runtime-query source %q: %w", task.path, err)
+			}
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, task.path, err.Error()))
+			continue
+		}
+		additional, loadErr := (runtimequeries.Loader{
 			Required:    task.required,
 			Format:      source.Format,
 			Window:      task.window,
 			Criticality: domain.Criticality(source.Criticality),
-		}).LoadFile(ctx, task.path)
-		if err != nil {
-			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, task.path, err.Error()))
+		}).Parse(ctx, task.path, reader)
+		closeErr := reader.Close()
+		if loadErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, task.path, loadErr.Error()))
+			continue
+		}
+		if closeErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, runtimeQueryDiagnostic(source, task.path, closeErr.Error()))
 			continue
 		}
 		discovery.Append(additional)
 	}
+	return nil
 }
 
 func runtimeQueryDiagnostic(source config.RuntimeQuerySource, path, message string) domain.Diagnostic {
@@ -582,7 +664,7 @@ type remotePolicy struct {
 func newRemotePolicy(policy config.RemoteEvidencePolicy) (remotePolicy, error) {
 	mode := strings.TrimSpace(policy.Mode)
 	if mode == "" {
-		mode = config.RemoteEvidenceEnabled
+		mode = config.RemoteEvidenceDisabled
 	}
 	if mode != config.RemoteEvidenceEnabled && mode != config.RemoteEvidenceDisabled {
 		return remotePolicy{}, fmt.Errorf("mode must be %q or %q", config.RemoteEvidenceDisabled, config.RemoteEvidenceEnabled)
@@ -602,6 +684,9 @@ func newRemotePolicy(policy config.RemoteEvidencePolicy) (remotePolicy, error) {
 	if !result.enabled && (len(result.allowedOrigins) != 0 || result.allowInsecureLoopback) {
 		return remotePolicy{}, fmt.Errorf("allowed origins and insecure loopback are invalid when remote evidence is disabled")
 	}
+	if result.enabled && len(result.allowedOrigins) == 0 {
+		return remotePolicy{}, fmt.Errorf("enabled remote evidence requires at least one exact allowed origin supplied outside repository configuration")
+	}
 	return result, nil
 }
 
@@ -617,13 +702,8 @@ func (policy remotePolicy) authorize(rawURL string, credentialConfigured bool) e
 	if err != nil {
 		return fmt.Errorf("canonicalize remote evidence origin: %w", err)
 	}
-	if len(policy.allowedOrigins) != 0 {
-		if _, allowed := policy.allowedOrigins[origin]; !allowed {
-			return fmt.Errorf("remote evidence origin %q is not in the execution policy allowlist", origin)
-		}
-	}
-	if credentialConfigured && len(policy.allowedOrigins) == 0 {
-		return fmt.Errorf("credentialed remote evidence requires an exact allowed origin supplied outside repository configuration")
+	if _, allowed := policy.allowedOrigins[origin]; !allowed {
+		return fmt.Errorf("remote evidence origin %q is not in the execution policy allowlist", origin)
 	}
 	if err := remoteurl.ValidateCredentialTransport(
 		parsed,
@@ -716,13 +796,14 @@ func persesDiagnostic(source config.PersesUsageSource, message string) domain.Di
 	}
 }
 
-type fileLoader func(context.Context, string, bool) (domain.Discovery, error)
+type fileLoader func(context.Context, string, bool, io.Reader) (domain.Discovery, error)
 
 func loadHorizontalPodAutoscalers(
 	ctx context.Context,
+	fileBudget *filesource.Budget,
 	sources []config.HorizontalPodAutoscalerSource,
 	discovery *domain.Discovery,
-) {
+) error {
 	type loadTask struct {
 		path         string
 		mapping      hpa.Mapping
@@ -741,20 +822,51 @@ func loadHorizontalPodAutoscalers(
 	})
 	for _, source := range sources {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
-		mapping, err := hpa.LoadMapping(ctx, source.MappingPath)
+		_, mappingPath, err := canonicalFile(fileBudget, source.MappingPath)
+		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("enforce HPA mapping policy: %w", err)
+			}
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: "hpa_mapping", Source: domain.SourceLocation{File: source.MappingPath},
+				Message: err.Error(), Required: source.Required,
+			})
+			continue
+		}
+		mappingReader, err := openFile(fileBudget, mappingPath)
+		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("open secured HPA mapping %q: %w", mappingPath, err)
+			}
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: "hpa_mapping", Source: domain.SourceLocation{File: mappingPath},
+				Message: err.Error(), Required: source.Required,
+			})
+			continue
+		}
+		mapping, parseErr := hpa.ParseMapping(mappingReader)
+		closeErr := mappingReader.Close()
+		if parseErr != nil {
+			err = parseErr
+		} else {
+			err = closeErr
+		}
 		if err != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 				Adapter:  "hpa_mapping",
-				Source:   domain.SourceLocation{File: source.MappingPath},
+				Source:   domain.SourceLocation{File: mappingPath},
 				Message:  err.Error(),
 				Required: source.Required,
 			})
 			continue
 		}
-		files, err := filesource.Expand(source.Pattern)
+		files, err := expandFiles(fileBudget, source.Pattern)
 		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("enforce HPA source policy: %w", err)
+			}
 			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 				Adapter:  "hpa",
 				Source:   domain.SourceLocation{File: source.Pattern},
@@ -772,16 +884,8 @@ func loadHorizontalPodAutoscalers(
 			})
 			continue
 		}
-		_, mappingPath, canonicalErr := filesource.CanonicalFile(source.MappingPath)
-		if canonicalErr != nil {
-			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
-				Adapter: "hpa_mapping", Source: domain.SourceLocation{File: source.MappingPath},
-				Message: canonicalErr.Error(), Required: source.Required,
-			})
-			continue
-		}
 		for _, file := range files {
-			identity, display, canonicalErr := filesource.CanonicalFile(file)
+			identity, display, canonicalErr := canonicalFile(fileBudget, file)
 			if canonicalErr != nil {
 				discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 					Adapter: "hpa", Source: domain.SourceLocation{File: file},
@@ -818,7 +922,7 @@ func loadHorizontalPodAutoscalers(
 	sort.Strings(keys)
 	for _, key := range keys {
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		task := tasks[key]
 		file := task.path
@@ -831,36 +935,65 @@ func loadHorizontalPodAutoscalers(
 			})
 			continue
 		}
-		additional, err := (hpa.Loader{
+		reader, err := openFile(fileBudget, file)
+		if err != nil {
+			if fileBudget != nil {
+				return fmt.Errorf("open secured HPA source %q: %w", file, err)
+			}
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: "hpa", Source: domain.SourceLocation{File: file}, Message: err.Error(), Required: task.required,
+			})
+			continue
+		}
+		additional, loadErr := (hpa.Loader{
 			Required:      task.required,
 			Mapping:       task.mapping,
 			MappingSource: task.mappingPaths[0],
-		}).LoadFile(ctx, file)
-		if err != nil {
+		}).Parse(ctx, file, reader)
+		closeErr := reader.Close()
+		if loadErr != nil {
 			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 				Adapter:  "hpa",
 				Source:   domain.SourceLocation{File: file},
-				Message:  err.Error(),
+				Message:  loadErr.Error(),
 				Required: task.required,
+			})
+			continue
+		}
+		if closeErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: "hpa", Source: domain.SourceLocation{File: file}, Message: closeErr.Error(), Required: task.required,
 			})
 			continue
 		}
 		discovery.Append(additional)
 	}
+	return nil
 }
 
 func loadPatterns(
 	ctx context.Context,
+	fileBudget *filesource.Budget,
 	adapter string,
 	patterns []config.SourcePattern,
 	discovery *domain.Discovery,
 	load fileLoader,
-) {
+) error {
 	configured := make([]filesource.Pattern, 0, len(patterns))
 	for _, pattern := range patterns {
 		configured = append(configured, filesource.Pattern{Path: pattern.Pattern, Required: pattern.Required})
 	}
-	matches, failures := filesource.ExpandPatterns(configured)
+	var matches []filesource.Match
+	var failures []filesource.Failure
+	if fileBudget == nil {
+		matches, failures = filesource.ExpandPatterns(configured)
+	} else {
+		var err error
+		matches, failures, err = fileBudget.ExpandPatterns(configured)
+		if err != nil {
+			return fmt.Errorf("enforce %s source policy: %w", adapter, err)
+		}
+	}
 	for _, failure := range failures {
 		discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
 			Adapter:  adapter,
@@ -871,11 +1004,22 @@ func loadPatterns(
 	}
 	for _, match := range matches {
 		if err := ctx.Err(); err != nil {
-			return
+			return err
 		}
-		additional, err := load(ctx, match.Path, match.Required)
+		reader, err := openFile(fileBudget, match.Path)
 		if err != nil {
-			message := err.Error()
+			if fileBudget != nil {
+				return fmt.Errorf("open secured %s source %q: %w", adapter, match.Path, err)
+			}
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: adapter, Source: domain.SourceLocation{File: match.Path}, Message: err.Error(), Required: match.Required,
+			})
+			continue
+		}
+		additional, loadErr := load(ctx, match.Path, match.Required, reader)
+		closeErr := reader.Close()
+		if loadErr != nil {
+			message := loadErr.Error()
 			if len(match.Patterns) > 1 {
 				message = fmt.Sprintf("%s (matched by patterns %q)", message, match.Patterns)
 			}
@@ -887,6 +1031,86 @@ func loadPatterns(
 			})
 			continue
 		}
+		if closeErr != nil {
+			discovery.Diagnostics = append(discovery.Diagnostics, domain.Diagnostic{
+				Adapter: adapter, Source: domain.SourceLocation{File: match.Path}, Message: closeErr.Error(), Required: match.Required,
+			})
+			continue
+		}
 		discovery.Append(additional)
 	}
+	return nil
+}
+
+func analysisFileBudget(policy config.ExecutionPolicy) (*filesource.Budget, error) {
+	if strings.TrimSpace(policy.RepositoryRoot) == "" {
+		return nil, nil
+	}
+	for name, value := range map[string]int{
+		"max consumers":   policy.MaxConsumers,
+		"max references":  policy.MaxReferences,
+		"max productions": policy.MaxProductions,
+		"max graph nodes": policy.MaxGraphNodes,
+		"max graph edges": policy.MaxGraphEdges,
+		"max findings":    policy.MaxFindings,
+	} {
+		if value <= 0 {
+			return nil, fmt.Errorf("%s must be positive", name)
+		}
+	}
+	return filesource.NewBudget(policy.RepositoryRoot, policy.MaxSourceFiles, policy.MaxSourceBytes)
+}
+
+func expandFiles(budget *filesource.Budget, pattern string) ([]string, error) {
+	if budget == nil {
+		return filesource.Expand(pattern)
+	}
+	return budget.Expand(pattern)
+}
+
+func canonicalFile(budget *filesource.Budget, path string) (string, string, error) {
+	if budget == nil {
+		return filesource.CanonicalFile(path)
+	}
+	return budget.Register(path)
+}
+
+func openFile(budget *filesource.Budget, path string) (*os.File, error) {
+	if budget == nil {
+		return os.Open(path)
+	}
+	return budget.Open(path)
+}
+
+func validateDiscoveryLimits(policy config.ExecutionPolicy, discovery domain.Discovery) error {
+	if policy.RepositoryRoot == "" {
+		return nil
+	}
+	for _, limit := range []struct {
+		label string
+		count int
+		max   int
+	}{
+		{label: "consumer", count: len(discovery.Consumers), max: policy.MaxConsumers},
+		{label: "reference", count: len(discovery.References), max: policy.MaxReferences},
+		{label: "production", count: len(discovery.Productions), max: policy.MaxProductions},
+	} {
+		if limit.count > limit.max {
+			return fmt.Errorf("%s count %d exceeds the execution limit of %d", limit.label, limit.count, limit.max)
+		}
+	}
+	return nil
+}
+
+func validateGraphLimits(policy config.ExecutionPolicy, target *graph.Graph) error {
+	if policy.RepositoryRoot == "" {
+		return nil
+	}
+	if count := len(target.Nodes()); count > policy.MaxGraphNodes {
+		return fmt.Errorf("graph node count %d exceeds the execution limit of %d", count, policy.MaxGraphNodes)
+	}
+	if count := len(target.Edges()); count > policy.MaxGraphEdges {
+		return fmt.Errorf("graph edge count %d exceeds the execution limit of %d", count, policy.MaxGraphEdges)
+	}
+	return nil
 }

@@ -53,6 +53,7 @@ currently uses that contract?”
 
 ```bash
 telemetry-change-guard validate \
+  --config ./examples/getting-started/tcg.yaml \
   --changes ./examples/getting-started/changes.yaml
 
 telemetry-change-guard check \
@@ -74,6 +75,25 @@ Findings:  1
 
 STATUS: BLOCK
 ```
+
+## Start in your own repository
+
+From the repository root, generate a non-destructive starter:
+
+```bash
+telemetry-change-guard init
+telemetry-change-guard validate \
+  --config ./tcg.yaml \
+  --changes ./tcg-changes.example.yaml
+telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --changes ./tcg-changes.example.yaml
+```
+
+The scaffold includes one sample critical alert, so the final command
+intentionally returns `BLOCK` with exit `2`. Replace the `.tcg/getting-started`
+rule, source pattern, and example ChangeSet with real repository artifacts.
+`init` refuses to overwrite any existing target.
 
 Exit `2` is a successful safety decision: the configured policy rejects the
 proposed change. `tcg-result.json` contains the versioned

@@ -24,6 +24,7 @@ const canonicalUsage = `Telemetry Change Guard
 
 Usage:
   telemetry-change-guard version [--format text|json]
+  telemetry-change-guard init [--directory <path>]
   telemetry-change-guard check --config <path> (--changes <path> | --weaver-diff <path> --weaver-mapping <path> | --baseline <snapshot> --candidate <snapshot>) [--mode audit|warn|enforce]
   telemetry-change-guard snapshot --prometheus <url> --output <path>
   telemetry-change-guard diff --baseline <snapshot> --candidate <snapshot> [--output <path>] [--changes-output <path>]
@@ -37,6 +38,7 @@ Usage:
 
 Commands:
   version     Print build identity for verification and support
+  init        Create a runnable, non-destructive starter configuration
   check       Evaluate the operational safety of a ChangeSet
   snapshot    Capture a bounded deterministic Prometheus telemetry contract
   diff        Compare baseline and candidate telemetry snapshots
@@ -75,6 +77,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return runVersion("telemetry-change-guard", nil, stdout, stderr)
 	case "check":
 		return runCheck(ctx, args[1:], stdout, stderr)
+	case "init":
+		return runInit(ctx, args[1:], stdout, stderr)
 	case "snapshot":
 		return runSnapshotCommand(ctx, args[1:], stdout, stderr)
 	case "diff":
@@ -116,6 +120,7 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	jsonOutput := flags.String("json-output", "", "optional companion JSON report path")
 	statusOutput := flags.String("status-output", "", "optional authoritative status output path")
 	remoteFlags := addRemoteEvidenceFlags(flags)
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -132,6 +137,21 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	if _, err := selectChangeSource(
+		*changeSetPath, *weaverDiffPath, *weaverMappingPath, *baselinePath, *candidatePath, *changeSetName,
+	); err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	analysisContext, cancel, err := execution.prepare(
+		ctx, configPath, changeSetPath, weaverDiffPath, weaverMappingPath, baselinePath, candidatePath,
+	)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 	changeSource, err := selectChangeSource(
 		*changeSetPath,
 		*weaverDiffPath,
@@ -154,6 +174,7 @@ func runCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	execution.apply(&configuration)
 	changeSet, sourceDiagnostics, err := changeSource.Detect(ctx)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -329,6 +350,7 @@ func runDiffCommand(ctx context.Context, args []string, stdout, stderr io.Writer
 	name := flags.String("name", "", "optional generated ChangeSet name")
 	output := flags.String("output", "", "snapshot-diff JSON output path; defaults to stdout")
 	changesOutput := flags.String("changes-output", "", "optional actionable ChangeSet YAML output path")
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return flagExitCode(err)
 	}
@@ -340,6 +362,13 @@ func runDiffCommand(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprintf(stderr, "Error: %v\n", err)
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, baselinePath, candidatePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 	result, err := snapshot.CompareFiles(ctx, *baselinePath, *candidatePath, *name)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: %v\n", err)
@@ -386,6 +415,7 @@ func runCanonicalValidate(ctx context.Context, args []string, stdout, stderr io.
 	weaverDiffPath := flags.String("weaver-diff", "", "path to a Weaver registry diff JSON document")
 	weaverMappingPath := flags.String("weaver-mapping", "", "path to an explicit Weaver backend mapping")
 	configPath := flags.String("config", "", "path to an analysis configuration")
+	execution := addExecutionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -414,6 +444,13 @@ func runCanonicalValidate(ctx context.Context, args []string, stdout, stderr io.
 		fmt.Fprintln(stderr, "a change input or --config is required")
 		return 1
 	}
+	analysisContext, cancel, err := execution.prepare(ctx, changeSetPath, snapshotPath, weaverDiffPath, weaverMappingPath, configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: %v\n", err)
+		return 1
+	}
+	defer cancel()
+	ctx = analysisContext
 	if *changeSetPath != "" {
 		changeSet, err := config.LoadChangeSet(ctx, *changeSetPath)
 		if err != nil {

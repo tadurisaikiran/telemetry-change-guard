@@ -833,11 +833,18 @@ func verifyBinaryArchive(directory string, manifest releaseManifest, artifact ex
 		if err != nil {
 			return err
 		}
-		if !bytes.Equal(source, byName[archiveName].Data) {
+		if !bytes.Equal(canonicalRepositoryText(source), byName[archiveName].Data) {
 			return fmt.Errorf("%s does not match %s", archiveName, sourceName)
 		}
 	}
 	return nil
+}
+
+// canonicalRepositoryText compensates only for a Windows checkout translating
+// tracked LF text to CRLF. Archive contents must remain canonical LF bytes, so
+// the extracted artifact is deliberately not normalized before comparison.
+func canonicalRepositoryText(contents []byte) []byte {
+	return bytes.ReplaceAll(contents, []byte("\r\n"), []byte("\n"))
 }
 
 func readArchive(file string) ([]archiveEntry, error) {

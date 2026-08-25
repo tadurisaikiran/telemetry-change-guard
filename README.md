@@ -69,6 +69,7 @@ cd telemetry-change-guard
 git checkout 626f5443021f14a8a4a3ddb67e8b7af6e92afed8
 
 telemetry-change-guard validate \
+  --config ./examples/getting-started/tcg.yaml \
   --changes ./examples/getting-started/changes.yaml
 
 telemetry-change-guard check \
@@ -106,6 +107,22 @@ automatically discover every repository or runtime consumer in an organization,
 and it does not treat missing or unresolved required evidence as safe. See the
 [quickstart](docs/QUICKSTART.md), [installation guide](docs/INSTALLATION.md),
 and [troubleshooting guide](docs/TROUBLESHOOTING.md) for the next step.
+
+To start inside your own repository without hand-writing manifests, run:
+
+```bash
+telemetry-change-guard init
+telemetry-change-guard validate \
+  --config ./tcg.yaml \
+  --changes ./tcg-changes.example.yaml
+telemetry-change-guard check \
+  --config ./tcg.yaml \
+  --changes ./tcg-changes.example.yaml
+```
+
+`init` never overwrites an existing file. It creates a runnable, intentionally
+blocked example, then tells you exactly which source path, rule, and ChangeSet
+to replace with your repository's telemetry contract.
 
 | Decision | What it means |
 | --- | --- |
@@ -446,6 +463,7 @@ The canonical executable is `telemetry-change-guard`. Its main workflows are:
 
 ```text
 telemetry-change-guard validate          validate ChangeSets or snapshots
+telemetry-change-guard init              create a runnable starter safely
 telemetry-change-guard snapshot          capture a bounded Prometheus contract
 telemetry-change-guard diff              compare baseline/candidate snapshots
 telemetry-change-guard check             make an authoritative safety decision
@@ -456,7 +474,8 @@ telemetry-change-guard migration advise  request a bounded optional AI explanati
 telemetry-change-guard migration remediate validate an in-memory candidate fix
 ```
 
-Reports are available as console, Markdown, versioned JSON, and graph JSON.
+Reports are available as console, safely contained Markdown, versioned JSON,
+and versioned `tcg-graph/v1alpha1` graph JSON.
 One evaluation can also write companion JSON and authoritative status files,
 so integrations never need to rediscover remote evidence or infer a status
 from prose. The [CLI reference](docs/CLI.md) covers every flag and exit code.
@@ -631,12 +650,13 @@ evidence for evidence of safety.
   produces `INCOMPLETE` or `ERROR`, never an empty success.
 - **Auditable findings.** Results preserve file, line, expression, extraction
   method, confidence, owner, and dependency path where available.
-- **Bounded untrusted input.** Files, records, expressions, responses,
-  redirects, timeouts, provider output, and credential handling have explicit
+- **Bounded untrusted input.** Repository paths are confined to a trusted root;
+  symlinks are rejected; aggregate files, bytes, consumers, references, graph
+  size, findings, records, responses, redirects, and timeouts have explicit
   limits.
 - **Local-first execution.** The core does not phone home, execute analyzed
-  queries, or require persistence. Network access exists only for configured
-  remote adapters.
+  queries, or require persistence. Remote evidence is disabled by default and
+  every enabled endpoint requires a trusted command-line origin allowlist.
 
 The test suite includes strict decoders, golden machine results, AST analysis,
 cycle and transitive graph cases, status truth tables, fuzzing, adversarial AI
