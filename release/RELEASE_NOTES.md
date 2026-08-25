@@ -31,8 +31,12 @@ agentic feedback-loop experiment.
   override deterministic engine decisions.
 - macOS binaries are not yet signed or notarized. Windows binaries are not yet
   Authenticode-signed. Verify checksums and provenance before evaluation.
-- Homebrew, container, and other installation channels are prepared in later
-  release-candidate phases and are not implied by this artifact set.
+- The multi-architecture container is build-verified with non-root/read-only
+  smoke tests, SPDX SBOM attestations, and SLSA provenance, but GHCR publication
+  remains blocked pending separate owner authorization.
+- The generated Homebrew formula is checksum-bound and syntax-checked, but the
+  tap repository and real installation test do not exist yet. Homebrew
+  availability is not implied by this release.
 - External design-user validation and benchmark evidence are still required
   before broader readiness claims.
 

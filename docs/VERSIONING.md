@@ -40,6 +40,12 @@ system knows the answer and `null` when it does not. Development builds report
 `dev`, `unknown` commit/date/dirty values, and the actual runtime and platform;
 they never impersonate a release.
 
+A binary built by `go install module/cmd@version` is a special source build:
+when no linker version was supplied, TCG reads Go's immutable main-module
+version and reports it without the leading `v`. Go does not expose the release
+pipeline's commit or build date for that installation path, so those fields
+remain `unknown`. Official archives and images retain full injected identity.
+
 Release tooling injects the following variables with `go build -ldflags -X`:
 
 ```text

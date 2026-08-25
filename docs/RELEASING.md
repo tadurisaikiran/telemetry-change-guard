@@ -7,7 +7,8 @@ Only a repository owner may approve the exact candidate and create the tag.
 
 `release/metadata.env` is the single machine-readable source for the candidate
 version, verified Action coordinate, GoReleaser version, Syft version, and the
-SHA-256 digests of both tools' upstream checksum manifests. Workflows install
+SHA-256 digests of both tools' upstream checksum manifests. It also locks the
+container name and immutable Go-builder and distroless runtime manifests. Workflows install
 the same versions through immutable Action commits. Local builds download the
 official archives over HTTPS and verify the pinned manifest before extraction.
 
@@ -20,12 +21,18 @@ The release system produces:
 - a deterministic release manifest and sorted `SHA256SUMS`;
 - GitHub-hosted build provenance for every public payload file.
 
+Separate build-only gates also produce a multi-architecture OCI layout with
+per-platform SBOM/provenance attestations and a checksum-bound Homebrew formula.
+Neither output is published by an active workflow.
+
 ## Candidate rehearsal
 
 From a clean commit with Go `1.27.0`:
 
 ```sh
 make release-snapshot
+make homebrew-formula
+make container-snapshot
 ```
 
 The target installs locked tools into `.cache/release-tools` when necessary,
@@ -35,7 +42,8 @@ relevant pull requests with read-only repository permissions. The workflow
 uses `make release-reproducible` to build twice and require an identical
 checksum set before retaining the verified payload for seven days.
 
-Do not upload a rehearsal as a release or call it published.
+The container target requires a local Docker daemon and Buildx. Do not upload a
+rehearsal as a release or call it published.
 
 ## Repository settings required before authorization
 
@@ -65,6 +73,14 @@ commit:
    job passes.
 5. Verify the created prerelease and several downloaded assets using
    `docs/VERIFY_RELEASE.md` before any announcement.
+6. If separately authorized, publish the already verified OCI image by exact
+   tag and record its immutable digest. Registry authentication and package
+   write permission are deliberately absent until that authorization exists.
+7. If separately authorized, copy the generated formula to the owner-created
+   `homebrew-tap` repository and test it against the published archives.
+8. If separately authorized, create the external Action fixture repository
+   from `release-fixtures/external-consumer-repository` and require its complete
+   workflow to pass before claiming external verification.
 
 The dormant `Public Alpha Release` workflow revalidates the annotated tag and
 protected-main ancestry, reruns the full verifier and pinned E2E lifecycles,

@@ -140,7 +140,8 @@ go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 The resulting executable is `./bin/telemetry-change-guard`. Release binaries,
 checksums, dual-format SBOMs, and provenance are now prepared and verified but
 remain unpublished pending explicit owner approval. See the
-[release procedure](docs/RELEASING.md), [verification guide](docs/VERIFY_RELEASE.md),
+[installation guide](docs/INSTALLATION.md), [release procedure](docs/RELEASING.md),
+[verification guide](docs/VERIFY_RELEASE.md),
 and [issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
 Do not download an unofficial binary or use a nonexistent `v1` tag.
 
@@ -555,7 +556,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@7a26f5db60becf9a09010f98944787a6ab15bdff
+    uses: tadurisaikiran/telemetry-change-guard@4bb5ea7345f56291bebc65c63e8375e46d002f12
     with:
       config: tcg.yaml
       changes: changes.yaml

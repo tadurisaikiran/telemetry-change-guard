@@ -51,7 +51,7 @@ publishes verified artifacts, build the fully tested commit used by the Action
 examples:
 
 ```bash
-git checkout 7a26f5db60becf9a09010f98944787a6ab15bdff
+git checkout 4bb5ea7345f56291bebc65c63e8375e46d002f12
 mkdir -p ./bin
 go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ```
