@@ -22,6 +22,12 @@ owner approval.
   optional bounded pull-request comments, and exact exit enforcement;
 - `telemetry-change-guard version`, `version --format json`, and `--version`
   build-identity commands shared with the compatibility executable;
+- byte-reproducible Linux, macOS, and Windows archives for amd64 and arm64,
+  each containing the canonical and compatibility executables;
+- exact-commit source archive, sorted SHA-256 set, strict release manifest,
+  and per-archive SPDX and CycloneDX SBOMs;
+- read-only pull-request snapshot builds plus an inert, environment-gated tag
+  workflow prepared for GitHub provenance and prerelease publication;
 - CodeQL, dependency review, workflow policy, actionlint, zizmor, race,
   fuzz-smoke, vulnerability, and pinned lifecycle validation.
 
