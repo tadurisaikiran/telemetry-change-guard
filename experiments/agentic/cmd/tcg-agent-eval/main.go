@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -73,6 +74,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 64
 	}
 	if flags.NArg() != 0 {
@@ -93,11 +97,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "error: load task: %v\n", err)
 		return 1
 	}
-	outputDirectory, err := agentic.PrepareOutputDirectory(outputPath)
-	if err != nil {
-		fmt.Fprintf(stderr, "error: prepare output: %v\n", err)
-		return 1
-	}
 	sandbox, err := agentic.NewContainerSandbox(agentic.ContainerOptions{
 		RuntimeCommand: runtimeCommand,
 		Image:          agentImage,
@@ -116,6 +115,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	evaluator, err := agentic.NewTCGEvaluator(tcgCommand, tcgEnv, nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: configure TCG: %v\n", err)
+		return 1
+	}
+	outputDirectory, err := agentic.PrepareOutputDirectory(outputPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: prepare output: %v\n", err)
 		return 1
 	}
 	result, runErr := (agentic.Controller{Sandbox: sandbox, TCG: evaluator}).Run(ctx, task, outputDirectory)

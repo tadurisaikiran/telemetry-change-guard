@@ -79,8 +79,9 @@ It is never applied to the source checkout automatically.
 ## Task contract
 
 Task paths are resolved relative to the task document. `repository.revision`
-must resolve to a commit. `agentWorkspace` is a repository-relative directory;
-the adapter sees only that directory at `/workspace`.
+must resolve to a commit. `agentWorkspace` is a repository-relative subtree;
+the repository root is rejected so Git metadata is never mounted. The adapter
+sees only that subtree at `/workspace`.
 
 ```json
 {
