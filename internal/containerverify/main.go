@@ -127,13 +127,14 @@ func verifyLayout(file string, expected expectedIdentity) error {
 	if err := decodeJSON(contents.files["index.json"], &index); err != nil {
 		return fmt.Errorf("decode index.json: %w", err)
 	}
-	if index.SchemaVersion != 2 || index.MediaType != indexMediaType || len(index.Manifests) == 0 {
-		return errors.New("index.json is not a populated OCI image index")
+	manifests, err := contents.collectManifests(index, map[string]struct{}{}, 0)
+	if err != nil {
+		return fmt.Errorf("walk OCI image indexes: %w", err)
 	}
 
 	runtimeDigests := map[string]string{}
 	attestations := map[string][]descriptor{}
-	for _, item := range index.Manifests {
+	for _, item := range manifests {
 		if item.Annotations[referenceTypeKey] == attestationType {
 			reference := item.Annotations[referenceDigestKey]
 			if !digestPattern.MatchString(reference) {
@@ -176,6 +177,45 @@ func verifyLayout(file string, expected expectedIdentity) error {
 		}
 	}
 	return nil
+}
+
+func (l layout) collectManifests(index imageIndex, visited map[string]struct{}, depth int) ([]descriptor, error) {
+	const maxIndexDepth = 8
+	if depth > maxIndexDepth {
+		return nil, fmt.Errorf("OCI image index nesting exceeds %d levels", maxIndexDepth)
+	}
+	if index.SchemaVersion != 2 || index.MediaType != indexMediaType || len(index.Manifests) == 0 {
+		return nil, errors.New("encountered an invalid or empty OCI image index")
+	}
+
+	var manifests []descriptor
+	for _, item := range index.Manifests {
+		switch item.MediaType {
+		case manifestMediaType:
+			manifests = append(manifests, item)
+		case indexMediaType:
+			if _, duplicate := visited[item.Digest]; duplicate {
+				return nil, fmt.Errorf("duplicate or cyclic nested image index %s", item.Digest)
+			}
+			visited[item.Digest] = struct{}{}
+			rawIndex, err := l.blob(item)
+			if err != nil {
+				return nil, err
+			}
+			var nested imageIndex
+			if err := decodeJSON(rawIndex, &nested); err != nil {
+				return nil, fmt.Errorf("decode nested image index %s: %w", item.Digest, err)
+			}
+			children, err := l.collectManifests(nested, visited, depth+1)
+			if err != nil {
+				return nil, err
+			}
+			manifests = append(manifests, children...)
+		default:
+			return nil, fmt.Errorf("unsupported index descriptor media type %q", item.MediaType)
+		}
+	}
+	return manifests, nil
 }
 
 func readLayout(file string) (layout, error) {

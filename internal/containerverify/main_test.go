@@ -27,6 +27,15 @@ func TestVerifyLayoutAcceptsTwoPlatformsWithBoundAttestations(t *testing.T) {
 	}
 }
 
+func TestVerifyLayoutAcceptsBuildKitNestedImageIndex(t *testing.T) {
+	t.Parallel()
+
+	file := writeTestLayout(t, testLayoutOptions{nestedIndex: true})
+	if err := verifyLayout(file, testIdentity); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVerifyLayoutRejectsRootRuntime(t *testing.T) {
 	t.Parallel()
 
@@ -48,6 +57,7 @@ func TestVerifyLayoutRejectsMissingSLSAProvenance(t *testing.T) {
 type testLayoutOptions struct {
 	runtimeUser string
 	omitSLSA    bool
+	nestedIndex bool
 }
 
 type testLayoutBuilder struct {
@@ -70,6 +80,13 @@ func writeTestLayout(t *testing.T, options testLayoutOptions) string {
 		descriptors = append(descriptors, builder.addAttestation(runtime, options.omitSLSA))
 	}
 	index := imageIndex{SchemaVersion: 2, MediaType: indexMediaType, Manifests: descriptors}
+	if options.nestedIndex {
+		index = imageIndex{
+			SchemaVersion: 2,
+			MediaType:     indexMediaType,
+			Manifests:     []descriptor{builder.addBlob(marshalTestJSON(t, index), indexMediaType)},
+		}
+	}
 	builder.files["index.json"] = marshalTestJSON(t, index)
 
 	file := filepath.Join(t.TempDir(), "image.oci.tar")
