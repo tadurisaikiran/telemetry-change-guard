@@ -180,6 +180,15 @@ func TestControllerStopsOnTCGError(t *testing.T) {
 	}
 }
 
+func TestValidateWorkspaceTreeRejectsGitMetadata(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	mustMkdir(t, filepath.Join(root, ".git"))
+	if err := validateWorkspaceTree(root); err == nil {
+		t.Fatal("workspace Git metadata was accepted")
+	}
+}
+
 func controllerFixture(t *testing.T, attempts int) (ResolvedTask, string) {
 	t.Helper()
 	root := t.TempDir()

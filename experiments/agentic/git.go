@@ -220,7 +220,7 @@ func (tree *worktree) Diff(ctx context.Context, changedFiles []string, limit int
 		remaining -= int64(len(result.Stdout))
 		return nil
 	}
-	if err := runDiff([]string{"diff", "--binary", "--no-ext-diff", "--full-index", "HEAD", "--"}, false); err != nil {
+	if err := runDiff([]string{"diff", "--binary", "--no-ext-diff", "--no-textconv", "--full-index", "HEAD", "--"}, false); err != nil {
 		return nil, err
 	}
 	untracked, err := tree.gitNames(ctx, []string{"ls-files", "--others", "--exclude-standard", "-z", "--"})
@@ -228,7 +228,7 @@ func (tree *worktree) Diff(ctx context.Context, changedFiles []string, limit int
 		return nil, err
 	}
 	for _, path := range untracked {
-		if err := runDiff([]string{"diff", "--no-index", "--binary", "--no-ext-diff", "--full-index", "--", "/dev/null", path}, true); err != nil {
+		if err := runDiff([]string{"diff", "--no-index", "--binary", "--no-ext-diff", "--no-textconv", "--full-index", "--", "/dev/null", path}, true); err != nil {
 			return nil, err
 		}
 	}

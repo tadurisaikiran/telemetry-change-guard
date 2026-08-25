@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -410,6 +411,14 @@ func validateRelativePath(path, field string) error {
 		return fmt.Errorf("%s must be a nonempty relative path", field)
 	}
 	clean := filepath.Clean(path)
+	if clean != path {
+		return fmt.Errorf("%s must use a canonical relative path", field)
+	}
+	for _, character := range path {
+		if unicode.IsControl(character) {
+			return fmt.Errorf("%s must not contain control characters", field)
+		}
+	}
 	if clean == "." {
 		return nil
 	}

@@ -66,6 +66,25 @@ func TestLoadTaskStrictAndResolved(t *testing.T) {
 	if _, err := LoadTask(taskPath); err == nil {
 		t.Fatal("LoadTask accepted unknown field")
 	}
+
+	mustWrite(t, taskPath, strings.Replace(string(contents), `"agentWorkspace":"workspace"`, `"agentWorkspace":"."`, 1))
+	if _, err := LoadTask(taskPath); err == nil {
+		t.Fatal("LoadTask accepted the repository root as the agent workspace")
+	}
+}
+
+func TestVerifyDigestsDetectsIntegrityDirectoryMembershipChanges(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "policy.yaml"), "policy\n")
+	expected, err := digestPaths([]string{root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(root, "injected.yaml"), "injected\n")
+	if err := verifyDigests([]string{root}, expected); err == nil {
+		t.Fatal("new file inside integrity directory was not detected")
+	}
 }
 
 func FuzzDecodeAgentResponse(f *testing.F) {
