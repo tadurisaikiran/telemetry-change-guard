@@ -53,6 +53,10 @@ syft_version="$(metadata_value TCG_SYFT_VERSION)"
 go_command="$(tool_path "${GO:-go}")"
 goreleaser_command="$(tool_path "${GORELEASER:-goreleaser}")"
 syft_command="$(tool_path "${SYFT:-syft}")"
+# GoReleaser invokes the canonical `go` name while loading module metadata and
+# building. Put the already validated exact toolchain first without replacing
+# the caller's remaining PATH.
+export PATH="$(dirname -- "${go_command}"):${PATH}"
 expected_go="$(awk '$1 == "go" { print "go" $2 }' go.mod)"
 actual_go="$("${go_command}" env GOVERSION)"
 [[ -n "${expected_go}" && "${actual_go}" == "${expected_go}" ]] ||
