@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "tcg-agent-task/v1alpha1",
+  "id": "agentic-fixture-repair",
+  "description": "Update the declared telemetry consumer workspace until the supplied ChangeSet is safe according to TCG.",
+  "repository": {
+    "path": "../../../..",
+    "revision": "HEAD"
+  },
+  "agentWorkspace": "experiments/agentic/testdata/repair/workspace",
+  "tcg": {
+    "config": "control/tcg.yaml",
+    "changes": "control/changes.yaml",
+    "timeout": "30s"
+  },
+  "integrityPaths": [
+    "control"
+  ],
+  "limits": {
+    "maxAttempts": 3,
+    "agentTimeout": "30s",
+    "totalTimeout": "2m",
+    "maxChangedFiles": 8,
+    "maxDiffBytes": 1048576
+  }
+}

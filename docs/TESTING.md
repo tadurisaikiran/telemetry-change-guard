@@ -15,6 +15,16 @@ missing destinations, secret-like provider text, duplicate or unknown targets,
 ambiguous artifact scalars, response status/patch claims, timeouts, oversized
 process output, and proof that source files remain byte-for-byte unchanged.
 
+The experimental agentic boundary has strict-protocol, fuzz, state-machine,
+process, sandbox-invocation, integrity, Git-containment, and public-CLI contract
+tests. They cover `BLOCK -> repair -> PASS`, retry exhaustion, `INCOMPLETE`,
+`ERROR`, adapter timeout, bounded process output, malformed and authority-
+claiming responses, TCG JSON/status/exit disagreement, control-file tampering,
+workspace escape, source-checkout immutability, exactly one writable bind mount,
+an immutable image ID, and hardened container flags. The fully local fixture
+under `experiments/agentic/testdata` exercises the real public TCG binary and
+Docker adapter; see its [quickstart](../experiments/agentic/README.md#five-minute-local-fixture).
+
 Ownership discovery has parser, wildcard, source-order, last-match, precedence,
 joint-owner, ambiguity, determinism, and fuzz coverage. An integration invariant
 compares ownership-disabled, valid, and malformed runs and requires identical

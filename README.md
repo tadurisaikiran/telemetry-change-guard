@@ -127,22 +127,32 @@ an approved hosted service, and runs only when explicitly selected. See the
 [validated remediation contract](docs/REMEDIATION.md), and
 [threat model](docs/THREAT_MODEL.md).
 
-### Planned optional agentic layer
+### Experimental optional agentic layer
 
-> **Status: not implemented.** TCG does not currently run a coding agent,
-> isolate its workspace, maintain a repair loop, or create a change request.
+> **Status: isolated MVP implemented under `experiments/agentic/`; not a
+> supported production feature.** It is disabled unless a separate binary is
+> built and the user supplies `--acknowledge-experimental`. It does not create,
+> approve, push, or merge a change request.
 
-The planned agentic layer will let an explicitly selected coding-agent adapter
-make bounded changes, receive deterministic `BLOCK` findings, attempt a limited
-repair, and submit the actual edited tree to TCG again before human review. It
-will consume the existing public CLI and versioned results; it will not replace
-the standalone CLI, GitHub Action, deterministic engine, or human approval.
+The provider-neutral MVP lets an explicitly selected coding-agent adapter make
+bounded changes inside one container-mounted workspace, receive deterministic
+`BLOCK` findings, attempt at most three repairs, and submit the actual edited
+tree to the public TCG CLI again before human review. TCG policy, evidence,
+binary, and prior artifacts remain outside the agent's writable mount and are
+integrity-checked. `INCOMPLETE`, `ERROR`, malformed output, timeout, tampering,
+and workspace escape all stop the loop. A successful result is an uncommitted
+review diff—not approval and not proof of query semantic equivalence.
+
+Start with the [experimental quickstart and adapter protocol](experiments/agentic/README.md).
+The layer consumes the standalone CLI and versioned results; it does not replace
+the CLI, GitHub Action, deterministic engine, repository-specific tests, or
+human approval.
 
 The work is intentionally staged:
 
-1. [Isolated feedback-loop MVP](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39)
-   using synthetic local fixtures and no repository mutation outside its
-   workspace.
+1. **Implemented experimentally:** [isolated feedback-loop MVP](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39)
+   with a synthetic local `BLOCK -> repair -> PASS` fixture and no source,
+   branch, or repository mutation outside its disposable workspace.
 2. [Controlled agent evaluation](https://github.com/tadurisaikiran/telemetry-change-guard/issues/40)
    against no-guard, self-review, and conventional-check baselines.
 3. [Opt-in design-user workflow](https://github.com/tadurisaikiran/telemetry-change-guard/issues/41)

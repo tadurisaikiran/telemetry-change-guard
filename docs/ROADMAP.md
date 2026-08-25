@@ -82,7 +82,8 @@ external adoption path. An optional agentic layer may proceed in parallel as
 an experiment that calls the public CLI; it does not replace or delay the core
 release, Action, or design-user program.
 
-1. Build an isolated, provider-neutral and bounded feedback-loop MVP with no
+1. Maintain and evaluate the implemented experimental, provider-neutral,
+   bounded feedback-loop MVP with no
    branch, change-request, merge, or production mutation
    ([issue #39](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39)).
 2. Evaluate no-guard, LLM self-review, conventional-check, and TCG-feedback

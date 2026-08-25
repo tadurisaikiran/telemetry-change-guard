@@ -15,7 +15,7 @@ The near-term work therefore has two lanes:
    `agent attempt -> TCG decision -> repair -> recheck -> human review` loop.
 
 The experimental work may proceed in parallel, but it must not delay a core
-release, change existing contracts, or be marketed as shipped functionality.
+release, change existing contracts, or be marketed as supported functionality.
 
 ## What exists and what is planned
 
@@ -26,7 +26,7 @@ release, change existing contracts, or be marketed as shipped functionality.
 | Bounded AI explanation through `migration advise` | Implemented and optional |
 | In-memory validated expression candidates through `migration remediate` | Implemented and optional |
 | External coding agent manually consuming TCG output | Possible through external orchestration, not a TCG feature |
-| Provider-neutral agent runner, isolated workspace, repair controller, and review bundle | Planned in [issue #39](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39) |
+| Provider-neutral agent runner, container-isolated workspace, repair controller, and review bundle | Experimental MVP implemented in `experiments/agentic/`; tracked in [issue #39](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39) |
 | Comparative agent benchmark | Planned in [issue #40](https://github.com/tadurisaikiran/telemetry-change-guard/issues/40) |
 | Supported design-user agent workflow | Planned only after evidence, in [issue #41](https://github.com/tadurisaikiran/telemetry-change-guard/issues/41) |
 | AI source/diff scanning and candidate ChangeSet extraction | Not implemented; separate later work in [issue #42](https://github.com/tadurisaikiran/telemetry-change-guard/issues/42) |
@@ -38,8 +38,7 @@ release, change existing contracts, or be marketed as shipped functionality.
 flowchart LR
     T["Task"] --> A["User-selected coding-agent adapter"]
     A --> W["Isolated writable workspace"]
-    W --> Q["Repository tests"]
-    Q --> G["Existing TCG public CLI"]
+    W --> G["Existing TCG public CLI"]
     P["Read-only policy and evidence"] --> G
     G --> D{"Authoritative status"}
     D -->|"BLOCK"| F["Bounded deterministic feedback"]
@@ -59,28 +58,30 @@ successful check advances to review, never directly to merge.
 
 ## MVP scope
 
-The MVP belongs under `experiments/agentic/` until promotion criteria are met.
-It should:
+The MVP is implemented under `experiments/agentic/` and remains there until
+promotion criteria are met. It:
 
-- invoke a provider-neutral agent executable directly, without a command
+- invokes a provider-neutral agent executable directly, without a command
   shell;
-- use strict, versioned and bounded process schemas;
-- create a fresh Git worktree or equivalent workspace per run inside an
-  enforceable sandbox or container, with policy and evidence outside its
+- uses strict, versioned and bounded process schemas;
+- creates a fresh Git worktree per run, with the writable subtree mounted into
+  an enforceable sandbox or container, with policy and evidence outside its
   writable mounts;
-- invoke the public `telemetry-change-guard` executable rather than importing
+- invokes the public `telemetry-change-guard` executable rather than importing
   internal packages;
-- consume versioned JSON, authoritative status output, and exact exit codes;
-- implement explicit `PASS`/`WARN`/`BLOCK`/`INCOMPLETE`/`ERROR` transitions;
-- return only bounded deterministic findings and diagnostics for a repair;
-- default to at most three attempts, with time, output, and cancellation
+- consumes versioned JSON, authoritative status output, and exact exit codes;
+- implements explicit `PASS`/`WARN`/`BLOCK`/`INCOMPLETE`/`ERROR` transitions;
+- returns only bounded deterministic findings and diagnostics for a repair;
+- defaults to at most three attempts, with time, output, and cancellation
   limits;
-- record task, tool, adapter, configuration/evidence hashes, attempts,
+- records task, tool, adapter, configuration/evidence hashes, attempts,
   durations, results, and final uncommitted diff; and
-- demonstrate a local synthetic `BLOCK -> repair -> PASS` lifecycle plus
+- demonstrates a local synthetic `BLOCK -> repair -> PASS` lifecycle plus
   tamper, timeout, malformed-response, incomplete-evidence, and error cases.
 
-The MVP does not scan arbitrary source code, install a model SDK, open a pull
+It intentionally does not execute repository code on the host. Product-specific
+tests must run in a separate isolated CI job against the review diff. The MVP
+does not scan arbitrary source code, install a model SDK, open a pull
 request, push a branch, merge, call production APIs, or alter TCG policy.
 
 ## Existing product work remains necessary
