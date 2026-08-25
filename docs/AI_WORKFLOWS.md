@@ -153,6 +153,10 @@ re-verifies” workflow today, with one important qualification: branch and
 change-request creation are orchestration outside TCG. Do not describe TCG as
 opening, approving, or merging a pull request or change request.
 
+TCG does not yet ship the isolated agent runner or bounded repair controller
+for this loop. Their staged implementation, evaluation, and promotion criteria
+are tracked in the [optional agentic roadmap](AGENTIC_ROADMAP.md).
+
 The final check must run against the actual edited files. A previously
 simulated result is not evidence that the committed change is safe.
 

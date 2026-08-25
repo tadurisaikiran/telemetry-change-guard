@@ -127,6 +127,34 @@ an approved hosted service, and runs only when explicitly selected. See the
 [validated remediation contract](docs/REMEDIATION.md), and
 [threat model](docs/THREAT_MODEL.md).
 
+### Planned optional agentic layer
+
+> **Status: not implemented.** TCG does not currently run a coding agent,
+> isolate its workspace, maintain a repair loop, or create a change request.
+
+The planned agentic layer will let an explicitly selected coding-agent adapter
+make bounded changes, receive deterministic `BLOCK` findings, attempt a limited
+repair, and submit the actual edited tree to TCG again before human review. It
+will consume the existing public CLI and versioned results; it will not replace
+the standalone CLI, GitHub Action, deterministic engine, or human approval.
+
+The work is intentionally staged:
+
+1. [Isolated feedback-loop MVP](https://github.com/tadurisaikiran/telemetry-change-guard/issues/39)
+   using synthetic local fixtures and no repository mutation outside its
+   workspace.
+2. [Controlled agent evaluation](https://github.com/tadurisaikiran/telemetry-change-guard/issues/40)
+   against no-guard, self-review, and conventional-check baselines.
+3. [Opt-in design-user workflow](https://github.com/tadurisaikiran/telemetry-change-guard/issues/41)
+   only after the safety and evaluation gates pass.
+4. [AI-assisted source-change extraction](https://github.com/tadurisaikiran/telemetry-change-guard/issues/42)
+   as separate later research, never a prerequisite for deterministic
+   enforcement.
+
+See the [agentic roadmap](docs/AGENTIC_ROADMAP.md) for the architecture,
+compatibility promise, promotion criteria, and relationship to the existing
+release and adoption work.
+
 ## See what it catches
 
 The repository includes runnable scenarios that exercise different parts of
@@ -582,7 +610,7 @@ claim without authorization.
 | Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Testing](docs/TESTING.md) |
 | Configure local consumers | [Prometheus/Grafana/SLO adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
-| Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
+| Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [Agentic roadmap](docs/AGENTIC_ROADMAP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |
 | Evaluate maturity | [Design-user program](docs/DESIGN_USER_PROGRAM.md) · [Roadmap](docs/ROADMAP.md) · [Related work](RELATED_WORK.md) · [AWS boundary](docs/AWS.md) |
 
 ## Development
