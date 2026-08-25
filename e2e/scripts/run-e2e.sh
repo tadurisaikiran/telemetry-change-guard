@@ -6,7 +6,7 @@ repo_dir=$(cd "${e2e_dir}/.." && pwd)
 compose=(docker compose --file "${e2e_dir}/docker-compose.yaml")
 tmr_bin=${TMR_BIN:-"${TMPDIR:-/tmp}/tmr-e2e"}
 tcg_bin=${TCG_BIN:-"${TMPDIR:-/tmp}/telemetry-change-guard-e2e"}
-snapshot_dir=$(mktemp -d)
+snapshot_dir=$(mktemp -d "${repo_dir}/.tcg-e2e.XXXXXX")
 baseline_snapshot="${snapshot_dir}/baseline.json"
 candidate_snapshot="${snapshot_dir}/candidate.json"
 
@@ -14,6 +14,7 @@ cleanup() {
   if [[ -n "${TMR_SCENARIO_DIR:-}" && -n "${TMR_EXPORT_MODE:-}" ]]; then
     "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   fi
+  rm -rf -- "${snapshot_dir}"
 }
 trap cleanup EXIT
 
