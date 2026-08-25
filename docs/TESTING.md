@@ -145,6 +145,22 @@ release-shaped `-trimpath` binary. The integration test injects candidate
 version, commit, date, and clean state, executes both version forms, and scans
 the binary for the local build path.
 
+Release verification builds both executables for Linux, macOS, and Windows on
+amd64 and arm64 with locked GoReleaser, Syft, and Go versions. The maintainer
+tool requires the exact 23-file public payload, strict manifest schema, sorted
+SHA-256 set, safe archive paths, stable modes and timestamps, `CGO_ENABLED=0`,
+`-trimpath`, embedded version/commit/date, per-artifact SPDX and CycloneDX
+documents, and a clean source archive. It executes both host binaries' version
+commands and the real getting-started `BLOCK`/exit `2` fixture. The release
+workflow builds twice and requires byte-identical checksum sets:
+
+```bash
+make release-snapshot       # one non-publishing build plus deep verification
+make release-reproducible   # two builds; fail on any public-payload drift
+```
+
+Neither target publishes a tag, release, package, container, or announcement.
+
 ## Mandatory live E2E release gate
 
 The live harness is implemented under `e2e/` and is a pull-request release

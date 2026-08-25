@@ -138,8 +138,10 @@ go build -trimpath -o ./bin/telemetry-change-guard ./cmd/telemetry-change-guard
 ```
 
 The resulting executable is `./bin/telemetry-change-guard`. Release binaries,
-checksums, SBOMs, provenance, and signatures are tracked in
-[issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
+checksums, dual-format SBOMs, and provenance are now prepared and verified but
+remain unpublished pending explicit owner approval. See the
+[release procedure](docs/RELEASING.md), [verification guide](docs/VERIFY_RELEASE.md),
+and [issue #29](https://github.com/tadurisaikiran/telemetry-change-guard/issues/29).
 Do not download an unofficial binary or use a nonexistent `v1` tag.
 
 ### Use the GitHub Action
@@ -553,7 +555,7 @@ permissions:
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   - id: telemetry
-    uses: tadurisaikiran/telemetry-change-guard@4e211b7571d9a84fde7c6bfe3d92ac43d9ecde3b
+    uses: tadurisaikiran/telemetry-change-guard@7a26f5db60becf9a09010f98944787a6ab15bdff
     with:
       config: tcg.yaml
       changes: changes.yaml
@@ -662,6 +664,7 @@ claim without authorization.
 | Define inputs | [ChangeSet](docs/CHANGESET.md) · [Change sources and snapshots](docs/CHANGE_SOURCES.md) · [Migration model](docs/MIGRATION_MODEL.md) · [Configuration](docs/CONFIGURATION.md) |
 | Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Secure CI usage](docs/SECURE_CI_USAGE.md) · [Testing](docs/TESTING.md) |
 | Understand versions and upgrades | [Changelog](CHANGELOG.md) · [Versioning](docs/VERSIONING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Upgrading](docs/UPGRADING.md) |
+| Rehearse or verify a release | [Release procedure](docs/RELEASING.md) · [Artifact and provenance verification](docs/VERIFY_RELEASE.md) |
 | Configure local consumers | [Prometheus/Grafana/SLO adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |
 | Add change or usage evidence | [Weaver](docs/WEAVER.md) · [Perses](docs/PERSES.md) · [Runtime queries](docs/RUNTIME_EVIDENCE.md) · [Tempo/TraceQL](docs/TEMPO.md) |
 | Add human and AI context | [Ownership](docs/OWNERSHIP.md) · [AI workflows](docs/AI_WORKFLOWS.md) · [Agentic roadmap](docs/AGENTIC_ROADMAP.md) · [AI explanations](docs/AI_AGENT.md) · [Candidate remediation](docs/REMEDIATION.md) |

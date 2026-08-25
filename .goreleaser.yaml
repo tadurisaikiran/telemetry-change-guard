@@ -1,0 +1,191 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: telemetry-change-guard
+dist: dist/raw
+report_sizes: true
+
+snapshot:
+  # The wrapper supplies the reviewed alpha version through
+  # GORELEASER_CURRENT_TAG. Do not invent a different snapshot coordinate.
+  version_template: "{{ .Version }}"
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+builds:
+  - id: telemetry-change-guard
+    main: ./cmd/telemetry-change-guard
+    binary: telemetry-change-guard
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    goamd64:
+      - v1
+    goarm64:
+      - v8.0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Version={{ .Version }}
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Commit={{ .FullCommit }}
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Date={{ .Env.TCG_BUILD_DATE }}
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Dirty=false
+
+  - id: tmr
+    main: ./cmd/tmr
+    binary: tmr
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    goamd64:
+      - v1
+    goarm64:
+      - v8.0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Version={{ .Version }}
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Commit={{ .FullCommit }}
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Date={{ .Env.TCG_BUILD_DATE }}
+        -X github.com/tadurisaikiran/telemetry-change-guard/internal/version.Dirty=false
+
+archives:
+  - id: release-archives
+    ids:
+      - telemetry-change-guard
+      - tmr
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    wrap_in_directory: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+      mtime: "{{ .CommitDate }}"
+    files:
+      - src: LICENSE
+        dst: LICENSE
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: release/README.md
+        dst: README.md
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: release/NOTICE.md
+        dst: NOTICE.md
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  format: tar.gz
+  prefix_template: "{{ .ProjectName }}_{{ .Version }}_source/"
+
+sboms:
+  - id: archives-spdx
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.spdx.json"
+    cmd: syft
+    args:
+      - "${artifact}"
+      - --output
+      - "spdx-json=${document}"
+      - --enrich
+      - all
+    env:
+      - SYFT_CHECK_FOR_APP_UPDATE=false
+      - SYFT_FILE_METADATA_CATALOGER_ENABLED=true
+
+  - id: archives-cyclonedx
+    artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.cdx.json"
+    cmd: syft
+    args:
+      - "${artifact}"
+      - --output
+      - "cyclonedx-json=${document}"
+      - --enrich
+      - all
+    env:
+      - SYFT_CHECK_FOR_APP_UPDATE=false
+      - SYFT_FILE_METADATA_CATALOGER_ENABLED=true
+
+  - id: source-spdx
+    artifacts: source
+    documents:
+      - "{{ .ArtifactName }}.spdx.json"
+    cmd: syft
+    args:
+      - "${artifact}"
+      - --output
+      - "spdx-json=${document}"
+      - --enrich
+      - all
+    env:
+      - SYFT_CHECK_FOR_APP_UPDATE=false
+      - SYFT_FILE_METADATA_CATALOGER_ENABLED=true
+
+  - id: source-cyclonedx
+    artifacts: source
+    documents:
+      - "{{ .ArtifactName }}.cdx.json"
+    cmd: syft
+    args:
+      - "${artifact}"
+      - --output
+      - "cyclonedx-json=${document}"
+      - --enrich
+      - all
+    env:
+      - SYFT_CHECK_FOR_APP_UPDATE=false
+      - SYFT_FILE_METADATA_CATALOGER_ENABLED=true
+
+# Checksums are generated after deterministic SBOM normalization so they cover
+# exactly the public release payload, including both SBOM formats and manifest.
+checksum:
+  disable: true
+
+changelog:
+  disable: true
+
+# GoReleaser is intentionally build-only. The gated tag workflow is the sole
+# prepared publisher and remains inert until an owner creates the exact tag.
+release:
+  disable: true

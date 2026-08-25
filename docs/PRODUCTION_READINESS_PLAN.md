@@ -272,12 +272,8 @@ recorded in `docs/REPOSITORY_SETTINGS.md` after workflows stabilize.
 
 ## Unresolved decisions
 
-- Whether Windows ARM64 is supportable with the final dependency graph and
-  available CI runners; it must either pass or be explicitly excluded.
 - Whether the Homebrew tap will exist for the first alpha or remain a prepared,
   blocked integration.
-- Whether machine analysis results should gain backward-compatible tool build
-  metadata in `v1alpha1` or rely on adjacent release evidence.
 - Whether the first public alpha requires a published external fixture
   repository or owner acceptance of a fully generated but unpublished fixture.
 - Whether Go 1.26 can be supported without changing dependencies; verified
@@ -408,3 +404,44 @@ Local candidate verification:
 - offline `zizmor@v1.29.0` reports no scoped findings and all local links
   across 53 Markdown files resolve;
 - `git diff --check` passes.
+
+### Reproducible artifacts and provenance candidate
+
+Branch: `release/artifacts-and-provenance`
+
+Implemented so far:
+
+- GoReleaser `v2.18.0` builds `telemetry-change-guard` and `tmr` with Go
+  `1.27.0`, `CGO_ENABLED=0`, `-trimpath`, exact commit/date identity, and fixed
+  modification times for Linux, macOS, and Windows on amd64 and arm64;
+- each platform archive contains both binaries, `LICENSE`, a concise release
+  README, and alpha notices; an exact-commit source archive is separate;
+- Syft `v1.51.0` produces per-archive SPDX and CycloneDX SBOMs whose
+  invocation-dependent timestamps, namespaces, extraction prefixes, random
+  serial, and ordering are normalized before checksumming;
+- a strict `tcg-release-manifest/v1alpha1` document records version, commit,
+  build date, clean state, tools, platforms, files, sizes, and SHA-256 digests;
+- the deep verifier rejects extra/missing files, traversal, symlinks, bad
+  modes/times, build-path leakage, wrong Go settings, identity disagreement,
+  malformed SBOMs, and checksum/manifest drift, then runs the host binaries and
+  getting-started `BLOCK`/exit `2` fixture;
+- pull-request snapshots have read-only permissions, no dependency cache, no
+  persisted checkout credential, immutable Action pins, and no publisher;
+- the dormant tag workflow requires the exact annotated prerelease tag on
+  protected-main history, reruns `make verify` and pinned E2E, rebuilds twice,
+  verifies, attests with GitHub OIDC, and only then prepares a GitHub
+  prerelease. It cannot run until an owner creates the tag and approves the
+  `public-alpha` environment.
+
+Local candidate verification:
+
+- the official GoReleaser and Syft archives were installed only after their
+  upstream checksum manifests matched repository-pinned SHA-256 values;
+- `make release-reproducible` built 12 binaries, six platform archives, one
+  source archive, and 14 SBOMs twice from commit `941ad333c6be51654f80274b211d11620b45744b`;
+- both complete public payloads had an identical checksum set, while each run
+  independently passed the 21-artifact deep verifier;
+- actionlint and workflow policy validation passed; offline
+  `zizmor@v1.29.0` reported no findings for either release workflow;
+- no tag, GitHub Release, package, image, external repository, or announcement
+  was created.
