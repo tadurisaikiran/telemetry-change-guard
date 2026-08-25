@@ -31,8 +31,9 @@ make release-snapshot
 The target installs locked tools into `.cache/release-tools` when necessary,
 builds without publishing, stages only the public payload under
 `dist/release`, and runs the deep verifier. `Release Snapshot` repeats this on
-relevant pull requests with read-only repository permissions and retains the
-verified payload for seven days.
+relevant pull requests with read-only repository permissions. The workflow
+uses `make release-reproducible` to build twice and require an identical
+checksum set before retaining the verified payload for seven days.
 
 Do not upload a rehearsal as a release or call it published.
 

@@ -80,11 +80,11 @@ jobs:
         with:
           syft-version: v1.51.0
 
-      - name: Build and verify tagged payload without publishing
+      - name: Build, verify, and reproduce tagged payload without publishing
         env:
           GORELEASER: goreleaser
           SYFT: ${{ steps.syft.outputs.cmd }}
-        run: make release-tag
+        run: make release-tag-reproducible
 
       - name: Retain verified release payload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

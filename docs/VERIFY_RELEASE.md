@@ -111,3 +111,13 @@ payload, manifest schema, sorted checksums, archive paths and permissions,
 embedded build identity, `CGO_ENABLED=0`, `-trimpath`, source layout, both SBOM
 formats, both CLI version commands, and the real getting-started `BLOCK`/exit
 `2` scenario on the host platform.
+
+Release pull requests and the gated tag workflow additionally run:
+
+```sh
+make release-reproducible
+```
+
+That target creates two clean snapshot payloads and requires byte-identical
+checksum sets. Since `SHA256SUMS` covers every public asset and the manifest,
+equality proves the complete payload content was reproduced.
