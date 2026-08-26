@@ -12,11 +12,14 @@ import (
 	"time"
 )
 
-const maxTCGResultBytes = 16 << 20
+const (
+	maxTCGResultBytes      = 16 << 20
+	evaluationControlsName = "controls"
+)
 
 type Evaluator interface {
 	Identity() ToolIdentity
-	Evaluate(context.Context, string, string, string, string, time.Duration) (Evaluation, error)
+	Evaluate(context.Context, string, string, string, string, string, time.Duration) (Evaluation, error)
 }
 
 type TCGEvaluator struct {
@@ -70,6 +73,7 @@ func (evaluator *TCGEvaluator) Identity() ToolIdentity {
 func (evaluator *TCGEvaluator) Evaluate(
 	ctx context.Context,
 	workspaceRoot string,
+	trustedRoot string,
 	configPath string,
 	changesPath string,
 	attemptDirectory string,
@@ -99,6 +103,7 @@ func (evaluator *TCGEvaluator) Evaluate(
 		"check",
 		"--config", configPath,
 		"--changes", changesPath,
+		"--repository-root", trustedRoot,
 		"--mode", "enforce",
 		"--format", "json",
 		"--output", resultPath,
@@ -172,6 +177,95 @@ func tcgExitCode(status string) int {
 	default:
 		return 1
 	}
+}
+
+// evaluationControls are private siblings of the detached repository. The
+// agent receives only its declared repository subtree as a container mount,
+// so it cannot read or alter these copies. The common private parent exists
+// only so TCG can enforce one narrow --repository-root for controls and the
+// repository evidence it evaluates.
+type evaluationControls struct {
+	directory   string
+	ConfigPath  string
+	ChangesPath string
+	digests     []FileDigest
+}
+
+func materializeEvaluationControls(evaluationRoot, configSource, changesSource string) (evaluationControls, error) {
+	directory := filepath.Join(evaluationRoot, evaluationControlsName)
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		return evaluationControls{}, fmt.Errorf("create private TCG control directory: %w", err)
+	}
+	controls := evaluationControls{
+		directory:   directory,
+		ConfigPath:  filepath.Join(directory, "config.yaml"),
+		ChangesPath: filepath.Join(directory, "changes.yaml"),
+	}
+	cleanupOnError := func(cause error) (evaluationControls, error) {
+		if cleanupErr := controls.Close(); cleanupErr != nil {
+			return evaluationControls{}, fmt.Errorf("%v; clean private TCG controls: %w", cause, cleanupErr)
+		}
+		return evaluationControls{}, cause
+	}
+	for _, item := range []struct {
+		source      string
+		destination string
+		name        string
+	}{
+		{source: configSource, destination: controls.ConfigPath, name: "config"},
+		{source: changesSource, destination: controls.ChangesPath, name: "changes"},
+	} {
+		contents, err := readRegularFile(item.source, maxTaskBytes)
+		if err != nil {
+			return cleanupOnError(fmt.Errorf("read TCG %s control: %w", item.name, err))
+		}
+		file, err := os.OpenFile(item.destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			return cleanupOnError(fmt.Errorf("create private TCG %s control: %w", item.name, err))
+		}
+		if _, err := file.Write(contents); err != nil {
+			_ = file.Close()
+			return cleanupOnError(fmt.Errorf("write private TCG %s control: %w", item.name, err))
+		}
+		if err := file.Sync(); err != nil {
+			_ = file.Close()
+			return cleanupOnError(fmt.Errorf("sync private TCG %s control: %w", item.name, err))
+		}
+		if err := file.Close(); err != nil {
+			return cleanupOnError(fmt.Errorf("close private TCG %s control: %w", item.name, err))
+		}
+	}
+	digests, err := digestPaths([]string{directory})
+	if err != nil {
+		return cleanupOnError(fmt.Errorf("digest private TCG controls: %w", err))
+	}
+	controls.digests = digests
+	return controls, nil
+}
+
+func (controls evaluationControls) Verify() error {
+	return verifyDigests([]string{controls.directory}, controls.digests)
+}
+
+func (controls evaluationControls) Close() error {
+	var failures []string
+	for _, file := range []string{controls.ConfigPath, controls.ChangesPath} {
+		if file == "" {
+			continue
+		}
+		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+			failures = append(failures, err.Error())
+		}
+	}
+	if controls.directory != "" {
+		if err := os.Remove(controls.directory); err != nil && !os.IsNotExist(err) {
+			failures = append(failures, err.Error())
+		}
+	}
+	if len(failures) != 0 {
+		return fmt.Errorf("remove private TCG controls: %s", strings.Join(failures, "; "))
+	}
+	return nil
 }
 
 func feedbackFromEvaluation(evaluation Evaluation) Feedback {

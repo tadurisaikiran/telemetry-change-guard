@@ -63,6 +63,10 @@ leaves attempt 1 unchanged, receives TCG's authoritative `BLOCK` findings, edits
 the Prometheus rule on attempt 2, and is re-evaluated as `PASS`. The command
 prints a small JSON summary and exits with:
 
+Maintainers can run the same assertions, including source-checkout immutability,
+with `make agentic-canary`. It is also included in the Docker-backed `make e2e`
+gate.
+
 | Exit | Outcome | Meaning |
 | ---: | --- | --- |
 | `0` | `REVIEW_READY` | TCG returned `PASS` or visible `WARN`; review the diff |

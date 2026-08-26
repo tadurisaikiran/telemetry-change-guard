@@ -23,7 +23,9 @@ claiming responses, TCG JSON/status/exit disagreement, control-file tampering,
 workspace escape, source-checkout immutability, exactly one writable bind mount,
 an immutable image ID, and hardened container flags. The fully local fixture
 under `experiments/agentic/testdata` exercises the real public TCG binary and
-Docker adapter; see its [quickstart](../experiments/agentic/README.md#five-minute-local-fixture).
+Docker adapter. `make agentic-canary` asserts the exact `BLOCK -> repair ->
+PASS` lifecycle and source-checkout immutability; it is included in `make e2e`.
+See its [quickstart](../experiments/agentic/README.md#five-minute-local-fixture).
 
 Ownership discovery has parser, wildcard, source-order, last-match, precedence,
 joint-owner, ambiguity, determinism, and fuzz coverage. An integration invariant
@@ -167,6 +169,21 @@ make release-reproducible   # two builds; fail on any public-payload drift
 ```
 
 Neither target publishes a tag, release, package, container, or announcement.
+
+## Primary product canaries
+
+The fast, no-Docker primary product canaries are separate from the broad unit
+and live suites:
+
+```bash
+make canary
+```
+
+They assert exact proposed-change `BLOCK`/`PASS` and migration
+`BLOCKED`/`READY` results, status artifacts, JSON schemas, exit codes, finding
+identity, and migration counts. See the
+[production-style validation map](PRODUCTION_VALIDATION.md) for the expected
+states and the complete release-candidate sequence.
 
 ## Mandatory live E2E release gate
 

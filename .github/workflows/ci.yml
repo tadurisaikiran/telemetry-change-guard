@@ -48,6 +48,9 @@ jobs:
       - name: Run release-gate benchmark
         run: make benchmark
 
+      - name: Run primary product canaries
+        run: make canary
+
       - name: Test with race detector
         run: go test -race ./...
 

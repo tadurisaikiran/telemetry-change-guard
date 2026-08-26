@@ -74,7 +74,7 @@ func TestTCGEvaluatorEnforcesMachineContract(t *testing.T) {
 			mustWrite(t, config, "config\n")
 			mustWrite(t, changes, "changes\n")
 			attempt := filepath.Join(root, "attempt")
-			evaluation, err := evaluator.Evaluate(context.Background(), root, config, changes, attempt, time.Second)
+			evaluation, err := evaluator.Evaluate(context.Background(), root, root, config, changes, attempt, time.Second)
 			if (err != nil) != scenario.wantError {
 				t.Fatalf("Evaluate() error = %v, wantError=%v", err, scenario.wantError)
 			}
@@ -82,12 +82,47 @@ func TestTCGEvaluatorEnforcesMachineContract(t *testing.T) {
 				t.Fatalf("unexpected evaluation: %#v", evaluation)
 			}
 			joined := strings.Join(runner.spec.Args, " ")
-			for _, required := range []string{"check", "--mode enforce", "--format json", "--output", "--status-output"} {
+			for _, required := range []string{"check", "--repository-root " + root, "--mode enforce", "--format json", "--output", "--status-output"} {
 				if !strings.Contains(joined, required) {
 					t.Errorf("public CLI invocation missing %q: %s", required, joined)
 				}
 			}
 		})
+	}
+}
+
+func TestEvaluationControlsStayOutsideRepositoryAndDetectMutation(t *testing.T) {
+	t.Parallel()
+	evaluationRoot := t.TempDir()
+	repository := filepath.Join(evaluationRoot, "repository")
+	mustMkdir(t, repository)
+	sources := t.TempDir()
+	config := filepath.Join(sources, "tcg.yaml")
+	changes := filepath.Join(sources, "changes.yaml")
+	mustWrite(t, config, "config\n")
+	mustWrite(t, changes, "changes\n")
+
+	controls, err := materializeEvaluationControls(evaluationRoot, config, changes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Dir(controls.directory) != evaluationRoot || strings.HasPrefix(controls.directory, repository+string(filepath.Separator)) {
+		t.Fatalf("controls are not an isolated repository sibling: %s", controls.directory)
+	}
+	if err := controls.Verify(); err != nil {
+		t.Fatalf("fresh controls failed integrity verification: %v", err)
+	}
+	if err := os.WriteFile(controls.ChangesPath, []byte("tampered\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := controls.Verify(); err == nil || !strings.Contains(err.Error(), "integrity changed") {
+		t.Fatalf("control mutation was not detected: %v", err)
+	}
+	if err := controls.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(controls.directory); !os.IsNotExist(err) {
+		t.Fatalf("private controls still exist: %v", err)
 	}
 }
 

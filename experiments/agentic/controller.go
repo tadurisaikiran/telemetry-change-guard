@@ -196,14 +196,38 @@ func (controller Controller) Run(
 			result.Attempts = append(result.Attempts, attempt)
 			return controller.finish(outputDirectory, result, OutcomeIntegrityFailed, "", err)
 		}
+		controls, err := materializeEvaluationControls(tree.root, task.ConfigPath, task.ChangesPath)
+		if err != nil {
+			attempt.Error = safeMessage([]byte(err.Error()), maxTextBytes)
+			attempt.FinishedAt = controller.Now().UTC().Format(time.RFC3339Nano)
+			result.Attempts = append(result.Attempts, attempt)
+			return controller.finish(outputDirectory, result, OutcomeIntegrityFailed, "", err)
+		}
 		evaluation, evaluationErr := controller.TCG.Evaluate(
 			totalContext,
 			tree.path,
-			task.ConfigPath,
-			task.ChangesPath,
+			tree.root,
+			controls.ConfigPath,
+			controls.ChangesPath,
 			attemptDirectory,
 			task.TCGTimeout,
 		)
+		privateControlIntegrityFailed := false
+		if verifyErr := controls.Verify(); verifyErr != nil {
+			privateControlIntegrityFailed = true
+			if evaluationErr != nil {
+				evaluationErr = fmt.Errorf("%v; private TCG control integrity: %w", evaluationErr, verifyErr)
+			} else {
+				evaluationErr = fmt.Errorf("private TCG control integrity: %w", verifyErr)
+			}
+		}
+		if cleanupErr := controls.Close(); cleanupErr != nil {
+			if evaluationErr != nil {
+				evaluationErr = fmt.Errorf("%v; %w", evaluationErr, cleanupErr)
+			} else {
+				evaluationErr = cleanupErr
+			}
+		}
 		if evaluation.Started {
 			exitCode := evaluation.ExitCode
 			attempt.TCGExitCode = &exitCode
@@ -218,7 +242,11 @@ func (controller Controller) Run(
 		if evaluationErr != nil {
 			attempt.Error = safeMessage([]byte(evaluationErr.Error()), maxTextBytes)
 			result.Attempts = append(result.Attempts, attempt)
-			return controller.finish(outputDirectory, result, OutcomeError, "", evaluationErr)
+			outcome := OutcomeError
+			if privateControlIntegrityFailed {
+				outcome = OutcomeIntegrityFailed
+			}
+			return controller.finish(outputDirectory, result, outcome, "", evaluationErr)
 		}
 		if err := verifyDigests(task.IntegrityAbsPaths, controlDigests); err != nil {
 			attempt.Error = safeMessage([]byte(err.Error()), maxTextBytes)

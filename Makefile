@@ -7,7 +7,7 @@ RELEASE_TOOLS_DIR ?= $(CURDIR)/.cache/release-tools
 GORELEASER ?= $(RELEASE_TOOLS_DIR)/goreleaser
 SYFT ?= $(RELEASE_TOOLS_DIR)/syft
 
-.PHONY: verify verify-module verify-format verify-vet verify-test verify-fuzz verify-vulnerability verify-workflows verify-distribution verify-docs verify-shell benchmark e2e release-tools release-ensure-tools release-snapshot release-reproducible release-tag release-tag-reproducible verify-release container-snapshot homebrew-formula verify-go-install
+.PHONY: verify verify-module verify-format verify-vet verify-test verify-fuzz verify-vulnerability verify-workflows verify-distribution verify-docs verify-shell benchmark canary ai-canary agentic-canary e2e release-tools release-ensure-tools release-snapshot release-reproducible release-tag release-tag-reproducible verify-release container-snapshot homebrew-formula verify-go-install
 
 verify:
 	$(MAKE) verify-module
@@ -75,6 +75,7 @@ verify-workflows:
 verify-distribution:
 	./scripts/check-release-coordinates.sh
 	GO="$(GO)" ./scripts/verify-consumer-fixtures.sh
+	GO="$(GO)" ./scripts/run-product-canaries.sh
 
 verify-docs:
 	GO="$(GO)" ./scripts/verify-docs.sh
@@ -82,13 +83,24 @@ verify-docs:
 benchmark:
 	GO="$(GO)" ./benchmarks/scripts/run.sh
 
+canary:
+	GO="$(GO)" ./scripts/run-product-canaries.sh
+	$(MAKE) ai-canary
+
+ai-canary:
+	GO="$(GO)" ./scripts/run-ai-canaries.sh
+
 verify-shell:
-	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh benchmarks/scripts/run.sh e2e/scripts/*.sh scripts/build-container-snapshot.sh scripts/check-release-coordinates.sh scripts/check-workflow-policy.sh scripts/generate-homebrew-formula.sh scripts/install-release-tools.sh scripts/build-release.sh scripts/verify-consumer-fixtures.sh scripts/verify-container.sh scripts/verify-docs.sh scripts/verify-go-install.sh scripts/verify-release.sh scripts/verify-reproducible-release.sh scripts/validate-release-tag.sh
+	bash -n action/run-action.sh action/build-action.sh action/resolve-action-paths.sh benchmarks/scripts/run.sh e2e/scripts/*.sh experiments/agentic/testdata/run-canary.sh scripts/build-container-snapshot.sh scripts/check-release-coordinates.sh scripts/check-workflow-policy.sh scripts/generate-homebrew-formula.sh scripts/install-release-tools.sh scripts/build-release.sh scripts/run-ai-canaries.sh scripts/run-product-canaries.sh scripts/verify-consumer-fixtures.sh scripts/verify-container.sh scripts/verify-docs.sh scripts/verify-go-install.sh scripts/verify-release.sh scripts/verify-reproducible-release.sh scripts/validate-release-tag.sh
 
 e2e:
 	./e2e/scripts/run-control-plane-e2e.sh
 	./e2e/scripts/run-e2e.sh
 	./e2e/scripts/run-tempo-e2e.sh
+	$(MAKE) agentic-canary
+
+agentic-canary:
+	GO_COMMAND="$(GO)" ./experiments/agentic/testdata/run-canary.sh
 
 release-tools:
 	./scripts/install-release-tools.sh "$(RELEASE_TOOLS_DIR)"
