@@ -122,6 +122,12 @@ That target creates two clean snapshot payloads and requires byte-identical
 checksum sets. Since `SHA256SUMS` covers every public asset and the manifest,
 equality proves the complete payload content was reproduced.
 
+The tag workflow then uploads that candidate once and downloads the same
+immutable Actions artifact on hosted Linux, macOS, and Windows. Each runner
+executes its native archive through the deep verifier. The protected publish
+job is gated on the complete matrix, downloads and reverifies the identical
+artifact, and cannot rebuild it before attestation and prerelease creation.
+
 ## Verify build-only distribution candidates
 
 These commands do not publish anything:

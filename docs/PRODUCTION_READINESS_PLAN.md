@@ -455,9 +455,11 @@ Implemented so far:
   persisted checkout credential, immutable Action pins, and no publisher;
 - the dormant tag workflow requires the exact annotated prerelease tag on
   protected-main history, reruns `make verify` and pinned E2E, rebuilds twice,
-  verifies, attests with GitHub OIDC, and only then prepares a GitHub
-  prerelease. It cannot run until an owner creates the tag and approves the
-  `public-alpha` environment.
+  and uploads one immutable candidate from a read-only job. Linux, macOS, and
+  Windows jobs execute the exact downloaded native archives; only the final
+  protected job can reverify, attest, and publish those same bytes. It cannot
+  run until an owner creates the tag and approves the `public-alpha`
+  environment.
 
 Local candidate verification:
 
