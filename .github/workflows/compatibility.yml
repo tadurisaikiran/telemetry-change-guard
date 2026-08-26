@@ -9,6 +9,8 @@ permissions:
   contents: read
 
 jobs:
+  # These manual-only jobs are an auditable recovery path when GitHub does not
+  # deliver a pull_request event. Each protected context runs its real gate.
   protected-test:
     if: github.event_name == 'workflow_dispatch'
     name: test
