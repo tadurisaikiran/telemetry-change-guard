@@ -128,7 +128,9 @@ Workflow validation uses three deliberately separate controls:
   commands locally and in the `Workflow Security` job;
 - `scripts/check-workflow-policy.sh` rejects movable third-party Action
   references, missing version comments, and default permissions broader than
-  `contents: read`;
+  `contents: read`. It also locks the public-release trust boundary: an
+  unprivileged candidate, exact-artifact native smoke tests on Linux, macOS,
+  and Windows, and a non-building protected publish job;
 - `zizmor` `v1.29.0` performs a high-confidence, medium-or-higher local
   security audit without online collection. The wrapper Action and its own
   binary version are both pinned.

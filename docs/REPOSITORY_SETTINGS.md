@@ -44,6 +44,9 @@ workflow permissions default to read-only.
   only where documented.
 - Create a protected release environment with limited approvers for any
   publication job.
+- Keep candidate construction and native platform testing outside that
+  environment with read-only permissions; grant publication rights only to a
+  final job that consumes the already tested immutable artifact.
 - Store publication credentials only in that environment, never in repository
   files or ordinary pull-request jobs.
 - Require manual approval for package/image/tap publication if those channels

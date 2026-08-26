@@ -69,8 +69,9 @@ commit:
    required checks are green.
 3. Create and push an annotated tag named exactly `v0.1.0-alpha.1`. A signed
    annotated tag is preferred.
-4. Approve the `public-alpha` environment only after the workflow's validation
-   job passes.
+4. Approve the `public-alpha` environment only after validation, reproducible
+   candidate construction, and the Linux, macOS, and Windows native archive
+   smoke jobs pass.
 5. Verify the created prerelease and several downloaded assets using
    `docs/VERIFY_RELEASE.md` before any announcement.
 6. If separately authorized, publish the already verified OCI image by exact
@@ -84,8 +85,11 @@ commit:
 
 The dormant `Public Alpha Release` workflow revalidates the annotated tag and
 protected-main ancestry, reruns the full verifier and pinned E2E lifecycles,
-builds without GoReleaser publication, verifies the payload, records
-provenance, and only then creates a GitHub prerelease. It has no schedule,
+and builds a reproducible candidate in a read-only job. Hosted Linux, macOS,
+and Windows jobs download that exact artifact and execute its native archive.
+Only after all three pass can the protected `public-alpha` job download and
+reverify the same bytes, record provenance, and create a GitHub prerelease.
+The privileged job never rebuilds the payload. The workflow has no schedule,
 manual-dispatch entry, branch trigger, package push, container push, or
 announcement step.
 

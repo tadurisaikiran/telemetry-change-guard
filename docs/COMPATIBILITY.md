@@ -14,13 +14,15 @@ unpublished alpha release still needs to prove.
 | Machine results | `tcg-result/v1alpha1` and `tmr-result/v1alpha1` remain separate and unchanged by build identity |
 | GitHub Action | Hosted smoke tests currently run on `ubuntu-latest`; other runner operating systems are not yet claimed |
 | Local development | Go `1.26.7` is verified on macOS ARM64 and hosted Linux AMD64; this is development evidence, not yet a published binary support promise |
-| Release archives | Candidate payloads are built reproducibly on Linux and the exact native archive is executed on hosted Linux, macOS, and Windows runners before the snapshot gate passes |
+| Release archives | Snapshot and tagged payloads are built reproducibly on Linux; the exact native archive is executed on hosted Linux, macOS, and Windows before either candidate can pass its gate |
 
-The release-snapshot phase now executes the exact downloaded host archive on
-Linux, macOS, and Windows after deep cross-archive verification. A platform is
-still not an alpha release claim until that matrix has passed for the candidate.
-Multi-architecture container and package-manager installation gates remain
-separate evidence.
+The release-snapshot phase executes the exact downloaded host archive on
+Linux, macOS, and Windows after deep cross-archive verification. The protected
+tag workflow applies the same matrix to the immutable candidate artifact and
+permits publication only from those tested bytes. A platform is still not an
+alpha release claim until that matrix has passed for the exact tagged
+candidate. Multi-architecture container and package-manager installation gates
+remain separate evidence.
 
 ## Evidence and adapter compatibility
 
