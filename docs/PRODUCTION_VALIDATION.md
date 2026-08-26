@@ -89,7 +89,9 @@ requests must report the protected `test`, `live-lifecycle`, and
 `trace-lifecycle` contexts before merge. The manually dispatchable external
 consumer, compatibility, release-snapshot, and container-snapshot workflows
 provide additional hosted evidence for an exact candidate commit; they do not
-replace the protected pull-request contexts.
+replace the protected pull-request contexts. If GitHub fails to deliver a pull
+request event, a manual Compatibility run reports those same three protected
+contexts only after rerunning their complete test and lifecycle commands.
 
 The optional agentic fixture has additional prerequisites and an explicit
 experimental acknowledgement; follow its

@@ -9,6 +9,64 @@ permissions:
   contents: read
 
 jobs:
+  protected-test:
+    if: github.event_name == 'workflow_dispatch'
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      - name: Run the protected test gate
+        run: make verify
+
+  protected-live-lifecycle:
+    if: github.event_name == 'workflow_dispatch'
+    name: live-lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run the protected live lifecycle
+        run: ./e2e/scripts/run-e2e.sh
+
+  protected-trace-lifecycle:
+    if: github.event_name == 'workflow_dispatch'
+    name: trace-lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run the protected Tempo lifecycle
+        run: ./e2e/scripts/run-tempo-e2e.sh
+
   live-lifecycle:
     runs-on: ubuntu-latest
     timeout-minutes: 25
