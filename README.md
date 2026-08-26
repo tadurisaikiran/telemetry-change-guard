@@ -508,6 +508,19 @@ external Action-consumer fixtures, reproducible release builds, native archive
 execution on Linux/macOS/Windows, multi-platform container verification, and
 pinned live lifecycles. See [testing and verification](docs/TESTING.md).
 
+To replay the two primary user journeys with exact expected decisions, run:
+
+```bash
+make canary
+```
+
+It proves both blocking and passing proposed-change results plus a
+planned-migration `BLOCKED -> READY` lifecycle using the public CLI, status
+artifacts, versioned JSON, and stable exit codes. See
+[production-style validation](docs/PRODUCTION_VALIDATION.md)
+for the feature-to-evidence map and the full non-publishing release-candidate
+sequence.
+
 ## Project status and honest boundaries
 
 TCG is pre-release software. The implemented product is ready for controlled
@@ -561,7 +574,7 @@ Private evaluation never becomes a public adopter claim without authorization.
 | Start and diagnose | [Quickstart](docs/QUICKSTART.md) · [Installation](docs/INSTALLATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [FAQ](docs/FAQ.md) · [Limitations](docs/LIMITATIONS.md) |
 | Understand the system | [Architecture](docs/ARCHITECTURE.md) · [Safety engine](docs/SAFETY_ENGINE.md) · [Threat model](docs/THREAT_MODEL.md) |
 | Define inputs | [ChangeSet](docs/CHANGESET.md) · [Change sources](docs/CHANGE_SOURCES.md) · [Migration model](docs/MIGRATION_MODEL.md) · [Configuration](docs/CONFIGURATION.md) |
-| Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Secure CI usage](docs/SECURE_CI_USAGE.md) · [Testing](docs/TESTING.md) |
+| Run locally or in CI | [CLI](docs/CLI.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Secure CI usage](docs/SECURE_CI_USAGE.md) · [Production-style validation](docs/PRODUCTION_VALIDATION.md) · [Testing](docs/TESTING.md) |
 | Understand versions and upgrades | [Changelog](CHANGELOG.md) · [Versioning](docs/VERSIONING.md) · [Compatibility](docs/COMPATIBILITY.md) · [Upgrading](docs/UPGRADING.md) |
 | Rehearse or verify a release | [Release status](docs/RELEASES.md) · [Release procedure](docs/RELEASING.md) · [Artifact and provenance verification](docs/VERIFY_RELEASE.md) · [Repository settings](docs/REPOSITORY_SETTINGS.md) |
 | Configure consumers | [Adapters](docs/ADAPTERS.md) · [KEDA](docs/KEDA.md) · [Argo Rollouts](docs/ARGO_ROLLOUTS.md) · [HPA](docs/HPA.md) |

@@ -22,6 +22,7 @@ import (
 const (
 	indexMediaType        = "application/vnd.oci.image.index.v1+json"
 	manifestMediaType     = "application/vnd.oci.image.manifest.v1+json"
+	imageConfigMediaType  = "application/vnd.oci.image.config.v1+json"
 	emptyConfigMediaType  = "application/vnd.oci.empty.v1+json"
 	inTotoMediaType       = "application/vnd.in-toto+json"
 	attestationMediaType  = "application/vnd.docker.attestation.manifest.v1+json"
@@ -29,6 +30,8 @@ const (
 	referenceDigestKey    = "vnd.docker.reference.digest"
 	referenceTypeKey      = "vnd.docker.reference.type"
 	predicateTypeKey      = "in-toto.io/predicate-type"
+	inTotoStatementV01    = "https://in-toto.io/Statement/v0.1"
+	inTotoStatementV1     = "https://in-toto.io/Statement/v1"
 	maxLayoutEntryBytes   = 512 << 20
 	maxLayoutTotalBytes   = 2 << 30
 	expectedEntrypoint    = "/telemetry-change-guard"
@@ -79,6 +82,16 @@ type imageConfig struct {
 		WorkingDir string            `json:"WorkingDir"`
 		Labels     map[string]string `json:"Labels"`
 	} `json:"config"`
+}
+
+type buildKitAttestationConfig struct {
+	Architecture string                     `json:"architecture"`
+	OS           string                     `json:"os"`
+	Config       map[string]json.RawMessage `json:"config"`
+	RootFS       struct {
+		Type    string   `json:"type"`
+		DiffIDs []string `json:"diff_ids"`
+	} `json:"rootfs"`
 }
 
 type statement struct {
@@ -368,24 +381,33 @@ func (l layout) verifyAttestations(subjectDigest string, items []descriptor) err
 		if err := decodeJSON(rawManifest, &manifest); err != nil {
 			return err
 		}
-		if manifest.SchemaVersion != 2 || manifest.MediaType != manifestMediaType || manifest.ArtifactType != attestationMediaType {
+		if manifest.SchemaVersion != 2 || manifest.MediaType != manifestMediaType {
 			return errors.New("invalid OCI attestation manifest")
-		}
-		if manifest.Subject == nil || manifest.Subject.Digest != subjectDigest || manifest.Subject.MediaType != manifestMediaType {
-			return fmt.Errorf("OCI attestation manifest does not bind %s", subjectDigest)
-		}
-		if _, err := l.blob(*manifest.Subject); err != nil {
-			return fmt.Errorf("verify OCI attestation subject: %w", err)
 		}
 		rawConfig, err := l.blob(manifest.Config)
 		if err != nil {
 			return err
 		}
-		if manifest.Config.MediaType != emptyConfigMediaType || string(rawConfig) != "{}" {
-			return errors.New("OCI attestation manifest does not use the empty config descriptor")
-		}
 		if len(manifest.Layers) == 0 {
 			return errors.New("OCI attestation manifest has no statements")
+		}
+		switch {
+		case manifest.ArtifactType == attestationMediaType && manifest.Subject != nil:
+			if manifest.Subject.Digest != subjectDigest || manifest.Subject.MediaType != manifestMediaType {
+				return fmt.Errorf("OCI attestation manifest does not bind %s", subjectDigest)
+			}
+			if _, err := l.blob(*manifest.Subject); err != nil {
+				return fmt.Errorf("verify OCI attestation subject: %w", err)
+			}
+			if manifest.Config.MediaType != emptyConfigMediaType || string(rawConfig) != "{}" {
+				return errors.New("OCI attestation manifest does not use the empty config descriptor")
+			}
+		case manifest.ArtifactType == "" && manifest.Subject == nil:
+			if err := verifyBuildKitAttestationConfig(manifest.Config, rawConfig, manifest.Layers); err != nil {
+				return err
+			}
+		default:
+			return errors.New("invalid OCI attestation manifest shape")
 		}
 		for _, layer := range manifest.Layers {
 			if layer.MediaType != inTotoMediaType {
@@ -399,7 +421,7 @@ func (l layout) verifyAttestations(subjectDigest string, items []descriptor) err
 			if err := decodeJSON(rawStatement, &document); err != nil {
 				return fmt.Errorf("decode in-toto statement: %w", err)
 			}
-			if document.Type != "https://in-toto.io/Statement/v1" || layer.Annotations[predicateTypeKey] != document.PredicateType {
+			if (document.Type != inTotoStatementV01 && document.Type != inTotoStatementV1) || layer.Annotations[predicateTypeKey] != document.PredicateType {
 				return errors.New("invalid in-toto statement type or predicate annotation")
 			}
 			subjectMatches := false
@@ -424,6 +446,28 @@ func (l layout) verifyAttestations(subjectDigest string, items []descriptor) err
 		}
 		sort.Strings(missing)
 		return fmt.Errorf("missing %s", strings.Join(missing, " and "))
+	}
+	return nil
+}
+
+func verifyBuildKitAttestationConfig(configDescriptor descriptor, rawConfig []byte, layers []descriptor) error {
+	if configDescriptor.MediaType != imageConfigMediaType {
+		return fmt.Errorf("BuildKit attestation config has media type %q", configDescriptor.MediaType)
+	}
+	var config buildKitAttestationConfig
+	if err := decodeJSON(rawConfig, &config); err != nil {
+		return fmt.Errorf("decode BuildKit attestation config: %w", err)
+	}
+	if config.Architecture != "unknown" || config.OS != "unknown" || len(config.Config) != 0 || config.RootFS.Type != "layers" {
+		return errors.New("invalid BuildKit attestation config")
+	}
+	if len(config.RootFS.DiffIDs) != len(layers) {
+		return errors.New("BuildKit attestation config does not describe every statement layer")
+	}
+	for index, layer := range layers {
+		if config.RootFS.DiffIDs[index] != layer.Digest {
+			return fmt.Errorf("BuildKit attestation config layer %d digest does not match its statement", index)
+		}
 	}
 	return nil
 }

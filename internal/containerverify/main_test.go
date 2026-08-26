@@ -36,6 +36,15 @@ func TestVerifyLayoutAcceptsBuildKitNestedImageIndex(t *testing.T) {
 	}
 }
 
+func TestVerifyLayoutAcceptsBuildKitAttestationManifest(t *testing.T) {
+	t.Parallel()
+
+	file := writeTestLayout(t, testLayoutOptions{buildKitAttestation: true})
+	if err := verifyLayout(file, testIdentity); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVerifyLayoutRejectsRootRuntime(t *testing.T) {
 	t.Parallel()
 
@@ -63,11 +72,32 @@ func TestVerifyLayoutRejectsMismatchedOCIAttestationSubject(t *testing.T) {
 	}
 }
 
+func TestVerifyLayoutRejectsMismatchedBuildKitAttestationConfig(t *testing.T) {
+	t.Parallel()
+
+	file := writeTestLayout(t, testLayoutOptions{buildKitAttestation: true, mismatchedConfigLayer: true})
+	if err := verifyLayout(file, testIdentity); err == nil || !strings.Contains(err.Error(), "does not match its statement") {
+		t.Fatalf("error = %v; want mismatched BuildKit attestation layer", err)
+	}
+}
+
+func TestVerifyLayoutRejectsUnsupportedInTotoStatementVersion(t *testing.T) {
+	t.Parallel()
+
+	file := writeTestLayout(t, testLayoutOptions{buildKitAttestation: true, invalidStatementType: true})
+	if err := verifyLayout(file, testIdentity); err == nil || !strings.Contains(err.Error(), "invalid in-toto statement type") {
+		t.Fatalf("error = %v; want invalid in-toto statement type", err)
+	}
+}
+
 type testLayoutOptions struct {
 	runtimeUser               string
 	omitSLSA                  bool
 	nestedIndex               bool
 	mismatchedManifestSubject bool
+	buildKitAttestation       bool
+	mismatchedConfigLayer     bool
+	invalidStatementType      bool
 }
 
 type testLayoutBuilder struct {
@@ -87,7 +117,7 @@ func writeTestLayout(t *testing.T, options testLayoutOptions) string {
 	for _, architecture := range []string{"amd64", "arm64"} {
 		runtime := builder.addRuntime(architecture, options.runtimeUser)
 		descriptors = append(descriptors, runtime)
-		descriptors = append(descriptors, builder.addAttestation(runtime, options.omitSLSA, options.mismatchedManifestSubject))
+		descriptors = append(descriptors, builder.addAttestation(runtime, options))
 	}
 	index := imageIndex{SchemaVersion: 2, MediaType: indexMediaType, Manifests: descriptors}
 	if options.nestedIndex {
@@ -158,16 +188,42 @@ func (builder *testLayoutBuilder) addRuntime(architecture, user string) descript
 	return descriptor
 }
 
-func (builder *testLayoutBuilder) addAttestation(runtime descriptor, omitSLSA, mismatchedManifestSubject bool) descriptor {
-	config := builder.addBlob([]byte("{}"), emptyConfigMediaType)
+func (builder *testLayoutBuilder) addAttestation(runtime descriptor, options testLayoutOptions) descriptor {
 	layers := []descriptor{
-		builder.addStatement(runtime.Digest, "https://spdx.dev/Document"),
+		builder.addStatement(runtime.Digest, "https://spdx.dev/Document", options),
 	}
-	if !omitSLSA {
-		layers = append(layers, builder.addStatement(runtime.Digest, "https://slsa.dev/provenance/v1"))
+	if !options.omitSLSA {
+		layers = append(layers, builder.addStatement(runtime.Digest, "https://slsa.dev/provenance/v1", options))
 	}
+	if options.buildKitAttestation {
+		diffIDs := make([]string, len(layers))
+		for index, layer := range layers {
+			diffIDs[index] = layer.Digest
+		}
+		if options.mismatchedConfigLayer {
+			diffIDs[0] = "sha256:" + strings.Repeat("c", 64)
+		}
+		configDocument := buildKitAttestationConfig{Architecture: "unknown", OS: "unknown", Config: map[string]json.RawMessage{}}
+		configDocument.RootFS.Type = "layers"
+		configDocument.RootFS.DiffIDs = diffIDs
+		config := builder.addBlob(marshalTestJSON(builder.t, configDocument), imageConfigMediaType)
+		manifest := imageManifest{
+			SchemaVersion: 2,
+			MediaType:     manifestMediaType,
+			Config:        config,
+			Layers:        layers,
+		}
+		descriptor := builder.addBlob(marshalTestJSON(builder.t, manifest), manifestMediaType)
+		descriptor.Platform = &platform{Architecture: "unknown", OS: "unknown"}
+		descriptor.Annotations = map[string]string{
+			referenceTypeKey:   attestationType,
+			referenceDigestKey: runtime.Digest,
+		}
+		return descriptor
+	}
+	config := builder.addBlob([]byte("{}"), emptyConfigMediaType)
 	subject := runtime
-	if mismatchedManifestSubject {
+	if options.mismatchedManifestSubject {
 		subject.Digest = "sha256:" + strings.Repeat("b", 64)
 	}
 	manifest := imageManifest{
@@ -187,9 +243,16 @@ func (builder *testLayoutBuilder) addAttestation(runtime descriptor, omitSLSA, m
 	return descriptor
 }
 
-func (builder *testLayoutBuilder) addStatement(subjectDigest, predicateType string) descriptor {
+func (builder *testLayoutBuilder) addStatement(subjectDigest, predicateType string, options testLayoutOptions) descriptor {
+	statementType := inTotoStatementV1
+	if options.buildKitAttestation {
+		statementType = inTotoStatementV01
+	}
+	if options.invalidStatementType {
+		statementType = "https://in-toto.io/Statement/unsupported"
+	}
 	document := map[string]any{
-		"_type":         "https://in-toto.io/Statement/v1",
+		"_type":         statementType,
 		"predicateType": predicateType,
 		"subject": []any{map[string]any{
 			"name": "telemetry-change-guard",

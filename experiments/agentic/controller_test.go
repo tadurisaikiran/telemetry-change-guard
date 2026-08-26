@@ -38,15 +38,16 @@ func (sandbox *fakeSandbox) Run(_ context.Context, workspace string, request Age
 }
 
 type fakeEvaluator struct {
-	statuses []string
-	runs     int
+	statuses      []string
+	runs          int
+	mutateControl bool
 }
 
 func (evaluator *fakeEvaluator) Identity() ToolIdentity {
 	return ToolIdentity{Command: "/telemetry-change-guard", SHA256: "fixture"}
 }
 
-func (evaluator *fakeEvaluator) Evaluate(_ context.Context, _, _, _, attemptDirectory string, _ time.Duration) (Evaluation, error) {
+func (evaluator *fakeEvaluator) Evaluate(_ context.Context, _, _, configPath, _, attemptDirectory string, _ time.Duration) (Evaluation, error) {
 	index := evaluator.runs
 	evaluator.runs++
 	if index >= len(evaluator.statuses) {
@@ -64,6 +65,11 @@ func (evaluator *fakeEvaluator) Evaluate(_ context.Context, _, _, _, attemptDire
 	}
 	if err := os.WriteFile(stderrPath, nil, 0o600); err != nil {
 		return Evaluation{}, err
+	}
+	if evaluator.mutateControl {
+		if err := os.WriteFile(configPath, []byte("tampered\n"), 0o600); err != nil {
+			return Evaluation{}, err
+		}
 	}
 	return Evaluation{
 		Status: status, ExitCode: tcgExitCode(status),
@@ -168,6 +174,18 @@ func TestControllerDetectsControlTamperingAndWorkspaceEscape(t *testing.T) {
 				t.Fatalf("failure evidence missing: %v", statErr)
 			}
 		})
+	}
+}
+
+func TestControllerClassifiesPrivateControlMutationAsIntegrityFailure(t *testing.T) {
+	t.Parallel()
+	task, output := controllerFixture(t, 1)
+	result, err := (Controller{
+		Sandbox: &fakeSandbox{},
+		TCG:     &fakeEvaluator{statuses: []string{"PASS"}, mutateControl: true},
+	}).Run(context.Background(), task, output)
+	if err == nil || result.Outcome != OutcomeIntegrityFailed || ExitCode(result, err) != 1 {
+		t.Fatalf("expected private control integrity failure, got result=%#v err=%v", result, err)
 	}
 }
 
