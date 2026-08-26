@@ -84,6 +84,13 @@ make container-snapshot
   requires byte-identical public payloads.
 - `make container-snapshot` builds but does not publish the OCI image.
 
+On GitHub, an absent or skipped check is not evidence of readiness. Pull
+requests must report the protected `test`, `live-lifecycle`, and
+`trace-lifecycle` contexts before merge. The manually dispatchable external
+consumer, compatibility, release-snapshot, and container-snapshot workflows
+provide additional hosted evidence for an exact candidate commit; they do not
+replace the protected pull-request contexts.
+
 The optional agentic fixture has additional prerequisites and an explicit
 experimental acknowledgement; follow its
 [five-minute guide](../experiments/agentic/README.md#five-minute-local-fixture).
